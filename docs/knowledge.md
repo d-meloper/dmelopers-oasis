@@ -1,41 +1,59 @@
 # Project experience
 
-Useful reusable experience belongs in the relevant skill's
-`references/best-practices.md` or an existing suitable reference. Update it while
-working when the conditions, encountered problem, helpful method and evidence
-are clear enough to guide a future decision. There is no per-task retrospective,
-fixed prose form, mandatory evidence field set or empty placeholder.
+Read the applicable experience for the skills used in this task before choosing
+an approach. Apply its useful tips under their stated conditions.
 
-Keep one source for shared experience and link it from other roles. Merge
-duplicates and update stale advice when its assumptions change. Preserve unique
-historical observations with a replacement link; Git retains earlier bytes.
-Distinguish observed behavior, hypotheses, local fixtures, installed behavior and
-live effects. A later pass does not erase a failed or deferred check.
+Observe useful outcomes while working. Once, immediately before the task's final
+completion report or handoff, consolidate what matters for the next task in the
+reference that owns that subject. Work involving several skills uses one closing
+pass over those used skills; each worker closes its assigned scope, and the
+integrator retains lessons created by integration.
+
+Keep one canonical source for shared experience and link from other roles.
+Combine duplicates without losing distinct applicability or evidence. Remove or
+replace advice only when current evidence disproves it under its own conditions,
+or its applicable mechanism has been replaced. Age, a different project or an
+isolated failure is not sufficient. Keep the next useful action near the start
+of its relevant section and retain enough context and evidence to apply it.
+
+Preserve the project's existing knowledge owner. Bootstrap links to its actual
+file and relevant heading, and adds only compatible closing guidance there.
+Keep shared implementation experience in its existing reference. Coordinate a
+single writer for shared files, reread current content and edit the affected
+portion without overwriting another writer.
+
+If this work supplies no useful lesson, duplicate or invalidated advice, finish
+without a reference edit, placeholder or routine experience report. Interrupted
+or dependency-blocked work retains useful observations for continuation rather
+than repeating a closing pass. Read-only work proposes a useful change in its
+result instead of modifying files.
+
+Experience consolidation uses the task's existing scope. It needs no separate
+Knowledge invocation, fixed evidence fields, approval record, completion gate
+or recursive retrospective. It does not trigger extra tests, external publication
+or upstream propagation. Reuse still-valid verification; check only inputs
+affected by the actual change and the final deliverable.
 
 Project knowledge and settings remain local. Raw transcripts, host paths,
 account/chat IDs and operational evidence belong in `.oasis/local/`. Portable
-lessons use sanitized examples and describe their limits. Requested upstream
-handoffs prepare only the relevant material; knowledge does not automatically
-propagate to other projects.
-
-The initial Calf implementation guidance now lives in
-`.agents/skills/oasis-camel/references/best-practices.md` (under `seed/` in source).
-It transfers investigation, consumer/tool reuse, interfaces/data/encoding,
-scope-selected checks and dependency recovery experience. Retired reporting,
-manager creation, approval and ownership ACK procedures are omitted. Legacy
-projects transfer useful locally modified Calf material before deleting the
-skill and preserve old chat/task references.
+lessons use sanitized examples. Historical observations and procedures live in
+[CHANGELOG](CHANGELOG.md); retain unique evidence there or in the project's
+existing history rather than leaving obsolete instructions in active references.
 
 ## Optional structured cases
 
-The existing `knowledge validate`, `knowledge capture` and `knowledge export`
-commands handle structured cases when useful. Their input schema belongs to
-those commands, not ordinary skill-reference prose. Capture keeps a local
-historical case; export prepares a requested sanitized local handoff and does
-not send or import it. Inspect command help for the supported fields and paths.
+`knowledge validate`, `knowledge capture` and `knowledge export` handle structured
+cases when useful. Their schema belongs to those commands, not ordinary
+experience prose. Capture retains a local historical case; export prepares only
+a requested sanitized local handoff and does not send or import it.
 
-Schema 1 retains id, classification, problem, observed, hypotheses, evidence,
-delta, conditions, impact, tests, canonical rule, change kind, status and limits.
-Proof boundaries distinguish static, fixture, semantic, installed and live
-evidence; not-run and unknown remain explicit. These optional records complement
-the nearest current reference rather than becoming an approval or work ledger.
+A case is a JSON object with an `id` of 3–64 lowercase letters, digits or
+hyphens, starting with a letter or digit. `classification` is optional; when
+present it is `generic`, `windows` or `project`. Other useful context,
+evidence and outcome fields are optional. Validation also checks bounded
+contamination patterns; it does not verify the truth of the evidence.
+
+Capture creates a new ID and preserves existing cases; corrections use a separate
+ID. Export prepares the requested sanitized local handoff after contamination
+checks. Static, fixture, semantic, installed and live evidence have distinct
+boundaries; failed, not-run and unknown outcomes remain explicit.

@@ -1,9 +1,5 @@
 # Distribution Reputation experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 The exact reported download/site, published identity, warning evidence and a suitable vendor channel. Submitting a report needs explicit authority.
@@ -15,3 +11,6 @@ Separate reputation, actual malware detection, signature failure and byte mismat
 Reproduce only within requested execution scope and preserve the warning's exact context without collecting unnecessary personal data. Prepare a concrete concise report containing the affected identity, relevant evidence and requested correction. Use an available provider workflow; missing account/capability is a prerequisite, not a reason to invent a submission endpoint.
 
 Submit only to the exact authorized target and retain its real acknowledgement. Do not disable protection, add broad exceptions, weaken update trust or submit unrelated binaries. Reconcile uncertain submission by its case identity before repeating. Report vendor receipt separately from accepted correction or changed distribution behavior.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.

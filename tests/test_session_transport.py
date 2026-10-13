@@ -12,6 +12,7 @@ import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
+from types import SimpleNamespace
 
 from oasis_harness import sessions
 from oasis_harness.common import HarnessError
@@ -175,7 +176,272 @@ class LoopbackServer:
             handler.join(timeout=1)
 
 
+class InjectedTransport:
+    """An in-memory native wire; never launches a server or a model."""
+    def __init__(self):
+        self.process = object()
+        self.messages = queue.Queue()
+        self.sent = []
+        self.write_lock = threading.Lock()
+        self.closed = False
+        self.on_send = None
+        self.initialize_messages = None
+        self.private_tail = ""
+
+    def feed(self, value):
+        self.messages.put(value if value is None or isinstance(value, str) else json.dumps(value, ensure_ascii=False))
+
+    def receive(self):
+        return self.messages.get()
+
+    def send(self, text, *, timeout=30):
+        with self.write_lock:
+            value = json.loads(text)
+            self.sent.append(value)
+            if value.get("method") == "initialize":
+                for message in self.initialize_messages if self.initialize_messages is not None else [{"id": value["id"], "result": {}}]:
+                    self.feed(message)
+            elif self.on_send is not None:
+                self.on_send(value)
+
+    def stderr_tail(self):
+        return self.private_tail, False
+
+    def close(self):
+        if not self.closed:
+            self.closed = True
+            self.messages.put(None)
+
+
 class SessionTransportContracts(unittest.TestCase):
+    def injected_client(self, transport):
+        scope = patch.dict(os.environ, {}, clear=True)
+        select = patch("oasis_harness.sessions.shutil.which", return_value="fixture-codex")
+        connect = patch("oasis_harness.sessions._ProxyTransport", return_value=transport)
+        for patcher in (scope, select, connect):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        client = sessions.AppServer("injected_wire")
+        self.addCleanup(client.close)
+        return client
+
+    def test_rpc_dispatches_reversed_concurrent_responses_and_preserves_events_at_eof(self):
+        wire = InjectedTransport()
+        client = self.injected_client(wire)
+        requests, results, errors = [], {}, []
+        final = {"method": "turn/completed", "params": {"turn": {"id": "fixture-turn", "status": "completed"}}}
+        def send(value):
+            if value.get("method") not in ("first", "second"):
+                return
+            requests.append(value)
+            if len(requests) == 2:
+                wire.feed({"method": "item/outputDelta", "params": {"delta": "fixture"}})
+                for request in reversed(requests):
+                    wire.feed({"id": request["id"], "result": request["method"]})
+                wire.feed(final)
+                wire.feed(None)
+        wire.on_send = send
+        def call(method):
+            try:
+                results[method] = client.call(method, {}, timeout=1)
+            except Exception as exc:
+                errors.append(exc)
+        threads = [threading.Thread(target=call, args=(method,)) for method in ("first", "second")]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=2)
+        self.assertEqual(errors, [])
+        self.assertEqual(results, {"first": "first", "second": "second"})
+        client.reader.join(timeout=1)
+        events = client.drain_events()
+        self.assertEqual([event["method"] for event in events], ["item/outputDelta", "turn/completed"])
+        self.assertEqual(events[-1], final)
+        self.assertEqual(client.diagnostics()["state"], "closed")
+        self.assertEqual(len({row["id"] for row in requests}), 2)
+
+    def test_initialize_protocol_and_overflow_errors_keep_their_actual_cause(self):
+        cases = [(["[]"], "non-object protocol message"),
+                 ([{"method": "fixture/first", "params": {}}, {"method": "fixture/overflow", "params": {}}], "event buffer overflow")]
+        for messages, cause in cases:
+            with self.subTest(cause=cause), patch.object(sessions._RpcInbox, "EVENT_LIMIT", 1):
+                wire = InjectedTransport()
+                wire.initialize_messages = messages
+                wire.private_tail = "PRIVATE_FIXTURE_DETAIL"
+                with self.assertRaisesRegex(HarnessError, cause) as error:
+                    self.injected_client(wire)
+                self.assertNotIn("daemon/control socket", str(error.exception))
+                self.assertNotIn("PRIVATE_FIXTURE_DETAIL", str(error.exception))
+
+    def test_eof_wakes_all_pending_calls_and_future_call_without_losing_final_event(self):
+        wire = InjectedTransport()
+        client = self.injected_client(wire)
+        requests, errors = [], []
+        def send(value):
+            if value.get("method") == "waiting":
+                requests.append(value)
+                if len(requests) == 2:
+                    wire.feed({"method": "turn/completed", "params": {"status": "failed"}})
+                    wire.feed(None)
+        wire.on_send = send
+        def call():
+            try:
+                client.call("waiting", {}, timeout=1)
+            except Exception as exc:
+                errors.append(exc)
+        threads = [threading.Thread(target=call) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=2)
+        self.assertEqual(len(errors), 2)
+        self.assertTrue(all(isinstance(error, HarnessError) and "outcome uncertain" in str(error) for error in errors))
+        count = len(wire.sent)
+        with self.assertRaisesRegex(HarnessError, "connection ended"):
+            client.call("after_eof", {}, timeout=1)
+        self.assertEqual(len(wire.sent), count)
+        self.assertEqual(client.drain_events(), [{"method": "turn/completed", "params": {"status": "failed"}}])
+
+    def test_bad_envelopes_are_protocol_errors_and_native_rejection_stays_distinct(self):
+        nested = '{"id":2,"result":' + '[' * 20000 + '0' + ']' * 20000 + '}'
+        for case, invalid in enumerate(("[]", "null", "{", nested, '{"id":2,"result":{"value":NaN}}', '{"id":2,"id":2,"result":{}}',
+                                       {"jsonrpc": "1.0", "id": 2, "result": {}}, {"id": 2}, {"id": 2, "error": None}, {"id": 2, "result": {}, "error": {}})):
+            with self.subTest(case=case):
+                wire = InjectedTransport()
+                client = self.injected_client(wire)
+                wire.on_send = lambda value: wire.feed(invalid)
+                with self.assertRaises(HarnessError) as error:
+                    client.call("malformed", {}, timeout=1)
+                self.assertNotIsInstance(error.exception, sessions.NativeError)
+                self.assertEqual(client.diagnostics()["state"], "failed")
+                client.close()
+        wire = InjectedTransport()
+        client = self.injected_client(wire)
+        wire.on_send = lambda value: wire.feed({"id": value["id"], "error": {"code": 403, "message": "Fixture denial"}})
+        with self.assertRaises(sessions.NativeError) as error:
+            client.call("denied", {}, timeout=1)
+        self.assertEqual(error.exception.code, 403)
+        self.assertEqual(client.diagnostics()["state"], "connected")
+
+    def test_event_limits_report_overflow_and_keep_the_accepted_buffer(self):
+        for byte_limit in (False, True):
+            with self.subTest(byte_limit=byte_limit):
+                wire = InjectedTransport()
+                client = self.injected_client(wire)
+                count = 2 if byte_limit else 257
+                if byte_limit:
+                    client._rpc.EVENT_BYTES = 1500
+                def flood(value):
+                    for index in range(count):
+                        wire.feed({"method": "item/outputDelta", "params": {"index": index, "text": "x" * (900 if byte_limit else 1)}})
+                wire.on_send = flood
+                with self.assertRaisesRegex(HarnessError, "event buffer overflow"):
+                    client.call("flood", {}, timeout=2)
+                with self.assertRaisesRegex(HarnessError, "event buffer overflow"):
+                    client.drain_events()
+                events = client.drain_events()
+                self.assertEqual(len(events), 1 if byte_limit else 256)
+                self.assertEqual([event["params"]["index"] for event in events], list(range(len(events))))
+                self.assertIn("overflow", client.diagnostics()["event_error"])
+                self.assertEqual(client.diagnostics()["buffered_events"], 0)
+                client.close()
+
+    def test_unsupported_server_requests_are_rejected_without_ui_or_stderr_disclosure(self):
+        wire = InjectedTransport()
+        wire.private_tail = "PRIVATE_FIXTURE_DETAIL"
+        client = self.injected_client(wire)
+        def send(value):
+            if value.get("method") == "interactive":
+                wire.feed({"id": "fixture-approval", "method": "item/commandExecution/requestApproval", "params": {}})
+                wire.feed({"id": value["id"], "result": {"accepted": True}})
+            elif value.get("method") == "denied":
+                wire.feed({"id": value["id"], "error": {"code": 403, "message": "Fixture denial"}})
+        wire.on_send = send
+        self.assertEqual(client.call("interactive", {}, timeout=1), {"accepted": True})
+        rejection = next(value for value in wire.sent if value.get("id") == "fixture-approval")
+        self.assertEqual(rejection["error"], {"code": -32601, "message": "Unsupported server request"})
+        self.assertEqual(client.drain_events(), [])
+        self.assertEqual(client.diagnostics()["unsupported_methods"], ["item/commandExecution/requestApproval"])
+        self.assertEqual(client.diagnostics()["stderr_tail"], "PRIVATE_FIXTURE_DETAIL")
+        with self.assertRaises(sessions.NativeError) as error:
+            client.call("denied", {}, timeout=1)
+        self.assertNotIn("PRIVATE_FIXTURE_DETAIL", str(error.exception))
+
+    def test_stdio_framing_accepts_large_utf8_and_rejects_oversized_or_invalid_utf8(self):
+        value = {"method": "fixture/large", "params": {"text": "한글" * 12000}}
+        tail = {"method": "fixture/final", "params": {}}
+        proxy = object.__new__(sessions._ProxyTransport)
+        proxy.buffer = bytearray()
+        proxy.process = SimpleNamespace(stdout=io.BytesIO(json.dumps(value, ensure_ascii=False).encode("utf-8") + b"\n" + json.dumps(tail).encode() + b"\n"))
+        self.assertEqual(sessions.AppServer._decode(proxy.receive()), value)
+        self.assertEqual(sessions.AppServer._decode(proxy.receive()), tail)
+        self.assertIsNone(proxy.receive())
+        self.assertEqual(proxy.MAX_MESSAGE, 64 * 1024 * 1024)
+        for raw, message in ((b"x" * 1025 + b"\n", "supported size"), (b"\xff\n", "UTF-8")):
+            proxy.buffer = bytearray()
+            proxy.MAX_MESSAGE = 1024
+            proxy.process.stdout = io.BytesIO(raw)
+            with self.assertRaisesRegex(HarnessError, message):
+                proxy.receive()
+
+    def test_stdio_blocked_write_or_flush_closes_only_own_proxy_with_a_deadline(self):
+        for block_flush in (False, True):
+            with self.subTest(block_flush=block_flush):
+                release, entered, finished = threading.Event(), threading.Event(), threading.Event()
+                class Input:
+                    closed = False
+                    def write(self, data):
+                        if not block_flush:
+                            entered.set()
+                            release.wait(2)
+                        return len(data)
+                    def flush(self):
+                        if block_flush:
+                            entered.set()
+                            release.wait(2)
+                    def close(self):
+                        self.closed = True
+                process = Mock()
+                process.stdin, process.stdout, process.stderr = Input(), io.BytesIO(), io.BytesIO()
+                process.poll.return_value = None
+                process.wait.return_value = 0
+                process.terminate.side_effect = release.set
+                proxy = object.__new__(sessions._ProxyTransport)
+                proxy.process, proxy.closed = process, False
+                proxy.write_lock, proxy.close_lock = threading.Lock(), threading.Lock()
+                proxy.stderr_reader = Mock()
+                errors = []
+                def send():
+                    try:
+                        proxy.send('{"id":1,"method":"fixture"}', timeout=0.03)
+                    except Exception as exc:
+                        errors.append(exc)
+                    finally:
+                        finished.set()
+                thread = threading.Thread(target=send, daemon=True)
+                thread.start()
+                self.assertTrue(entered.wait(0.2))
+                timely = finished.wait(0.6)
+                release.set()
+                thread.join(timeout=1)
+                self.assertTrue(timely)
+                self.assertIsInstance(errors[0], TimeoutError)
+                process.terminate.assert_called_once_with()
+                proxy.close()
+                process.terminate.assert_called_once_with()
+
+    def test_private_stderr_ring_is_drained_and_bounded(self):
+        proxy = object.__new__(sessions._ProxyTransport)
+        marker = b"PRIVATE_FIXTURE_DETAIL"
+        proxy.process = SimpleNamespace(stderr=io.BytesIO(b"x" * (64 * 1024) + marker))
+        proxy.stderr_buffer, proxy.stderr_bytes = bytearray(), 0
+        proxy.stderr_lock = threading.Lock()
+        proxy._stderr()
+        tail, truncated = proxy.stderr_tail()
+        self.assertTrue(truncated)
+        self.assertEqual(len(tail.encode()), 64 * 1024)
+        self.assertTrue(tail.endswith(marker.decode()))
+
     def socket_transport(self, *, saturated=False):
         connection, peer = socket.socketpair()
         self.addCleanup(peer.close)
@@ -248,7 +514,7 @@ class SessionTransportContracts(unittest.TestCase):
         transport, _ = self.socket_transport(saturated=True)
         client = object.__new__(sessions.AppServer)
         client.transport, client.process = transport, None
-        client.incoming = queue.Queue()
+        client._rpc = sessions._RpcInbox()
         client.sequence = 0
         errors = self.bounded_action(transport, lambda: client.call("fixture/write", {}, timeout=0.1))
         self.assertEqual(len(errors), 1)
@@ -384,7 +650,7 @@ class SessionTransportContracts(unittest.TestCase):
 
     def test_default_proxy_is_preserved_and_reports_the_existing_socket_prerequisite(self):
         process = Mock()
-        process.stdin, process.stdout = io.StringIO(), io.StringIO("")
+        process.stdin, process.stdout, process.stderr = io.BytesIO(), io.BytesIO(), io.BytesIO()
         process.wait.return_value = 1
         with patch.dict(os.environ, {"OASIS_APP_SERVER_SOCKET": "fixture-private-socket"}, clear=True), \
                 patch("oasis_harness.sessions.shutil.which", return_value="fixture-codex"), \

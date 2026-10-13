@@ -40,25 +40,7 @@ For source work, compare the pinned remote source with HEAD/index/worktree and
 use that source's Git workflow. Preserve local ahead/diverged work; source review
 does not require installing the package into itself.
 
-## Legacy Calf transition
-
-For Core 1 projects, use the inspected incoming source's `oasis.py` for audit,
-plan and apply. The old installed helper still enforces the old core seal and
-cannot apply the unfinished-work wait, all-skill mapping or Calf migration:
-
-```powershell
-python -B -X utf8 <incoming-source>/oasis.py doctor audit --target <project> --package <incoming-source> --output <new-audit-file>
-python -B -X utf8 <incoming-source>/oasis.py doctor plan --target <project> --package <incoming-source> --output <new-plan-file>
-python -B -X utf8 <incoming-source>/oasis.py install apply --plan <reviewed-plan-file>
-```
-
-Before transitioning an existing Camel/Calf project to Core 2.0.0, let active work
-finish. Preserve chat/task links and the project's mode, Git choices, installed
-and user-created skills, settings and knowledge. Transfer useful locally modified
-Calf implementation material into Camel references, then retire the owned Calf
-skill. Keep historical originals for recovery; reporting, manager creation,
-approval and ownership ACK text is retired context, not new Camel guidance.
-Local conflicts use the same installer comparison and resolution path.
+Version-specific transition procedures are in the installed CHANGELOG.
 
 ## Apply and recover
 
@@ -72,7 +54,7 @@ python -B -X utf8 tools/oasis.py install verify --target <project>
 python -B -X utf8 tools/oasis.py skills validate --project <project>
 ```
 
-The transaction retains expected-old bytes and recoverable originals. An
+The transaction retains expected current bytes and recoverable originals. An
 interrupted response resumes from the existing journal; later user edits remain
 conflicts rather than being overwritten. Refresh checks affected by the update.
 Report applied paths, preserved local specializations, conflicts, failed/deferred

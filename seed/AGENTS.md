@@ -5,7 +5,7 @@ in one chat; Oasis uses visible Cameleer and Camel chats, with Oasis maintaining
 the harness. Camel investigates, implements and checks its assignment, then sends
 its result directly to Cameleer for collection and archival.
 
-Read the relevant skill and experience when useful. [ProjectGuide.md](ProjectGuide.md)
+Read the applicable skill experience before choosing an approach. [ProjectGuide.md](ProjectGuide.md)
 indexes mode selection, commands and task pacing; [LocalGitWorkflow.md](LocalGitWorkflow.md)
 covers the selected Git workflow and scoped dependencies. Project settings,
 installed skills, user files and accumulated knowledge belong to this project.
@@ -19,4 +19,6 @@ interface is unavailable, explain the manual mode-and-start step once.
 Keep active Camel links and results in `.oasis/state/tasks.md`. For a dependency,
 name the blocked portion, finish independent work and end the turn; the other
 Camel sends one terminal notice. Retain operational evidence in `.oasis/local/`
-and useful experience in the nearest skill reference.
+and useful experience in its existing project owner. Before the final completion
+report, consolidate it once under [the knowledge policy](.oasis/manual/knowledge.md).
+A project's canonical policy stays in its actual file; bootstrap links to it.

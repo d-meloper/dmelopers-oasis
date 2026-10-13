@@ -5,8 +5,13 @@ description: Implement and diagnose semantic input, animation timing and continu
 
 # Interaction Timing
 
+Read the applicable [timing experience](references/best-practices.md) before choosing an approach.
+Use it for timestamp endpoints,
+asynchronous validation and native observation limits.
+
 Trace semantic input through the active normalization, dispatch and animation
 path, preserving epochs and motion continuity across overlapping events and
 idle/resume. Use deterministic timing and pose checks for the changed behavior.
-Use [timing experience](references/best-practices.md) for timestamp endpoints,
-asynchronous validation and native observation limits.
+
+Before the final completion report, consolidate useful lessons from this work
+once in the owning experience reference.

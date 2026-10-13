@@ -1,9 +1,5 @@
 # State Integrity experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 Actual reader/writer implementations, persisted examples, supported compatibility boundaries and disposable test data.
@@ -14,4 +10,15 @@ Classify defaults, user state, generated assets, caches and evidence. Locate the
 
 Prevent stale whole-state overwrites; acknowledge frontend-owned changes in durable readback before exit or commit. Stage complete validated mutations and enforce final serialized-byte and archive/path limits. Same-filesystem atomic replacement protects the only valid copy; check temporary and final ancestors for links/reparse points before writing.
 
-For multi-file state separate staging, commit and cleanup. Commit catalog removal before deleting assets; report cleanup failure separately from committed success. Preserve ordering and newer state during recovery, and stop if both old/new copies changed ambiguously. Exercise interruptions around the actual commit point. Do not run tests against real user data or restore retired rollback architecture by analogy.
+For multi-file state separate staging, commit and cleanup. Commit catalog removal before deleting assets; report cleanup failure separately from committed success. Preserve ordering and newer state during recovery, and stop if both old/new copies changed ambiguously. Exercise interruptions around the actual commit point. Use the current writer's recovery semantics and disposable data for interruption checks.
+
+## Releasing project knowledge ownership
+
+When an installer relinquishes canonical knowledge ownership, exclude those paths
+before constructing write/delete operations and recovery journals. Releasing the
+manifest entry alone is sufficient; unchanged, modified, missing and later edits
+must remain project-owned. Local installer/Doctor fixtures verify these states
+and a project edit after interrupted apply, so recovery cannot replace it.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.

@@ -23,7 +23,7 @@ and the relevant skill's references for the current task.
 
 A fresh empty project defaults to Pioneer; an existing program defaults to
 Oasis. Git, licensing and environment preparation alone do not count as program
-content. Existing installations without a mode retain Oasis. An explicit choice
+content. Installations without a mode retain Oasis. An explicit choice
 wins and persists until the owner requests a switch; project size does not switch
 modes. `프로토타입 개발` and `운영` are aliases when used as actual mode requests.
 
@@ -63,6 +63,12 @@ See [communication](.oasis/docs/communication.md) for concise handoffs and
 
 ## Engineering knowledge
 
+Read applicable experience before choosing an approach. Immediately before the
+final completion report, consolidate useful lessons once under the existing
+project knowledge owner; the [knowledge policy](.oasis/manual/knowledge.md) covers
+shared sources, current applicability and scoped edits. If this project has its
+own canonical policy, link to its actual file and heading here and keep it there.
+
 Camel and Pioneer share the applicable
 [implementation experience](.agents/skills/oasis-camel/references/best-practices.md).
 Consult the section relevant to the affected interface, data, encoding or checks,
@@ -75,9 +81,8 @@ Use `oasis-harness-doctor` for harness health/update requests. It compares compl
 bytes from the selected upstream, preserves local settings, installed skills and
 knowledge, and applies compatible owned changes through the installer. Conflicts
 and unresolved material choices stay visible. Source checkouts use source Git
-review. Upgrading a legacy Camel/Calf project waits for active work to finish,
-transfers useful local Calf knowledge into Camel references, then retires Calf.
-Existing chat/task records remain available. See the
+review. Updates preserve unfinished work, project-owned knowledge and historical task
+links. Version-specific transition procedures are in the installed CHANGELOG. See the
 [Doctor manual](.oasis/manual/doctor.md).
 
 ## Planning work
@@ -114,4 +119,4 @@ manuals remain available after separating it from the source distribution:
 [sessions](.oasis/manual/sessions.md), [Git and backup](.oasis/manual/git-backup.md),
 [publication](.oasis/manual/publication.md), and
 [verification boundaries](.oasis/manual/validation.md).
-For learning, see [BestPractice](BestPractice/README.md).
+For learning, use [the knowledge policy](.oasis/manual/knowledge.md).

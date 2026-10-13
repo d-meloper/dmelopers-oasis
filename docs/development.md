@@ -10,10 +10,13 @@ needed by the changed function. Inspect actual HEAD/index/working bytes and
 bindings before Git operations. Preserve concurrent work, settings and private
 state. Use disposable adopter fixtures instead of self-installation.
 
-The confirmed Package 1.2.0 / Core 2.0.0 change retires Calf, moves implementation
-to Camel, enables direct completion and simplifies guidance/runtime.
-Core metadata is descriptive; file hashes still protect actual installer bytes
-and exact public candidates. See [migration](installation.md#core-2-migration).
+Read applicable experience before choosing an approach. Once before final
+completion, consolidate useful lessons in the existing owner under
+[knowledge policy](knowledge.md). Preserve project knowledge files and avoid
+duplicate closing passes, extra verification or publication caused only by
+experience consolidation. Core metadata describes roles and versions; file hashes
+protect actual installer bytes and exact public candidates. Version-specific
+procedures and evidence belong in [CHANGELOG](CHANGELOG.md).
 
 `빠른 작업으로 진행해` applies [fast work](../seed/ProjectGuide.md#fast-work)
 immediately: implement, run a brief relevant check and leave deferred commands.
@@ -68,8 +71,7 @@ The complete projection retains bounded privacy scanning, regular file/mode
 inventory, neutral templates and resource links. Exact path/hash exceptions in
 `tools/public-source-policy.json` describe reviewed scanner literals or synthetic
 fixtures; actual secrets/private paths cannot be waived. README PNG/SVG artwork
-keeps its exact asset pins and static-content checks. These protect export bytes
-and are separate from the removed behavioral core seals.
+keeps its exact asset pins and static-content checks. These protect the exact export bytes.
 
 ## Commit version
 
@@ -102,8 +104,7 @@ git -c oasis.versionTarget=X.Y.Z commit -m <message>
 ```
 
 The target must change HEAD, remain command-local and have no simultaneous base.
-The next ordinary commit increments the new HEAD patch. The confirmed overhaul
-selects exact Package 1.2.0 and Core 2.0.0.
+The next ordinary commit increments the new HEAD patch.
 
 Keep operational evidence in ignored `.oasis/local/`; put reusable experience in
 the nearest reference. [Validation](validation.md) distinguishes fixtures,

@@ -7,14 +7,15 @@ The package literal owns its version; the current role contract is Core 2.0.0.
 
 Oasis maintains the harness; Cameleer assigns and integrates work; Camel
 investigates, implements and checks its assignment, then reports directly.
-Pioneer remains the single-chat mode. Calf is retired. Use actual chat IDs for
-assignment, completion and reuse; titles are a naming convention.
+Pioneer remains the single-chat mode. Use actual chat IDs for assignment,
+completion and reuse; titles are a naming convention.
 
-Read the guide needed by the current operation. Keep guidance thin and
-product-neutral. Useful experience belongs in the owning skill's best-practices
-reference with applicability and evidence. Preserve project knowledge, settings,
-optional/user skills and historical task links. Finish existing Camel/Calf work
-before the Core 2 transition.
+Read the applicable skill experience before choosing an approach. Keep guidance
+thin and product-neutral. Once before final completion, consolidate useful lessons,
+duplicates and advice disproved under its own conditions in the existing owner
+under [knowledge policy](docs/knowledge.md). With nothing useful to change, finish
+without an edit or routine report. Preserve project knowledge, settings, user
+skills, unfinished work and historical task links.
 
 `빠른 작업으로 진행해` immediately applies [fast work](seed/ProjectGuide.md#fast-work).
 `계획작업으로 진행해` uses [planning](seed/ProjectGuide.md#planning-work):

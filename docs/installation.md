@@ -48,7 +48,7 @@ and unrelated paths refuse. Actual conflicting content needs the owner's
 decision; a generic approval prompt is unnecessary for compatible requested work.
 
 Fresh empty projects default to Pioneer; existing programs default to Oasis.
-An explicit fresh `--mode pioneer|oasis` overrides that selection. Legacy valid
+An explicit fresh `--mode pioneer|oasis` overrides that selection. Valid
 installs without a mode retain Oasis. Upgrades preserve mode; use the separate
 requested workflow switch to change it.
 
@@ -57,7 +57,11 @@ requested workflow switch to change it.
 Set a fresh project name from known project facts and record the selected source
 under `adapters.harness_upstream` with repository URL and ref. Preserve existing
 adapter/extension fields. Add only demonstrated local commands/knowledge.
-Keep the project's Git choice and local skill modifications.
+Keep the project's Git choice and local skill modifications. If a canonical
+knowledge policy already exists, link its actual file and heading from project
+guidance and add only compatible closing guidance. Preserve its location and
+shared implementation references; use the installed knowledge manual when no
+project owner has been established.
 
 Verify the installed payload and native catalog:
 
@@ -68,7 +72,7 @@ python -B -X utf8 tools/oasis.py session discovery --target .
 ```
 
 The 24 target-local bundled skills and user skills may coexist with
-shared host skills. File inventory and discovery do not prove old-chat adoption.
+shared host skills. File inventory and discovery do not prove instruction adoption.
 
 Initialize one visible Pioneer, or Oasis plus Cameleer, using the selected mode's
 [workflow](workflows.md). An install-only request leaves them ready for later
@@ -114,7 +118,9 @@ python -B -X utf8 oasis.py install apply --plan <reviewed-plan>
 
 The plan compares upstream base, local and incoming bytes. Independent JSON-key
 and non-overlapping text changes combine; actual conflicting edits stop apply.
-Locally specialized retired files remain preserved for resolution. All bundled
+Locally specialized files absent from the incoming package remain preserved
+for resolution. Root knowledge scaffold ownership is released without deleting
+project copies; their content can remain the project's canonical knowledge. All bundled
 skills refresh through three-way comparison without discarding local changes.
 User skills and knowledge outside
 package ownership remain untouched.
@@ -123,35 +129,5 @@ Updates preserve mode, Git settings, adapters, local skill edits and chat
 history. They do not initialize chats or bulk archive them. Runtime file updates
 do not silently rebind an active Git engine.
 
-## Core 2 migration
 
-Package 1.2.0 introduces Core 2.0.0: Camel implements and checks assignments,
-completion goes directly to Cameleer, and Calf is retired. New installs contain
-no Calf. Core metadata is descriptive; behavioral hash seals, protected keys,
-packets and approval/ACK proofs are removed.
-
-Existing Camel/Calf assignments finish before transition. Retain real chat IDs,
-work locations and result links; do not forcibly relabel or terminate old work.
-The upgrade plan reports unfinished legacy work before writes, then can be
-reprepared after its terminal result.
-
-Useful baseline Calf implementation knowledge is in Camel's
-`references/best-practices.md`. For project-modified Calf files, preserve exact
-originals as inactive migration history and move reviewed useful local notes to
-Camel references before retirement. Ambiguous custom bodies surface a content
-conflict; retired reporting/admin procedures do not become new active rules.
-The migration plan shows exact affected bytes and destinations. Supply
-`--calf-migration <file>` to `install upgrade` or `doctor audit|plan` when custom
-Calf content needs resolution. This uses schema 1 with a `files` array of `path`,
-`before_sha256` and `after_base64`: the existing Calf path, its actual current hash
-and reviewed useful-note UTF-8 bytes. Empty note bytes preserve the inactive
-original only. The hash resolves current content, not authority.
-
-Exact custom originals are retained under
-`.oasis/state/retired-skills/oasis-calf/<sha256>/<relative>`; useful notes go to
-`.agents/skills/oasis-camel/references/calf-migration/<relative>` with a link from
-best practices. Existing destination edits remain real file conflicts.
-
-Earlier chat/task records stay readable. New Calf creation returns a retirement
-notice without creating a session. Subsequent assignments use actual Camel chat
-IDs, direct terminal notification and restoration of the same archived Camel.
+Version-specific transition procedures are recorded in [CHANGELOG](CHANGELOG.md).

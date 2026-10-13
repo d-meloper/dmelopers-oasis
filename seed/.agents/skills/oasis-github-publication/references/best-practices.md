@@ -1,17 +1,18 @@
 # Publication experience
 
-K12-K14 in the [migration reference](../../../../.oasis/manual/migration-lessons.md)
-distinguish commit lineage, source integration and output byte parity. Carry the
-same candidate bytes from preparation through requested publication; a version
-label or passed source test does not prove the complete artifact set.
+Carry the same reviewed candidate bytes from preparation through requested
+publication. A version label or source test does not prove output parity,
+complete artifact inventory or installed behavior.
 
-K35 retained an external intent with no recorded response. Reconcile the actual
-remote object before repeating create/upload work. K38's local fixtures bind
-the immutable merged commit's parent/tree and PR identity even after base-branch
-metadata advances; later metadata is weaker evidence than the actual merge.
+Persist external intent and reconcile the actual remote identity after a lost
+reply before creating/uploading again. Resolve the exact merged commit and
+verify its parent/tree and PR identity even when mutable base metadata advances.
 
-Keep source projection, release artifacts and installed behavior separate when
-reporting results. Publication included in the request follows the project's
-configured workflow and repository controls. The
-[publication manual](../../../../.oasis/manual/publication.md) holds command-level
-candidate, drift and partial-recovery details.
+Reuse retained passing checks whose consumed inputs match; refresh changed
+runner, initializer and fixture-consumer scope. Keep final export/privacy,
+repository identity, required status and anonymous readback bound to the current
+candidate. A failed or incomplete build receipt establishes no passing coverage.
+
+Use the [publication manual](../../../../.oasis/manual/publication.md) for
+candidate, drift and partial recovery. [Version history](../../../../.oasis/manual/CHANGELOG.md)
+retains earlier evidence and its limits.

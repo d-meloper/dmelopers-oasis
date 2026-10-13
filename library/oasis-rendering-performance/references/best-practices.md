@@ -1,9 +1,5 @@
 # Rendering Performance experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 Actual rendering backend, relevant frozen reference/cold fixture and measurable work/resource counters; physical GPU claims require actual observations.
@@ -15,3 +11,6 @@ Separate geometry, material, camera/crop, animation and native-window causes bef
 Include each transformed instance in bounds and dispose instance/shared resources correctly. Exercise first draw, not only settled frames. Context replacement must verify actual allocated attributes and a healthy replacement frame before disposing the old owner. Masks must not alter geometry used for fit or health proof.
 
 Reuse previews only within an isolated serial input-free batch; reset authored pose/crop through the owning path and compare A/B/A against a cold renderer. Never reset live input history for preview speed. Gate animation work and drawing appropriately while input remains responsive. Count eliminated work: draw calls, CPU payload, GPU texels, resident memory and native utilization are different metrics. Preserve negative controls and fixed tolerances. Software fixtures cannot establish installed Windows GPU equivalence.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.

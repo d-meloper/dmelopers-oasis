@@ -15,6 +15,13 @@ MODES = {"pioneer": ("Pioneer",), "oasis": ("Oasis", "Cameleer")}
 ROLE_PARENT = {"Pioneer": None, "Oasis": None, "Cameleer": None,
                "Developer": "Pioneer", "Camel": "Cameleer"}
 TERMINAL = {"completed", "failed", "cancelled", "archived", "collected"}
+COMPLETION_REMINDER = ("Before reporting completion, review this task's reusable experience once in the relevant existing skill reference: "
+                       "consolidate useful new lessons, duplicates and demonstrably stale advice within the permitted edit scope; "
+                       "respect read-only work and make no edit when there is nothing to change.")
+
+
+def _completion_prompt(text):
+    return text + "\n\n" + COMPLETION_REMINDER
 
 
 def effective_mode(project):
@@ -117,7 +124,7 @@ def _prompt(role, context, language):
     text = f"You are the {role} for this project. Apply ${skill}. Preserve the saved unfinished work and wait for the next user request."
     if context:
         text += "\n\nProject context:\n" + (context if isinstance(context, str) else json.dumps(context, ensure_ascii=False, indent=2))
-    return text
+    return _completion_prompt(text)
 
 
 def _role_skill(root, role):
@@ -163,7 +170,7 @@ def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings
     return {"schema_version": 1, "operation_id": operation, "target": str(root), "project_id": identity,
             "source_thread_id": source_id, "settings": settings, "mode": mode,
             "selected_mode_before": effective_mode(project), "primary_role": "Pioneer" if mode == "pioneer" else "Cameleer",
-            "language": language, "context": context, "follow_on_task": task, "existing_roles": owned,
+            "language": language, "context": context, "follow_on_task": _completion_prompt(task) if task is not None else None, "existing_roles": owned,
             "old_roles": [] if same else owned, "unrelated": state.get("unrelated", []),
             "new_roles": [] if same else [{"role": role, "originator": operation + "_" + role.lower(),
                                            "prompt": _prompt(role, context, language)} for role in MODES[mode]],
@@ -466,6 +473,7 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
             prompt = "Apply $oasis-camel to this assigned task. " + goal
             if context:
                 prompt += "\n\n" + (context if isinstance(context, str) else json.dumps(context, ensure_ascii=False))
+            prompt = _completion_prompt(prompt)
             row = {"id": identity, "request_key": key, "role": "Camel", "project_id": project_id, "cameleer_thread_id": cameleer_id,
                    "camel_thread_id": None, "goal": goal, "prompt": prompt, "planning": planning,
                    "location": location or str(root), "phase": "creating", "cycle": 0, "history": []}
@@ -722,7 +730,7 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
             if row.get("followup_key") != request_key:
                 row["history"].append({name: copy.deepcopy(row.get(name)) for name in ("cycle", "phase", "completion", "result", "checks")})
                 row["cycle"] = row.get("cycle", 0) + 1
-                row.update(followup_key=request_key, prompt=message, planning=planning, phase="resuming")
+                row.update(followup_key=request_key, prompt=_completion_prompt(message), planning=planning, phase="resuming")
                 for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result"):
                     row.pop(name, None)
                 write_json(_task_path(root), state)

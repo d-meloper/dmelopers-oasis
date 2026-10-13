@@ -24,8 +24,7 @@ NEUTRAL_PROJECT = {
 }
 SEED_FILES = {
     "seed/AGENTS.md", "seed/ProjectGuide.md", "seed/LocalGitWorkflow.md", "seed/.gitattributes",
-    "seed/.gitignore", "seed/BestPractice/README.md",
-    "seed/BestPractice/KnowledgeLifecycle.md", "seed/BestPractice/history/README.md",
+    "seed/.gitignore",
 }
 NEUTRAL_OASIS = {
     "seed/.oasis/core.json", "seed/.oasis/project.json", "seed/.oasis/.gitignore",
@@ -381,7 +380,7 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
     scanned = [scan_harness_file(name, data, policy) for name, data in sorted(files.items())]
     mandatory = {
         "README.md", "AGENTS.md", "oasis.py", "oasis_harness/__init__.py", "docs/upgrade-index.json",
-        "docs/installation.md", "docs/workflows.md",
+        "docs/installation.md", "docs/workflows.md", "docs/CHANGELOG.md",
         "docs/identity.md", "docs/publication.md", "docs/doctor.md", "docs/validation.md",
     } | SEED_FILES | NEUTRAL_OASIS | set(README_IMAGES) | set(README_SVGS)
     mandatory |= {"oasis_harness/" + module + ".py" for module in (

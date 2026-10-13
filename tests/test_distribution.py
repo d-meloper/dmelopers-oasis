@@ -60,8 +60,12 @@ class DistributionBoundary(unittest.TestCase):
         self.assertNotIn(".oasis/manual/" + GUIDE, payload)
         for artwork in ("assets/readme-title.svg", "assets/readme-hero.svg", "assets/readme-hero.png"):
             self.assertNotIn(artwork, payload)
-        self.assertEqual(payload[".oasis/manual/adaptation-map.json"],
-                         (PACKAGE / "docs/adaptation-map.json").read_bytes())
+        self.assertEqual(payload[".oasis/manual/CHANGELOG.md"],
+                         (PACKAGE / "docs/CHANGELOG.md").read_bytes())
+        for relative in installation.PROJECT_KNOWLEDGE_PATHS:
+            self.assertNotIn(relative, payload)
+        for name in ("adaptation-map.md", "adaptation-map.json", "migration-lessons.md"):
+            self.assertNotIn(".oasis/manual/" + name, payload)
         self.assertFalse(any(name.startswith(".githooks/") for name in payload))
         self.assertEqual(read_json(PACKAGE / "seed/.oasis/core.json")["core_version"], "2.0.0")
 
@@ -159,22 +163,36 @@ class DistributionBoundary(unittest.TestCase):
             # Reproduce the old installer intake while retaining current core.
             (old / "docs/development.md").write_bytes(b"Old source-only instructions\n")
             (old / "oasis_harness/public_source.py").write_bytes(b"# Old source-only scanner\n")
+            historical = {
+                "adaptation-map.md": b"Original historical adaptation note\n",
+                "adaptation-map.json": b'{"historical_inventory": true}\n',
+                "migration-lessons.md": b"Original historical experience\n",
+            }
+            for name, content in historical.items():
+                (old / "docs" / name).write_bytes(content)
             target = parent / "project"; target.mkdir()
             from unittest.mock import patch
-            with patch.object(installation, "ADOPTER_MANUALS", installation.ADOPTER_MANUALS | {"development.md"}), \
+            with patch.object(installation, "ADOPTER_MANUALS", installation.ADOPTER_MANUALS | {"development.md", *historical}), \
                  patch.object(installation, "ADOPTER_MODULES", installation.ADOPTER_MODULES | {"public_source.py"}):
                 installation.apply(installation.plan(target, old), state_root=parent / "journals")
             stale = target / ".oasis/manual/development.md"
             stale.write_bytes(b"Owner specialization\n")
+            learned = target / ".oasis/manual/migration-lessons.md"
+            learned.write_bytes(b"Project's retained historical observation\n")
             upgrade = installation.plan(target, PACKAGE, upgrade=True)
             self.assertFalse(upgrade["conflicts"])
             self.assertIn(".oasis/manual/development.md", upgrade["retained"])
+            self.assertIn(".oasis/manual/migration-lessons.md", upgrade["retained"])
             installation.apply(upgrade, state_root=parent / "journals")
             self.assertEqual(stale.read_bytes(), b"Owner specialization\n")
+            self.assertEqual(learned.read_bytes(), b"Project's retained historical observation\n")
+            self.assertFalse((target / ".oasis/manual/adaptation-map.md").exists())
+            self.assertFalse((target / ".oasis/manual/adaptation-map.json").exists())
             self.assertFalse((target / ".oasis/runtime/oasis_harness/public_source.py").exists())
             self.assertNotIn(".oasis/manual/development.md", read_json(target / installation.MANIFEST)["managed"])
-            self.assertEqual((target / ".oasis/manual/adaptation-map.json").read_bytes(),
-                             (PACKAGE / "docs/adaptation-map.json").read_bytes())
+            self.assertNotIn(".oasis/manual/migration-lessons.md", read_json(target / installation.MANIFEST)["managed"])
+            self.assertEqual((target / ".oasis/manual/CHANGELOG.md").read_bytes(),
+                             (PACKAGE / "docs/CHANGELOG.md").read_bytes())
 
     def test_impact_selection_keeps_expensive_suites_scoped_and_unknowns_full(self):
         docs = select(["docs/development.md", "oasis_harness/__init__.py"])

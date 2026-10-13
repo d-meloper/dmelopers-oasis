@@ -1,82 +1,90 @@
 # Codex session adapter
 
-The adapter uses the native App Server protocol to create visible chats,
-start requested turns, set Plan mode and archive/restore actual chat IDs.
-See the [official App Server contract](https://learn.chatgpt.com/docs/app-server).
-The default proxy needs an existing daemon/control socket; a Desktop stdio
-process does not provide that endpoint. `OASIS_APP_SERVER_SOCKET` selects an
-existing control socket. An explicit process-local `OASIS_APP_SERVER_URL` can
-select a caller-managed loopback `ws://127.0.0.1:PORT` endpoint. The upstream
-WebSocket transport is experimental and unsupported for production. This
-adapter starts no server and edits no private app data or global configuration.
-An explicitly requested live trial can own a temporary foreground server and
-close it after its scoped chats finish.
+The adapter uses native App Server to create chats, start requested
+turns, set Plan mode and archive/restore actual IDs. Its
+[official protocol](https://learn.chatgpt.com/docs/app-server) describes available
+methods; installed availability and actual effects need their own evidence.
+
+## Transport and RPC
+
+The default proxy connects to an existing daemon/control socket.
+`OASIS_APP_SERVER_SOCKET` selects that socket. A Desktop standard-I/O process
+does not provide this endpoint. Explicit process-local `OASIS_APP_SERVER_URL`
+selects an existing caller-managed loopback WebSocket endpoint, such as
+`ws://127.0.0.1:PORT`. Upstream WebSocket support is experimental and unsupported
+for production. The adapter owns its client connection/proxy, with bounded
+close; it does not start or stop the host service or its turns.
+
+`AppServer` retains its `call`, `pages`, `close` and context-manager interface.
+RPC IDs dispatch responses to pending calls; request deadlines include writes
+for standard-I/O and WebSocket. Native notifications enter a separate FIFO.
+`drain_events()` returns buffered notification dictionaries without waiting.
+It does not interpret task completion, poll a model or automatically collect work.
+
+Both transports cap protocol messages at 64 MiB. The event buffer is bounded
+at 256 notifications and 64 MiB in aggregate. Protocol errors or overflow end
+the connection and wake pending calls with an explicit failure; already
+buffered accepted responses/notifications remain available. `drain_events()`
+raises its event error once, then permits buffered retrieval; `diagnostics()`
+retains the `event_error` for inspection.
+
+Standard-I/O stderr is continuously drained into a private 64 KiB ring.
+`diagnostics()` exposes backend/state, unsupported-method information and private
+`stderr_tail`. Raw stderr is not appended automatically to public errors or logs.
+Keep those diagnostics in local evidence. Unsupported server requests receive
+`-32601` and a diagnostic method name; this dispatcher supplies no automatic
+approval decision or native approval UI.
 
 ## Settings and creation
 
 Inherit the caller's actual model, reasoning and supported permission settings.
-Keep project settings and the selected working location. Native protocol errors
-remain errors; unsupported representations are reported instead of replaced
-with broader defaults. Source, project and target IDs identify where an action
-runs, without title-based roles or general readiness/approval/ACK proofs.
+Keep project settings and work location. Unsupported or contradictory settings
+remain errors instead of receiving broader defaults.
 
-`session create` supports Oasis, Cameleer, Camel, Pioneer and existing Developer
-workers. Calf requests return a retirement notice without creating a chat.
-Historical Calf receipts remain readable. Creation and resume use retained IDs
-after an uncertain response; they do not blindly create a replacement.
+`session create` supports Oasis, Cameleer, Camel, Pioneer and Developer workers.
+Creation and resume reconcile retained IDs after uncertain replies.
+A fresh thread may lack saved turn settings; use matching verified native
+creation settings only for that first input. Otherwise use current saved
+settings. Resume only a `notLoaded` recipient and explicitly preserve model,
+effort, permissions and approval routing. Loaded chats need no resume.
 
-A new thread can lack saved turn settings before its first input. Use its
-verified native creation settings for that first delivery. Otherwise use the
-current saved settings. Load only an actual `notLoaded` recipient, explicitly
-preserving model, effort, permissions and approval routing: an override-free
-resume can replace them with host defaults. Loaded chats need no resume.
-
-Use `session discovery --target <project>` for actual native skill inventory.
-All 24 distributed skills are active after installation. Shared/user skills
-may also appear; inventory does not prove model selection or old-chat adoption.
+`session discovery --target <project>` reads actual native skill inventory.
+All 24 distributed skills are active; shared/user skills may also appear.
+Inventory does not establish model selection or instruction adoption.
 
 ## Assignment and completion
 
-The [workflow adapter](workflows.md) connects Cameleer and Camel. Assignment
-creates a Camel or restores the existing task's Camel, sends the short goal and
-needed context, and updates `.oasis/state/tasks.md`. Actual IDs and result
-references connect the task. `camel_A_task` is a naming convention only.
+The [workflow adapter](workflows.md) creates or restores Camel, delivers its goal
+and relevant context, and updates `.oasis/state/tasks.md`. Actual IDs and result
+references connect work; `camel_A_task` is a naming convention.
 
-Camel directly notifies its Cameleer after implementation and relevant checks.
-Cameleer reviews fulfillment, the diff and performed checks, integrates the
-result, then records collection and archives the finished Camel. A later
-request restores that same chat. Incomplete work remains in its Camel.
+Camel implements and checks its assignment, consolidates useful experience before
+completion, and directly notifies Cameleer. Cameleer reviews, integrates, retains
+the result and archives the finished Camel. Follow-up restores that same chat.
 
-Dependencies name the blocked part and wait after independent work is finished.
-The producer sends one terminal result for completion, failure or cancellation.
-No progress messages, ACKs, timeout turns or repeated status queries are added.
+Dependencies name a blocked portion. After independent work, end the turn and
+resume from the producer's one terminal result on completion, failure or
+cancellation. Transport notifications alone are not a role workflow or task result.
 
 ## Actual Plan mode
 
-A planning request uses supported
-`thread/settings/update.collaborationMode` or
-`turn/start.collaborationMode`, then starts the supplied planning request.
-Use the inherited model/effort and
-`settings.developer_instructions: null` for native mode instructions.
-Current availability is determined by the installed protocol, rather than
-global Codex settings or a prompt claiming to enable Plan.
+Use supported `thread/settings/update.collaborationMode` or
+`turn/start.collaborationMode` and start the supplied planning request.
+Retain model/effort and `settings.developer_instructions: null` for native
+mode instructions. Global settings and prompt wording do not establish mode.
 
-When the route explicitly reports that native mode setting is unsupported,
-give the manual mode/start instruction once in the same Camel. Other native
-errors or ambiguous sends remain recoverable errors, not evidence of an
-unsupported feature. Planning and implementation remain distinct user requests;
-an implementation request introduces no extra planning wait.
+When native mode setting is explicitly unsupported, give manual mode/start
+guidance once in the same chat. Other errors and ambiguous sends retain their
+recovery boundary. Implementation follows the user's instruction.
 
 ## Recovery and limits
 
-Per-action state retains assigned thread IDs, native message references and
-outcomes. A lost response is reconciled with actual messages/turns before retry.
-Duplicate completion cannot integrate the same result twice. Recover only the
-affected action; preserve other tasks, chats and user content.
+Action state retains thread IDs, native message references and outcomes.
+Reconcile lost replies with actual history before retrying; duplicate completion
+must not repeat integration. Recover only the affected operation.
 
-The adapter is event/action driven. It does not run a listener, polling loop,
-scheduler or model wait turn. Local fixtures verify deterministic native calls
-and recovery. A requested Windows native trial verified real Plan/model output,
-direct completion, automatic collection/archive and same-ID restoration.
-Read-only schemas, live backend effects, visual UI state and descendant archive
-effects remain distinct [verification](validation.md).
+Transport I/O and buffered events do not provide a managed server, cross-process
+lease/IPC bridge, automatic terminal collection or model polling. Protocol schema,
+local fixtures, live backend effects, visible UI and descendant archive effects
+have separate evidence boundaries. See [validation](validation.md) and recorded
+observations in [CHANGELOG](CHANGELOG.md).

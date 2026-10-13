@@ -1,87 +1,47 @@
 # Implementation experience
 
-This reference carries forward the useful implementation material from the
-retired `oasis-calf/SKILL.md` and its linked ProjectGuide, LocalGitWorkflow and
-knowledge guidance. The original Calf bytes remain in Git history. Legacy
-reporting, manager creation, approval, ownership ACK and hierarchy procedures
-are not part of this implementation reference.
-
 ## Find the consuming layer
 
-When a symptom crosses source, generated assets or installed runtime, trace the
-actual caller and producer before changing the visible output. Existing project
-helpers, platform/library facilities and connected tests can reveal the complete
-repair point. In an investigation task, a supported explanation can be the result
-without an invented patch.
-
-Retained case K13 found source integration passing while a distribution asset
-comparison failed; K14 later closed the byte mismatch without establishing visual
-acceptance. K41 found live chats with discoverable skills but missing manuals.
-These observations support checking the consuming path rather than assuming a
-source fix reached every output. The
-[migration cases](../../../../.oasis/manual/migration-lessons.md) record their limits.
+Trace the actual caller, producer and installed consumer before changing visible
+output. Reuse project helpers, platform facilities and connected tests. An
+investigation can finish with a supported explanation when no patch is justified.
+Check source-to-output byte relationships when packaging changes; source tests
+and installed visual acceptance establish different boundaries.
 
 ## Interface and persisted-data compatibility
 
-For API or stored-data changes, follow values through the old and new consumers:
-missing, explicit clear and saved default can have different meanings. Reusing
-the project reader/writer or generator avoids changing only a derived copy.
-Inspect a concrete old value and a newly written value when compatibility is
-affected. Consult State Integrity or Update Delivery references when
-those mechanisms are involved.
-
-Installer cases K25-K28 reproduced stale preflight, lock ownership, interrupted
-apply and discarded-specialization risks in disposable fixtures. Keeping
-expected-old bytes, upstream baselines and current local bytes distinct allowed
-conflicts to be detected at the actual write boundary. These are file-update
-mechanisms, not proof of every project's data-format compatibility.
+Trace API and stored values through every supported reader/writer. Missing,
+explicit clear and saved default can have different meanings. Update the owning
+generator or durable writer and inspect concrete persisted examples. Keep
+upstream base, current specialization and incoming bytes distinct; validate
+expected current bytes at each write/recovery boundary.
 
 ## Windows paths and protocol encodings
 
-For native subprocesses, hooks, receipts or line-oriented protocols on Windows,
-make the encoding and native path representation explicit. K15 found inherited
-Git repository variables redirecting isolated children; K16 observed MSYS paths
-failing at a native PowerShell boundary; K17 observed a UTF-8 receipt decoded with
-legacy defaults. Scope repository-environment cleanup to the isolated child.
-
-K36 used byte-encoded subprocess input to avoid text-mode LF-to-CRLF changes in
-Git objects and protocol transactions. K40 observed completed work followed by
-CLI reporting failure on a Unicode path; ASCII-safe JSON reporting and checking
-retained outputs before retry avoided doing the work twice. These cases include
-local fixtures and narrow live observations, not universal host coverage.
+Use explicit native paths and encoding for subprocesses, hooks and receipts.
+Isolate inherited Git repository variables in disposable children. Send exact
+protocol input as bytes when text-mode newline conversion could change identity.
+Preserve exit status separately from diagnostic stderr. Reconcile retained
+outputs after a reporting failure before repeating completed work.
 
 ## Checks and reproducible recovery
 
-Choose checks for the changed contract and connected consumer. Keep the command,
-required inputs and a precise resume point when coverage is deferred. Reuse
-passed evidence when its actual consumed source, configuration, tool and data
-still match; a different unrelated HEAD alone does not explain invalidation.
-Changes to shared or unknown inputs need the applicable checks.
-
-K18 showed benign stderr promoted into process failure; preserve exit status and
-diagnostic output separately. K22 retained failed, manual and deferred product
-checks alongside completed migration. K31 exercised content-addressed baseline
-bytes with Git autocrlf in a real disposable repository. K13/K14 demonstrate why
-source tests, output-byte checks and installed acceptance are different results.
-For `빠른 작업으로 진행해`, use the
-[brief-check pacing](../../../../ProjectGuide.md#fast-work) and leave exact deferred
-verification rather than claiming broad coverage.
+Select checks for the changed contract and connected consumer. Reuse passing
+evidence while consumed source, configuration, tools, test runners and data
+match. Package-initializer behavior and shared test/fixture imports can invalidate
+checks beyond the directly edited test; a version literal alone need not.
+Keep exact deferred commands and resume points. The
+[fast-work guide](../../../../ProjectGuide.md#fast-work) defines task pacing.
 
 ## Repeated operations and dependencies
 
-When another task owns an overlapping input, agree the required portion rather
-than waiting for its unrelated work. K24 found an export consuming the entire
-checkout, including new untracked files; filename splits alone did not isolate
-that consumer. Coordinate its actual input boundary and serialize shared Git
-operations.
+Coordinate actual shared inputs: a whole-checkout consumer can read outside its
+author's edit scope. Serialize shared Git operations. Reconcile uncertain
+create/send/write effects with their actual identity before retrying.
+Use the [terminal dependency notice](../../../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
+after independent work; duplicate notices do not repeat integration.
 
-Use the [one terminal notice](../../../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
-when the named dependency completes, fails or is cancelled. Finish independent
-work and end the turn while unchanged. K35 retained unresolved external intent
-after process termination; a lost response can coexist with a completed effect.
-Reconcile the affected create/send/write before retrying it, and keep duplicate
-notices from repeating the same integration.
-
-Retain new applicable experience in this reference when it helps a future
-decision. Shared domain knowledge can stay in its existing source with a link;
-there is no per-task retrospective.
+Useful experience stays in its owning subject reference with applicability and
+evidence. [Knowledge](../../../../.oasis/manual/knowledge.md) defines one scoped
+closing consolidation. [Version history](../../../../.oasis/manual/CHANGELOG.md)
+retains the source observations and their limits.

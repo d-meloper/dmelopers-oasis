@@ -1,26 +1,20 @@
 # Skill maintenance experience
 
-When moving or shortening a skill, move useful instructions into its reference
-before removing the old body, and update consumers and links together. K02's
-coverage audit and K41's installed-manual failure show that a list of files is
-weaker than working links in a separated installed project. See the
-[migration reference](../../../../.oasis/manual/migration-lessons.md).
+Keep each skill's purpose distinct. Read applicable experience before choosing
+an approach and retain one existing owner for shared knowledge. Move useful
+instructions, resource links, metadata and callers together when reorganizing.
 
-K29 separates file presence, native discovery and available tools/providers.
-All 24 skills are now installed and active. Tool/provider availability still
-differs from an installed skill. Local metadata validation checks names and
-resources; actual native discovery and model use remain separate checks.
+Check links in a separated installed project. File inventory, native discovery,
+available providers and performed model use are different results.
+All 24 bundled skills are active after installation.
 
-K30 retained acceptance scenarios without claiming live model answers. For a
-substantial decision change, a positive, negative or ambiguous scenario can help
-review the effect; the expected answer should not be passed as evidence of model
-behavior. Short prose and useful references do not require a length or format
-compliance checker.
+Keep descriptions discriminating and bodies short; route substantial detail
+to relevant references. A small skill needs no additional router or empty
+reference. Closing consolidation belongs in the task's existing scope and
+creates no wording, length or approval checker.
 
-Official skill loading separates initial name/description metadata from full
-instructions and supporting references. When keeping many skills available,
-lead the description with the actual workflow and load only relevant reference
-material. This package's 24 short bodies use that structure; their metadata and
-installed links are fixture-checked, without claiming measured model quality.
+Use positive/negative/ambiguous scenarios when a substantial decision change
+needs behavioral review. Withhold expected outcomes from the evaluated model.
 See [Build skills](https://learn.chatgpt.com/docs/build-skills) and
 [official prompting guidance](https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra).
+[Version history](../../../../.oasis/manual/CHANGELOG.md) retains source observations.
