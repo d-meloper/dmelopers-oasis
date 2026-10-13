@@ -33,17 +33,29 @@ required external-write identity/byte checks remain unchanged. The shared trigge
 and scope rule lives in the project's ProjectGuide; source operators reach it
 through README. Recognition examples are guidance, not performed model evaluations.
 
-In Oasis, `계획작업으로 진행해` reuses the existing Camel `plan-wait` contract.
+For coordinated Oasis work, `계획작업으로 진행해` reuses the existing Camel `plan-wait` contract.
 Its handoff includes a tool-free acknowledgement requesting that the owner
 enable actual Codex Plan mode and start the conversation in the Camel. In Pioneer
 the same initial acknowledgement/waiting stays in the existing Pioneer chat;
-no Camel is created. Static
+no Camel is created. An owner-established independent Oasis chat uses the
+same-chat exception in the single `LocalGitWorkflow.md#independent-specialist-sessions`
+contract at the installed project root (`seed/LocalGitWorkflow.md` in source).
+Static
 guidance/resource checks do not verify native mode switching, trigger recognition
 by a real model or first-turn waiting. The session adapter remains metadata-only;
 the currently exposed creation/messaging tools have no Plan mode setter. A live
 trial must distinguish waiting, actual mode selection, owner-started planning,
 plan approval and separately authorized implementation. Historical role trials
 below do not establish behavior for the new mode-dependent invocation wording.
+
+Independent-session evaluation must distinguish a real owner assignment from a
+title, an actual requested task from a standing role or unfinished-work note,
+and acknowledged resource release from silence or delivery. Exercise the shared
+writer boundary, prohibited relays, next-handoff versus live instruction changes,
+same-chat planning wait and mode-switch preservation of independent requests.
+Portable guide/link checks do not prove native adoption or authorize a live
+chat, external resource or domain operation. No new specialist registry or
+protected core role is implied.
 
 For behavioral evaluation, present the scenarios in each skill's references to
 an independent reviewer without the expected answer first. Record selected role,

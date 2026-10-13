@@ -1,7 +1,9 @@
 # Oasis Harness development
 
-A Camel assigned in `plan-wait` only gives the supplied waiting acknowledgement;
-it performs no reads or tools, including the setup reads below.
+A Camel assigned in `plan-wait`, or an owner-established independent Oasis chat
+waiting for planning, gives only the supplied waiting acknowledgement. It
+performs no reads or tools, including the setup reads below, until the owner
+starts planning in actual Codex Plan mode.
 
 Read [README.md](README.md), [development guidance](docs/development.md), and
 [verification boundaries](docs/validation.md) before changing this package.
@@ -14,12 +16,14 @@ promptly, keep checks brief, and leave exact verification/resume steps. It
 overrides normal verification depth for that task, preserving project mode and
 authority. Mentioning, defining or naming it is not an invocation.
 
-On `계획작업으로 진행해`, select the existing Camel `plan-wait` assignment
-flow without another mode-choice question. Follow the shared
-[planning-work rule](seed/ProjectGuide.md#planning-work): carry the request to
-enable actual Codex Plan mode and start the planning conversation in that Camel,
-then wait. The phrase assigns waiting, not planning or implementation start.
-Documenting or quoting it does not dispatch a chat.
+On `계획작업으로 진행해`, follow the shared
+[planning-work rule](seed/ProjectGuide.md#planning-work) without another
+mode-choice question. An owner-established independent Oasis chat waits here
+under the [independent session contract](seed/LocalGitWorkflow.md#independent-specialist-sessions);
+ordinary coordinated work retains the Camel `plan-wait` assignment. Ask for
+actual Codex Plan mode and the owner's planning start in the assigned chat, then
+wait. Implementation needs a separate request. Documenting or quoting the phrase
+does not dispatch a chat.
 
 This is the independent Oasis Harness source of record and primary development
 project; [the package literal](oasis_harness/__init__.py) owns its current version.
@@ -45,6 +49,9 @@ harness and knowledge; Cameleer manages priorities; Camel owns a bundle; Calf
 investigates, implements and verifies. Camel questions/results stay local for
 manual owner relay. Plan-wait, planning and implementation authorization are
 distinct. Discovery or a title does not assign a role.
+Owner-established independent specialist work follows the single
+[session contract](seed/LocalGitWorkflow.md#independent-specialist-sessions),
+preserving actual resource ownership and the protected manual relay boundary.
 
 Evidence-backed changes within existing skill responsibilities may proceed
 within the owner's requested work. Skill creation/deletion, structural or

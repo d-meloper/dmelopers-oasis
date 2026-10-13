@@ -1,8 +1,11 @@
 <p align="center">
-  <img src="assets/readme-hero.png" width="220" alt="DMeloper's Oasis">
+  <img src="assets/readme-hero.svg" width="220" alt="DMeloper's Oasis">
 </p>
 
-<h1 align="center">DMeloper's Oasis</h1>
+<h1 align="center">
+  <img src="assets/readme-title.svg" width="360" height="52" alt="DMeloper's Oasis"><br>
+  <sub><sup>Independent AI agent workflows for Codex on Windows</sup></sub>
+</h1>
 
 Codex operating instructions for Windows/Codex and Python 3.11+.
 Read the package version from [its literal](oasis_harness/__init__.py)
@@ -114,17 +117,24 @@ per-task prototype mode or fixed program-completion threshold. See
 [workflow selection, initialization and recovery](docs/workflows.md). This
 independent source keeps its existing Oasis operating rules.
 
+In Oasis mode, owner-established independent specialist chats work outside the
+Cameleer/Camel/Calf hierarchy under the single
+[independent specialist session contract](seed/LocalGitWorkflow.md#independent-specialist-sessions).
+The installed canonical guide is `LocalGitWorkflow.md` at the adopting project's
+root. Mode switches preserve their concrete requests and unfinished work.
+
 ## Operation routing
 
 | Requested operation | Read |
 |---|---|
 | Source development and repository ownership | [Development](docs/development.md) |
 | `빠른 작업으로 진행해`: immediate implementation-first, brief-check task pacing | [Fast work](seed/ProjectGuide.md#fast-work) |
-| `계획작업으로 진행해`: same-chat Pioneer waiting or Oasis's existing Camel plan-wait | [Planning work](seed/ProjectGuide.md#planning-work) |
+| `계획작업으로 진행해`: same-chat Pioneer/independent waiting or coordinated Oasis Camel plan-wait | [Planning work](seed/ProjectGuide.md#planning-work) |
 | Persistent mode, selected-role initialization or explicit switch | [Workflows](docs/workflows.md) |
 | Installation, upgrade, conflict or recovery | [Installation](docs/installation.md) |
 | Harness health, complete upstream comparison and compatible updates | [Harness Doctor](docs/doctor.md) |
 | Roles, manual owner relay and authorization | [Identity](docs/identity.md) |
+| Owner-established independent specialist work in Oasis mode | [Independent session contract](seed/LocalGitWorkflow.md#independent-specialist-sessions) |
 | Native chat metadata, settings and discovery | [Sessions](docs/sessions.md) |
 | Git profiles, hooks, private backup or restore | [Git and backup](docs/git-backup.md) |
 | Exact-candidate public source or release delivery | [Publication](docs/publication.md) |

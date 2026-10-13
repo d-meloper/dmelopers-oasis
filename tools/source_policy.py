@@ -11,6 +11,7 @@ import json
 from pathlib import Path, PurePosixPath
 import posixpath
 import re
+import xml.etree.ElementTree as ET
 
 from oasis_harness.common import HarnessError, digest, is_reparse, safe_relative
 from oasis_harness.skills import DEFAULT_NAMES, EXPECTED_CORE_DIGEST, OPTIONAL_NAMES
@@ -22,7 +23,7 @@ NEUTRAL_PROJECT = {
     "backup": {"configured": False}, "adapters": {}, "extensions": {},
 }
 SEED_FILES = {
-    "seed/AGENTS.md", "seed/ProjectGuide.md", "seed/.gitattributes",
+    "seed/AGENTS.md", "seed/ProjectGuide.md", "seed/LocalGitWorkflow.md", "seed/.gitattributes",
     "seed/.gitignore", "seed/BestPractice/README.md",
     "seed/BestPractice/KnowledgeLifecycle.md", "seed/BestPractice/history/README.md",
 }
@@ -40,6 +41,12 @@ ROOT_FILES = {
 # chunks; this pin does not permit other images or binary export exceptions.
 README_IMAGES = {
     "assets/readme-hero.png": "b17fb375819b95852b9c64cb516bbc5adff341c786e6028b82301ab32bb8888f",
+}
+# These two owner-approved UTF-8 vectors are source-only artwork. Exact pins
+# accompany, rather than replace, the XML/static-content checks below.
+README_SVGS = {
+    "assets/readme-title.svg": "258c59854bd9eb32aaa1c05c5496888fc9579d021232d6fa1de85e26200510a7",
+    "assets/readme-hero.svg": "a3437ffe6371fdc8d0740f84d834175568018c2078c70ae08e5dd67da4a3ccb6",
 }
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
@@ -119,6 +126,8 @@ def _classify(name):
         return "source-entry"
     if name in README_IMAGES:
         return "readme-image"
+    if name in README_SVGS:
+        return "readme-svg"
     if name in SEED_FILES:
         return "seed-guidance"
     if name in NEUTRAL_OASIS:
@@ -169,6 +178,61 @@ def _hard_scan(text):
         _fail("personal email in public bytes")
 
 
+def _static_svg(text):
+    """Closed static drawing subset for the two pinned README vectors only."""
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b|<\?\s*(?!xml\s)", text, re.I):
+        _fail("SVG declarations or processing instructions")
+    declaration = re.match(r"\A\ufeff?\s*<\?xml\s+(.*?)\?>", text, re.S | re.I)
+    if declaration:
+        encoding = re.search(r"\bencoding\s*=\s*['\"]([^'\"]+)['\"]", declaration[1], re.I)
+        if encoding and encoding[1].casefold() not in {"utf-8", "utf8"}:
+            _fail("unsupported SVG XML encoding")
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        _fail("invalid SVG XML")
+    namespace = "{http://www.w3.org/2000/svg}"
+    if root.tag != namespace + "svg":
+        _fail("invalid SVG root namespace")
+    tags = {"svg", "title", "desc", "defs", "clipPath", "path", "g", "style", "text"}
+    attributes = {"width", "height", "viewBox", "role", "aria-labelledby", "id", "class", "x", "y",
+                  "text-anchor", "font-family", "font-size", "font-weight", "fill", "d", "clip-path"}
+    identifiers, references = set(), []
+    identifier = re.compile(r"\A[A-Za-z_][A-Za-z0-9_.:-]*\Z")
+    color = r"(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})"
+    rule = rf"\.[A-Za-z_][A-Za-z0-9_-]*\s*\{{\s*fill\s*:\s*#{color}\s*;\s*\}}\s*"
+    media = rf"@media\s*\(\s*prefers-color-scheme\s*:\s*(?:dark|light)\s*\)\s*\{{\s*(?:{rule})+\}}\s*"
+    css = re.compile(rf"\A\s*(?:{rule}|{media})+\Z", re.I)
+    for element in root.iter():
+        if element.tag not in {namespace + tag for tag in tags}:
+            _fail("unsupported or executable SVG element")
+        for name, value in element.attrib.items():
+            if name.casefold().startswith("on"):
+                _fail("executable SVG event attribute")
+            if name not in attributes:
+                _fail("unsupported or external SVG attribute")
+            if re.search(r"(?i)(?:https?:|data:|javascript:|file:|//)", value):
+                _fail("external SVG reference")
+            if name == "id":
+                if not identifier.fullmatch(value) or value in identifiers:
+                    _fail("invalid or duplicate SVG identifier")
+                identifiers.add(value)
+            if name == "aria-labelledby":
+                references += value.split()
+            if name == "clip-path":
+                match = re.fullmatch(r"url\(\s*#([A-Za-z_][A-Za-z0-9_.:-]*)\s*\)", value, re.I)
+                if not match:
+                    _fail("external or invalid SVG clip reference")
+                references.append(match[1])
+            elif re.search(r"(?i)url\s*\(", value):
+                _fail("unsupported SVG URL reference")
+        if element.tag == namespace + "style":
+            if len(element) or not css.fullmatch(element.text or ""):
+                _fail("unsupported SVG CSS; only static fills and color-preference media rules")
+    if any(reference not in identifiers for reference in references):
+        _fail("unresolved SVG internal reference")
+
+
 def scan_harness_file(name, data, reviewed=None):
     """Scan one classified regular template/source file; no authority is inferred."""
     classification = _classify(name)
@@ -185,6 +249,8 @@ def scan_harness_file(name, data, reviewed=None):
         return {"path": name, "classification": classification, "sha256": sha,
                 "reviewed_exception": False, "reviewed_policy_sha256": digest(policy),
                 "authority_verified": False}
+    if classification == "readme-svg" and sha != README_SVGS[name]:
+        _fail("approved README SVG byte hash drift")
     if b"\0" in data:
         _fail("non-text source bytes")
     try:
@@ -192,6 +258,8 @@ def scan_harness_file(name, data, reviewed=None):
     except UnicodeError:
         _fail("unsupported source encoding")
     _hard_scan(text)
+    if classification == "readme-svg":
+        _static_svg(text)
     if name == "seed/.oasis/core.json" and digest(_json(data, "invalid protected core JSON")) != EXPECTED_CORE_DIGEST:
         _fail("protected core template drift")
     if name == "seed/.oasis/project.json" and digest(_json(data, "invalid neutral project JSON")) != digest(NEUTRAL_PROJECT):
@@ -306,7 +374,7 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
         "README.md", "AGENTS.md", "oasis.py", "oasis_harness/__init__.py",
         "docs/installation.md", "docs/workflows.md",
         "docs/identity.md", "docs/publication.md", "docs/doctor.md", "docs/validation.md",
-    } | SEED_FILES | NEUTRAL_OASIS | set(README_IMAGES)
+    } | SEED_FILES | NEUTRAL_OASIS | set(README_IMAGES) | set(README_SVGS)
     mandatory |= {"oasis_harness/" + module + ".py" for module in (
         "backup", "build", "cli", "common", "doctor", "gitops", "github",
         "installation", "knowledge", "packets", "publication", "sessions", "skills", "workflows",

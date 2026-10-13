@@ -76,12 +76,21 @@ around that rule; the human still relays them. Project file facts, durable guide
 and Pioneer's own context may be used without impersonating descendant messages.
 See [identity](identity.md).
 
+Owner-established independent specialty work in Oasis uses the single
+`LocalGitWorkflow.md#independent-specialist-sessions` contract at the installed
+project's root (`seed/LocalGitWorkflow.md` in the source distribution). It does
+not create a new protected core role or adapter registry entry. Refer to that
+contract for ownership, messages and application timing; Pioneer introduces no
+independent specialist role.
+
 ## Planning and fast work
 
 `계획작업으로 진행해` in Pioneer asks this same Pioneer to give only the waiting
 acknowledgement requesting actual Codex Plan mode and the owner's planning start,
-then wait without tools or reads. It creates no Camel. In Oasis it uses the
-existing Camel `plan-wait` assignment. A prompt label cannot toggle native Plan
+then wait without tools or reads. It creates no Camel. An owner-established
+independent Oasis chat also waits in its same chat under the contract above.
+Ordinary coordinated Oasis work uses the existing Camel `plan-wait` assignment.
+A prompt label cannot toggle native Plan
 mode; current session metadata and exposed creation/messaging tools have no Plan
 setter. Once the owner starts planning in actual Plan mode, discuss the plan.
 Implementation requires a separate instruction; a toggle or plan approval does
@@ -126,7 +135,9 @@ unknown ownership, rather than repeating a generic mode-confirmation question.
 5. Only after every new target is verified, archive the explicitly linked old
    scope. Pioneer-to-Oasis includes old Pioneer and its linked ordinary Developer
    workers. Oasis-to-Pioneer includes connected Oasis/Cameleer/Camel/Calf, with
-   leaves before parents. Preserve unrelated chats. Inspect native descendants
+   leaves before parents. Preserve unrelated and independently assigned chats,
+   their concrete requests and unfinished work; perform no automatic collection,
+   archival or reassignment of independent work. Inspect native descendants
    because parent archival may cascade; an unscoped descendant or ambiguous
    ownership blocks the affected archive instead of guessing from titles.
 6. Verify archive outcomes and finalize the persistent mode/bindings. Navigate

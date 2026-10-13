@@ -7,7 +7,7 @@ hide it from a fresh chat; internal packet language does not change that choice.
 Preserve exact literals separately when needed. Before sending, check recipient,
 side effects and human authorization; a valid packet is not permission.
 
-In Oasis mode, for `계획작업으로 진행해`, Cameleer supplies `mode: plan-wait` and a self-contained
+For coordinated Oasis bundle work, `계획작업으로 진행해` makes Cameleer supply `mode: plan-wait` and a self-contained
 initial waiting instruction. In `need`, use compact English such as: "Only
 acknowledge waiting and ask the owner to enable actual Codex Plan mode and start
 the planning conversation in this Camel. No tools, reads, research, questions,
@@ -18,8 +18,10 @@ owner's conversation language as explicit data. Do not deliver `execute` or a
 planning-start prompt from this trigger. The packet validator does not toggle
 native mode or send; use only a supported, owner-authorized dispatch. The existing
 PLAN-WAIT prefix and this acknowledgement both mean tool-free initial waiting.
-Pioneer uses the same initial waiting boundary in its current chat, without a
-Camel handoff. Project selection `extensions.workflow.mode` and native Plan mode
+Pioneer and an owner-established independent Oasis chat use the same initial
+waiting boundary in their current chat, without a Camel handoff. Independent
+scope and messaging follow the single [session contract](../../LocalGitWorkflow.md#independent-specialist-sessions).
+Project selection `extensions.workflow.mode` and native Plan mode
 are separate from the packet's execute/plan-wait field. New-role context/first
 prompts and their waiting acknowledgements use the owner's language; existing
 technical packet controls remain English. Workflow context must not relay a

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "channel": "stable",
   "mode": "source-and-artifacts",
   "files": [
@@ -13,6 +13,8 @@
     "NOTICE",
     "README.md",
     "assets/readme-hero.png",
+    "assets/readme-hero.svg",
+    "assets/readme-title.svg",
     "docs/adaptation-map.json",
     "docs/adaptation-map.md",
     "docs/development.md",
@@ -137,6 +139,7 @@
     "seed/BestPractice/KnowledgeLifecycle.md",
     "seed/BestPractice/README.md",
     "seed/BestPractice/history/README.md",
+    "seed/LocalGitWorkflow.md",
     "seed/ProjectGuide.md",
     "tests/__init__.py",
     "tests/test_backup.py",

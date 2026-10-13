@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="52" viewBox="0 0 360 52" role="img" aria-labelledby="title">
+  <title id="title">DMeloper's Oasis</title>
+  <style>
+    .title { fill: #1f2328; }
+    @media (prefers-color-scheme: dark) {
+      .title { fill: #f0f6fc; }
+    }
+  </style>
+  <text class="title" x="180" y="39" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="38.4" font-weight="600">DMeloper's Oasis</text>
+</svg>
