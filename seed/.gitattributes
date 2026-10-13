@@ -1,0 +1,2 @@
+# Installation baselines are immutable byte blobs, even when their payload is text.
+/.oasis/base/** -text

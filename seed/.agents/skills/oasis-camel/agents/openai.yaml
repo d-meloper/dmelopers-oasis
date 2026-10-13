@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oasis Camel"
+  short_description: "Scoped workflow with explicit evidence boundaries"
+  default_prompt: "Use $oasis-camel for the requested project scope."

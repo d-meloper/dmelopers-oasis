@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-rendering-performance",
+  "execution": "tool-guided",
+  "prerequisites": "Actual rendering backend, relevant frozen reference/cold fixture and measurable work/resource counters; physical GPU claims require actual observations.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Preview renderer reused across A/B/A assets",
+      "expected": "Results match cold references with bounded retained resources."
+    },
+    {
+      "kind": "negative",
+      "trigger": "Geometry-only test passes but first upload draw is wrong",
+      "expected": "Keep failure and exercise the backend upload boundary."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Requested quality differs from allocated targets",
+      "expected": "Report applied-state uncertainty; inspect actual context."
+    }
+  ]
+}

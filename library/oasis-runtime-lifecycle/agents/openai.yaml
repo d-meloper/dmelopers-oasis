@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oasis Runtime Lifecycle"
+  short_description: "Focused domain workflow and meaningful proof limits"
+  default_prompt: "Use $oasis-runtime-lifecycle for the requested project scope."

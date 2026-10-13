@@ -1,0 +1,3 @@
+#!/bin/sh
+echo "Source pushes are disabled. Back up the isolated source and use the reviewed exact public candidate workflow." >&2
+exit 1

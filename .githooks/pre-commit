@@ -1,0 +1,2 @@
+#!/bin/sh
+exec python -B -X utf8 tools/bump_commit_version.py

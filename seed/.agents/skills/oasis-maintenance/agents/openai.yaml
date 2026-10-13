@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oasis Maintenance"
+  short_description: "Scoped workflow with explicit evidence boundaries"
+  default_prompt: "Use $oasis-maintenance for the requested project scope."

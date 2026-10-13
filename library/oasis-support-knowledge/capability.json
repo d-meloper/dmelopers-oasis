@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-support-knowledge",
+  "execution": "tool-guided",
+  "prerequisites": "Actual product/source/UI/public facts, supported locales, topic source map and an available explicitly selected knowledge destination for live registration.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Current consumer confirms a renamed UI action",
+      "expected": "Update paired facts and source mapping with actual labels."
+    },
+    {
+      "kind": "negative",
+      "trigger": "Old locale key exists but no UI uses it",
+      "expected": "Do not present it as a current action."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Local checks pass but live model has not been queried",
+      "expected": "Report live answer evaluation NOT RUN."
+    }
+  ]
+}
