@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Git Operations"
-  short_description: "Scoped workflow with explicit evidence boundaries"
-  default_prompt: "Use $oasis-git-operations for the requested project scope."
+  short_description: "Operate selected Git workflow and backup"
+  default_prompt: "Use $oasis-git-operations for the requested project work."

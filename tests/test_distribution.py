@@ -9,7 +9,6 @@ from tools.source_checks import select
 
 PACKAGE = Path(__file__).resolve().parents[1]
 GUIDE = "LocalGitWorkflow.md"
-INDEPENDENT_LINK = "../../../LocalGitWorkflow.md#independent-specialist-sessions"
 
 
 def guide_package(root, *, include_guide=True):
@@ -34,12 +33,29 @@ class DistributionBoundary(unittest.TestCase):
                        b"public-source-policy.json", b'distribution_profile: "oasis-harness"'):
             for name, data in payload.items():
                 with self.subTest(marker=marker, path=name):
+                    if name == ".oasis/manual/upgrade-index.json":
+                        # Neutral historical filenames are data, not distributed
+                        # source policy code or primary repository bindings.
+                        # Permit only these exact names in release.files; scan
+                        # all other fields/bytes against every binding marker.
+                        import json
+                        value = json.loads(data)
+                        for release in value["releases"]:
+                            release["files"] = [p for p in release["files"] if p not in
+                                                {"tools/source_delivery.py", "tests/test_source_delivery.py",
+                                                 "tools/public-source-policy.json"}]
+                        data = json.dumps(value).encode("utf-8")
                     self.assertNotIn(marker, data)
         self.assertNotIn(".oasis/manual/development.md", payload)
         self.assertNotIn(".oasis/runtime/oasis_harness/public_source.py", payload)
         self.assertIn(".oasis/runtime/oasis_harness/workflows.py", payload)
+        self.assertIn(".oasis/manual/upgrade-index.json", payload)
         self.assertIn(".oasis/manual/workflows.md", payload)
         self.assertIn(".agents/skills/oasis-pioneer/SKILL.md", payload)
+        self.assertNotIn(".agents/skills/oasis-calf/SKILL.md", payload)
+        self.assertNotIn(".oasis/runtime/oasis_harness/packets.py", payload)
+        self.assertEqual(len([name for name in payload if name.startswith(".agents/skills/") and name.endswith("/SKILL.md")]), 24)
+        self.assertFalse(any(name.startswith(".oasis/library/") for name in payload))
         self.assertEqual(payload[GUIDE], (PACKAGE / "seed" / GUIDE).read_bytes())
         self.assertNotIn(".oasis/manual/" + GUIDE, payload)
         for artwork in ("assets/readme-title.svg", "assets/readme-hero.svg", "assets/readme-hero.png"):
@@ -47,12 +63,10 @@ class DistributionBoundary(unittest.TestCase):
         self.assertEqual(payload[".oasis/manual/adaptation-map.json"],
                          (PACKAGE / "docs/adaptation-map.json").read_bytes())
         self.assertFalse(any(name.startswith(".githooks/") for name in payload))
-        self.assertEqual(digest(read_json(PACKAGE / "seed/.oasis/core.json")),
-                         "1ddc968c0c19c1e2f89c56158cf40036c41838f7d97d33799cbf7cf3d6d1b07f")
+        self.assertEqual(read_json(PACKAGE / "seed/.oasis/core.json")["core_version"], "2.0.0")
 
-    def test_independent_contract_links_resolve_in_source_and_installed_skills(self):
+    def test_skill_reference_links_resolve_in_source_and_installed_payload(self):
         payload = installation.package_files(PACKAGE)
-        self.assertIn(b"## Independent specialist sessions", payload[GUIDE])
         with tempfile.TemporaryDirectory(prefix="oasis-guide-links-") as tmp:
             installed = Path(tmp)
             # Materialize the real adopter payload without invoking native chats
@@ -61,19 +75,17 @@ class DistributionBoundary(unittest.TestCase):
                 path = installed / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_bytes(data)
-            for role in ("oasis-maintenance", "oasis-cameleer"):
+            for role in skills.DEFAULT_NAMES:
                 for root in (PACKAGE / "seed", installed):
                     directory = root / ".agents/skills" / role
                     with self.subTest(role=role, layout="source" if root == PACKAGE / "seed" else "installed"):
-                        self.assertIn("(" + INDEPENDENT_LINK + ")",
-                                      (directory / "SKILL.md").read_text(encoding="utf-8"))
-                        self.assertEqual((directory / INDEPENDENT_LINK.split("#")[0]).resolve(),
-                                         (root / GUIDE).resolve())
                         self.assertEqual(skills.inspect_skill(directory)["name"], role)
-            (installed / GUIDE).unlink()
-            for role in ("oasis-maintenance", "oasis-cameleer"):
-                with self.subTest(role=role), self.assertRaisesRegex(HarnessError, GUIDE):
-                    skills.inspect_skill(installed / ".agents/skills" / role)
+            for role in skills.OPTIONAL_NAMES:
+                self.assertEqual(skills.inspect_skill(installed / ".agents/skills" / role)["name"], role)
+            source = installed / ".agents/skills/oasis-camel/SKILL.md"
+            source.write_bytes(source.read_bytes() + b"\n[Missing reference](references/missing.md)\n")
+            with self.assertRaisesRegex(HarnessError, "Broken installed skill resource"):
+                skills.inspect_skill(source.parent)
 
     def test_fresh_install_refuses_existing_same_name_guide_without_writes(self):
         with tempfile.TemporaryDirectory(prefix="oasis-guide-collision-") as tmp:
@@ -170,9 +182,6 @@ class DistributionBoundary(unittest.TestCase):
         self.assertNotIn("tests.test_backup", docs["modules"])
         self.assertIn("tests.test_installation", select(["oasis_harness/installation.py"])["modules"])
         self.assertIn("tests.test_backup", select(["oasis_harness/backup.py"])["modules"])
-        # Packet route/wait behavior is owned by tests.test_common, rather than
-        # by a test module named after the runtime. Retain that direct coverage.
-        self.assertIn("tests.test_common", select(["oasis_harness/packets.py"])["modules"])
         # test_build owns the original-path export guard and source-only
         # prepare/execute integration, even when only the publisher changes.
         self.assertIn("tests.test_build", select(["oasis_harness/publication.py"])["modules"])

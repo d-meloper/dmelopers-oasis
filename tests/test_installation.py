@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+import shutil
 
 from oasis_harness import installation as install
 from oasis_harness.common import HarnessError, canonical, digest, file_hash, read_json, write_json
@@ -368,6 +369,262 @@ class InstallationTests(unittest.TestCase):
         with self.assertRaises(HarnessError):
             install.apply(value, state_root=self.state)
         self.assertEqual(before, {p.relative_to(self.target).as_posix(): file_hash(p) for p in self.target.rglob("*") if p.is_file()})
+
+
+class CalfMigrationInstallation(unittest.TestCase):
+    """Real disposable owned-file migrations; task metadata is an injected fixture."""
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="oasis-calf-upgrade-")
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.old, self.incoming = self.base / "old", self.base / "incoming"
+        self.target, self.state = self.base / "project 한글 😀", self.base / "journals"
+        self.target.mkdir()
+        from oasis_harness import skills
+        package = Path(__file__).resolve().parents[1]
+        for name in ("seed/.oasis", "library/oasis-review", "docs", "oasis_harness"):
+            (self.old / name).mkdir(parents=True)
+        shutil.copyfile(package / "seed/.oasis/project.json", self.old / "seed/.oasis/project.json")
+        write_json(self.old / "seed/.oasis/core.json", {"schema_version": 1, "core_version": "1.0.0",
+                                                      "roles": ["Oasis", "Cameleer", "Camel", "Calf"]})
+        for name in skills.DEFAULT_NAMES + ("oasis-calf",):
+            folder = self.old / "seed/.agents/skills" / name
+            folder.mkdir(parents=True)
+            body = "Implement the assigned work.\n" if name != "oasis-calf" else "Retired Calf report and ACK procedure.\n"
+            (folder / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Fixture skill.\n---\n{body}", encoding="utf-8")
+        notes = self.old / ("seed/" + install.CAMEL_PRACTICES)
+        notes.parent.mkdir()
+        notes.write_bytes(b"# Camel implementation experience\n\nUse related tests.\n")
+        (self.old / "seed/.agents/skills/oasis-calf/agents").mkdir()
+        (self.old / "seed/.agents/skills/oasis-calf/agents/openai.yaml").write_bytes(b"model: inherit\n")
+        (self.old / "oasis_harness/__init__.py").write_bytes(b'__version__ = "1.1.9"\n')
+        for name in skills.OPTIONAL_NAMES:
+            folder = self.old / "library" / name
+            folder.mkdir(parents=True, exist_ok=True)
+            (folder / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Fixture capability.\n---\nUse its project function.\n", encoding="utf-8")
+        install.apply(install.plan(self.target, self.old, mode="oasis"), state_root=self.state)
+        shutil.copytree(self.old, self.incoming)
+        calf = self.incoming / "seed/.agents/skills/oasis-calf"
+        # Only this fixture-created directory is removed, inside the temp root.
+        self.assertTrue(calf.resolve().is_relative_to(self.base.resolve()))
+        shutil.rmtree(calf)
+        write_json(self.incoming / "seed/.oasis/core.json", {"schema_version": 1, "core_version": "2.0.0",
+                                                           "roles": ["Oasis", "Cameleer", "Camel", "Pioneer"]})
+        (self.incoming / "oasis_harness/__init__.py").write_bytes(b'__version__ = "1.2.0"\n')
+        (self.incoming / ("seed/" + install.CAMEL_PRACTICES)).write_bytes(
+            b"# Camel implementation experience\n\nUse related tests and retain reproducible encoding examples.\n")
+
+    def files(self):
+        return {path.relative_to(self.target).as_posix(): path.read_bytes()
+                for path in self.target.rglob("*") if path.is_file()}
+
+    def task(self, phase):
+        write_json(self.target / ".oasis/local/tasks/state.json", {"schema_version": 1, "tasks": [
+            {"id": "fixture-task", "camel_thread_id": "fixture-real-camel-id", "cameleer_thread_id": "fixture-real-cameleer-id",
+             "goal": "Finish the old implementation", "phase": phase, "location": str(self.target),
+             "result": "", "checks": ""}], "dependencies": []})
+
+    def migration(self, relative, content):
+        return {"schema_version": 1, "files": [{"path": relative,
+                "before_sha256": digest((self.target / relative).read_bytes()),
+                "after_base64": install._encode(content)}]}
+
+    def test_unfinished_actual_task_link_defers_all_upgrade_writes_then_terminal_work_can_upgrade(self):
+        self.task("running")
+        before = self.files()
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertEqual(value["migration"]["status"], "waiting")
+        self.assertEqual(value["operations"], [])
+        self.assertIn("fixture-real-camel-id", json.dumps(value["migration"]["unfinished_tasks"]))
+        with self.assertRaisesRegex(HarnessError, "waiting for unfinished"):
+            install.apply(value, state_root=self.state)
+        self.assertEqual(self.files(), before)
+        self.task("completed")
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertEqual(value["conflicts"], [])
+        install.apply(value, state_root=self.state)
+        self.assertFalse((self.target / install.CALF_PREFIX).exists())
+        self.assertEqual(read_json(self.target / ".oasis/core.json")["core_version"], "2.0.0")
+        self.assertEqual(read_json(self.target / install.MANIFEST)["package_version"], "1.2.0")
+        self.assertEqual(read_json(self.target / ".oasis/local/tasks/state.json")["tasks"][0]["phase"], "completed")
+
+    def test_upgrade_preserves_mode_git_optional_user_skills_settings_and_history(self):
+        from oasis_harness import skills
+        project_path = self.target / ".oasis/project.json"
+        project = read_json(project_path)
+        project["git"]["profile"] = "main-test"
+        project["capabilities"] = list(skills.OPTIONAL_NAMES)
+        project["extensions"].update({"knowledge": "Encoding observation", "model": "owner selection"})
+        write_json(project_path, project)
+        donor_project_path = self.incoming / "seed/.oasis/project.json"
+        donor_project = read_json(donor_project_path)
+        donor_project["extensions"]["workflow"] = {"mode": "pioneer"}
+        write_json(donor_project_path, donor_project)
+        protected = {".git/config": b"Existing refs and remote settings\n", ".codex/config.toml": b"Existing Codex settings\n",
+                     ".agents/skills/user-skill/SKILL.md": b"Owner skill\n", ".oasis/state/tasks.md": b"Historical task result\n",
+                     ".oasis/local/chat-history.json": b"Existing chat IDs\n"}
+        for name, data in protected.items():
+            path = self.target / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+        review = self.target / ".agents/skills/oasis-review/SKILL.md"
+        review.write_bytes(review.read_bytes() + b"\nProject review experience.\n")
+        before = review.read_bytes()
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertEqual(value["conflicts"], [])
+        install.apply(value, state_root=self.state)
+        self.assertEqual(read_json(project_path), project)
+        self.assertEqual(review.read_bytes(), before)
+        for name, data in protected.items():
+            self.assertEqual((self.target / name).read_bytes(), data)
+        self.assertEqual(set(read_json(self.target / install.MANIFEST)["enabled_capabilities"]), set(skills.OPTIONAL_NAMES))
+
+    def test_custom_calf_body_requires_content_selection_preserves_original_and_transfers_useful_notes(self):
+        relative = install.CALF_PREFIX + "SKILL.md"
+        local = (self.target / relative).read_bytes() + b"\nFor Korean filenames, use Python UTF-8 mode.\n"
+        (self.target / relative).write_bytes(local)
+        before = self.files()
+        review = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertTrue(any("Calf knowledge content conflict" in item for item in review["conflicts"]))
+        self.assertIn("Python UTF-8", review["migration"]["customizations"][0]["local_diff"])
+        with self.assertRaisesRegex(HarnessError, "unresolved conflicts"):
+            install.apply(review, state_root=self.state)
+        self.assertEqual(self.files(), before)
+        useful = b"# Project encoding experience\n\nFor Korean filenames, use Python UTF-8 mode.\n"
+        resolved = self.migration(relative, useful)
+        value = install.plan(self.target, self.incoming, upgrade=True, calf_migration=resolved)
+        self.assertEqual(value["conflicts"], [])
+        install.apply(value, state_root=self.state)
+        destination = install.CAMEL_NOTES + "SKILL.md"
+        self.assertEqual((self.target / destination).read_bytes(), useful)
+        self.assertNotIn(b"ACK", (self.target / destination).read_bytes())
+        self.assertIn(b"calf-migration/SKILL.md", (self.target / install.CAMEL_PRACTICES).read_bytes())
+        archive = install.CALF_HISTORY + digest(local) + "/SKILL.md"
+        self.assertEqual((self.target / archive).read_bytes(), local)
+        self.assertFalse((self.target / install.CALF_PREFIX).exists())
+        self.assertEqual(install.verify(self.target)["status"], "verified")
+        retained = self.files()
+        install.apply(install.plan(self.target, self.incoming, upgrade=True), state_root=self.state)
+        self.assertEqual(self.files(), retained)
+
+    def test_calf_migration_source_and_destination_collisions_preserve_user_bytes(self):
+        relative = install.CALF_PREFIX + "SKILL.md"
+        source = self.target / relative
+        source.write_bytes(source.read_bytes() + b"\nLocal interface experience.\n")
+        selection = self.migration(relative, b"Local interface experience.\n")
+        destination = self.target / (install.CAMEL_NOTES + "SKILL.md")
+        destination.parent.mkdir(parents=True)
+        destination.write_bytes(b"Existing owner Camel notes.\n")
+        before = self.files()
+        value = install.plan(self.target, self.incoming, upgrade=True, calf_migration=selection)
+        self.assertTrue(any("Existing file differs" in item and "calf-migration" in item for item in value["conflicts"]))
+        with self.assertRaises(HarnessError):
+            install.apply(value, state_root=self.state)
+        self.assertEqual(self.files(), before)
+        destination.unlink()
+        value = install.plan(self.target, self.incoming, upgrade=True, calf_migration=selection)
+        source.write_bytes(source.read_bytes() + b"Concurrent implementation note.\n")
+        before = self.files()
+        with self.assertRaisesRegex(HarnessError, "source changed since plan"):
+            install.apply(value, state_root=self.state)
+        self.assertEqual(self.files(), before)
+
+    def test_new_unfinished_work_or_calf_file_after_plan_blocks_transition(self):
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.task("running")
+        before = self.files()
+        with self.assertRaisesRegex(HarnessError, "New unfinished"):
+            install.apply(value, state_root=self.state)
+        self.assertEqual(self.files(), before)
+        self.task("cancelled")
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        (self.target / (install.CALF_PREFIX + "new-note.md")).write_bytes(b"Later owner learning\n")
+        before = self.files()
+        with self.assertRaisesRegex(HarnessError, "source changed since plan"):
+            install.apply(value, state_root=self.state)
+        self.assertEqual(self.files(), before)
+
+    def test_custom_non_markdown_calf_assets_archive_without_becoming_active_camel_configuration(self):
+        source = self.target / (install.CALF_PREFIX + "agents/openai.yaml")
+        source.write_bytes(b"model: owner-customized\n")
+        original = source.read_bytes()
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertEqual(value["conflicts"], [])
+        install.apply(value, state_root=self.state)
+        archive = self.target / (install.CALF_HISTORY + digest(original) + "/agents/openai.yaml")
+        self.assertEqual(archive.read_bytes(), original)
+        self.assertFalse((self.target / (install.CAMEL_NOTES + "agents/openai.yaml")).exists())
+
+    def test_older_subset_installation_adds_all_capabilities_and_retires_inactive_copies(self):
+        from oasis_harness import skills
+        manifest_path = self.target / install.MANIFEST
+        manifest = read_json(manifest_path)
+        for name in skills.OPTIONAL_NAMES:
+            active = f".agents/skills/{name}/SKILL.md"
+            inactive = f".oasis/library/{name}/SKILL.md"
+            record = manifest["managed"].pop(active)
+            target = self.target / inactive
+            target.parent.mkdir(parents=True)
+            target.write_bytes((self.target / active).read_bytes())
+            manifest["managed"][inactive] = dict(record, owner="library")
+            if name != "oasis-review":
+                (self.target / active).unlink()
+            else:
+                manifest["managed"][active] = record
+        manifest["enabled_capabilities"] = ["oasis-review"]
+        write_json(manifest_path, manifest)
+        project_path = self.target / ".oasis/project.json"
+        project = read_json(project_path)
+        project["capabilities"] = ["oasis-review"]
+        write_json(project_path, project)
+        review = self.target / ".agents/skills/oasis-review/SKILL.md"
+        review.write_bytes(review.read_bytes() + b"\nKeep the project review examples.\n")
+        retained = review.read_bytes()
+        value = install.plan(self.target, self.incoming, upgrade=True)
+        self.assertEqual(value["conflicts"], [])
+        install.apply(value, state_root=self.state)
+        self.assertEqual(review.read_bytes(), retained)
+        self.assertEqual(len(skills.validate_skills(self.target)["skills"]), 24)
+        self.assertEqual(read_json(project_path)["capabilities"], list(skills.OPTIONAL_NAMES))
+        self.assertFalse(any(path.is_file() for path in (self.target / ".oasis/library").rglob("*")))
+        self.assertEqual(set(read_json(manifest_path)["enabled_capabilities"]), set(skills.OPTIONAL_NAMES))
+
+    def test_cli_migration_file_supplies_only_reviewed_notes_bound_to_current_bytes(self):
+        relative = install.CALF_PREFIX + "SKILL.md"
+        source = self.target / relative
+        source.write_bytes(source.read_bytes() + b"\nLocal knowledge.\n")
+        selection = self.migration(relative, b"Local knowledge.\n")
+        path = self.base / "calf-notes.json"
+        write_json(path, selection)
+        parser = argparse.ArgumentParser()
+        install.register(parser.add_subparsers(dest="command"))
+        args = parser.parse_args(["install", "upgrade", "--target", str(self.target), "--package", str(self.incoming),
+                                  "--calf-migration", str(path)])
+        value = args.func(args)
+        self.assertEqual(value["conflicts"], [])
+        self.assertEqual(install._decode(next(op for op in value["operations"]
+                         if op["path"] == install.CAMEL_NOTES + "SKILL.md")["after"]), b"Local knowledge.\n")
+
+    def test_interrupted_migration_recovers_exact_originals_and_waits_if_new_work_begins(self):
+        relative = install.CALF_PREFIX + "SKILL.md"
+        source = self.target / relative
+        source.write_bytes(source.read_bytes() + b"\nUseful local check command.\n")
+        original = source.read_bytes()
+        value = install.plan(self.target, self.incoming, upgrade=True,
+                             calf_migration=self.migration(relative, b"Useful local check command.\n"))
+        with self.assertRaisesRegex(HarnessError, "Injected interruption"):
+            install.apply(value, state_root=self.state, interrupt_after=1)
+        journal = next(path for path in self.state.glob("*/journal.json") if read_json(path)["state"] == "applying")
+        self.task("running")
+        before = self.files()
+        with self.assertRaisesRegex(HarnessError, "recovery is waiting"):
+            install.recover(journal)
+        self.assertEqual(self.files(), before)
+        self.task("failed")
+        self.assertEqual(install.recover(journal)["status"], "complete")
+        archive = self.target / (install.CALF_HISTORY + digest(original) + "/SKILL.md")
+        self.assertEqual(archive.read_bytes(), original)
+        self.assertEqual((self.target / (install.CAMEL_NOTES + "SKILL.md")).read_bytes(), b"Useful local check command.\n")
 
 
 if __name__ == "__main__":

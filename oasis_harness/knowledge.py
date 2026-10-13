@@ -9,8 +9,6 @@ from .common import HarnessError, contained, digest, operation_lock, read_json
 from .skills import check_core
 from .installation import target_root
 
-FIELDS = {"schema_version", "id", "classification", "problem", "observed", "hypotheses", "evidence",
-          "delta", "conditions", "impact", "tests", "canonical_rule", "change_kind", "status", "limits"}
 KINDS = {"knowledge", "existing-skill", "new-skill", "delete-skill", "core"}
 SENSITIVE = (
     ("private path", r"(?i)(?:[a-z]:[\\/]|/Users/|/home/|\\\\[^\s]+\\)"),
@@ -19,59 +17,21 @@ SENSITIVE = (
     ("live identifier", r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"),
     ("external target", r"https?://[^\s)]+"),
 )
-INTRUSION = re.compile(r"(?i)(?:bypass|disable|remove|ignore|override)\s+(?:all\s+)?(?:approval|permission|core|manual.relay|plan.wait)|(?:automatically|auto)\s+(?:publish|send|import|propagate)|(?:grant|enable)\s+(?:unrestricted|full.access)|(?:Camel|Calf)\s+(?:may|can|should|must)\s+(?:send|contact)[^.\n]*Cameleer")
 
 
 def validate_case(case):
-    if not isinstance(case, dict) or set(case) != FIELDS or case.get("schema_version") != 1:
-        raise HarnessError("Knowledge case has unknown/missing fields or schema; use the documented case schema")
-    if not isinstance(case["id"], str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{2,63}", case["id"]):
+    """Accept reusable notes without a required evidence or behavior schema."""
+    if not isinstance(case, dict):
+        raise HarnessError("Knowledge input must be a JSON object")
+    if not isinstance(case.get("id"), str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{2,63}", case["id"]):
         raise HarnessError("Case id must be 3-64 lowercase letters, digits or hyphens")
-    if case["classification"] not in {"generic", "windows", "project"} or case["change_kind"] not in KINDS:
-        raise HarnessError("Unknown knowledge classification or change kind")
-    if case["status"] not in {"observed", "evaluated", "adopted", "superseded"}:
-        raise HarnessError("Unknown case status")
-    for key in ("problem", "delta", "conditions", "impact", "canonical_rule"):
-        if not isinstance(case[key], str) or not case[key].strip():
-            raise HarnessError(f"Case {key} must contain substantive text")
-    for key in ("observed", "hypotheses", "evidence", "tests", "limits"):
-        if not isinstance(case[key], list):
-            raise HarnessError(f"Case {key} must be a list")
-    if not case["observed"] or not case["evidence"]:
-        raise HarnessError("Capture requires an observation and evidence; a hypothesis alone is not a finding")
-    for key in ("observed", "hypotheses", "limits"):
-        if any(not isinstance(value, str) or not value.strip() for value in case[key]):
-            raise HarnessError(f"Case {key} entries must be nonempty text")
-    for evidence in case["evidence"]:
-        if not isinstance(evidence, dict) or set(evidence) != {"label", "sha256", "scope"} or not all(isinstance(evidence[k], str) and evidence[k] for k in evidence):
-            raise HarnessError("Evidence requires label, sha256 and scope; keep private raw paths outside the case")
-        if not re.fullmatch(r"[0-9a-f]{64}", evidence["sha256"]):
-            raise HarnessError("Evidence SHA256 is invalid")
-    for test in case["tests"]:
-        if not isinstance(test, dict) or set(test) != {"case", "outcome", "boundary", "evidence_sha256"}:
-            raise HarnessError("Tests require case, outcome, boundary and evidence_sha256")
-        if test["outcome"] not in {"pass", "fail", "not-run", "unknown"} or test["boundary"] not in {"static", "fixture", "semantic", "installed", "live"}:
-            raise HarnessError("Invalid test outcome or proof boundary")
-        if not isinstance(test["case"], str) or not test["case"]:
-            raise HarnessError("Test case must be named")
-        proof = test["evidence_sha256"]
-        if test["outcome"] in {"pass", "fail"} and not (isinstance(proof, str) and re.fullmatch(r"[0-9a-f]{64}", proof)):
-            raise HarnessError("Performed tests require an evidence digest")
-        if proof is not None and (not isinstance(proof, str) or not re.fullmatch(r"[0-9a-f]{64}", proof)):
-            raise HarnessError("Test evidence digest is invalid")
-    if case["status"] in {"evaluated", "adopted"} and not case["tests"]:
-        raise HarnessError("Evaluated/adopted cases require tests; labels alone are not proof")
-    if case["status"] == "adopted" and not any(test["outcome"] == "pass" and test["boundary"] in {"semantic", "installed", "live"} for test in case["tests"]):
-        raise HarnessError("Static/fixture checks alone do not establish adoption; retain the actual consumer evaluation")
+    if "classification" in case and case["classification"] not in ("generic", "windows", "project"):
+        raise HarnessError("Knowledge classification must be generic, windows or project")
     sensitive = contamination(case)
     if sensitive:
         raise HarnessError("Case contains private material: " + ", ".join(sensitive) + "; use opaque evidence labels")
-    needs_approval = case["change_kind"] in {"new-skill", "delete-skill", "core"} or bool(INTRUSION.search(case["delta"]))
-    if needs_approval and case["status"] == "adopted":
-        raise HarnessError("Structural/core case cannot self-declare adoption; use the owner-approved versioned migration")
-    return {"valid": True, "requires_owner_decision": needs_approval, "semantic_authority_review": "required",
-            "proof": "schema and bounded contamination checks only; evidence assertions are not independently verified"}
-
+    return {"valid": True, "requires_owner_decision": case.get("change_kind") in {"new-skill", "delete-skill", "core"},
+            "proof": "JSON input and bounded contamination checks only; note assertions are not independently verified"}
 
 def contamination(value, project_terms=()):
     import json
@@ -105,7 +65,7 @@ def prepare_export(root, case, output, owner_requested=False):
         raise HarnessError("Export requires the explicit owner request; a flag records operator intent, not human authentication")
     state = check_core(root)
     result = validate_case(case)
-    if case["classification"] == "project":
+    if case.get("classification") == "project":
         raise HarnessError("Project-specific cases require an independently reviewed generic/Windows derivation before export")
     findings = contamination(case, (state["project"]["name"],))
     if findings:

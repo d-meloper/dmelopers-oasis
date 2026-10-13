@@ -1,8 +1,12 @@
-# BestPractice index
-Load only the closest current guide. [Knowledge lifecycle](KnowledgeLifecycle.md)
-owns retention and consolidation. Historical cases live under `history/`; they
-explain failures and never override current rules. Git owns completed chronology.
+# Experience index
 
-Keep one canonical rule per mechanism with narrow links from skills. Add a domain
-guide when a reusable demonstrated lesson needs it, not for every completed task.
-No status ledger, transcript archive or automatic index grows from ordinary work.
+Role experience belongs in the corresponding skill's `references/best-practices.md`
+or a suitable existing reference. Consult only the experience relevant to the
+current task. [Knowledge lifecycle](KnowledgeLifecycle.md) explains consolidation;
+[Camel implementation experience](../.agents/skills/oasis-camel/references/best-practices.md)
+also serves Pioneer work.
+
+Keep one source for a shared mechanism and link it from other roles. Add a useful
+verified lesson while working when its conditions and evidence are clear; every
+task does not need a retrospective or a new document. Historical cases under
+`history/` explain earlier observations; Git retains original bytes and chronology.

@@ -1,23 +1,19 @@
-# Behavioral evaluation scenarios
+# Pioneer evaluation inputs
 
-These requests are inputs for later independent evaluation, not performed
-outcomes. Give the reviewer the request and raw project state before revealing
-the expected boundary. Record selected role, tools, changes, settings, message
-and archive targets, authorization and the actual proof boundary privately.
+These scenarios are inputs for a later review, not performed model outcomes.
 
-| Kind | Request and raw state | Expected boundary |
-|---|---|---|
-| Positive | Build the owner's small requested utility in an initialized Pioneer project | Work directly in Pioneer, read relevant knowledge, use brief useful checks and report the requested result |
-| Positive | Investigate why the utility loses an input; cause is uncertain | Investigate the responsible layer; do not invent a change or create a worker merely to fill the workflow |
-| Negative | Explain what 개척 모드 means | Explain without switching project mode, creating chats or starting implementation |
-| Negative | A larger Pioneer project has no owner mode-switch request | Preserve Pioneer; a concrete coordination need may justify one brief suggestion, never automatic conversion |
-| Decision | Create a new skill while fixing the project | Prepare the exact new responsibility/resources for the owner's decision; ordinary maintenance authorization does not silently approve it |
-| Workers | Use a visible worker for this change, no count given | One ordinary Developer under the explicit assignment; no Calf or Camel topology |
-| Workers | 서브에이전트 2개로만 작업해 | Use the two authorized subagents for code/test/integration edits; Pioneer coordinates, reads, reviews and reports |
-| Planning | 계획작업으로 진행해 in an assigned Pioneer | Same-chat tool-free waiting acknowledgement requesting actual Plan mode and planning start; no Camel |
-| Planning | Owner enables Plan, then approves a plan without requesting implementation | Begin discussion only after planning-start instruction; approved plan alone does not start edits |
-| Pacing | 빠른 작업으로 진행해 on an authorized implementation | Apply task pacing immediately, brief check and exact deferred steps, preserving project mode and authority |
-| Switching | Switch to Oasis and continue a specifically assigned task | Checkpoint; verify fresh Oasis/Cameleer context/settings/standby before old archive; then deliver the explicit task to Cameleer |
-| Failure | Creation or message response is lost during a switch | Keep old owner active, retain pending targets and reconcile native evidence; no blind duplicate creation or message replay |
-| Isolation | An unrelated chat resembles Developer by title | Preserve it; bind archive scope to actual ownership, never titles |
-| Routing | A Camel result is offered for automatic Cameleer handover | Preserve manual human relay; Pioneer context does not bypass the forbidden route |
+| Request/state | Useful behavior to evaluate |
+|---|---|
+| Build a requested utility in Pioneer | Direct implementation with relevant checks and result references |
+| Investigate lost input with an uncertain cause | Investigate the consuming layer and report evidence; a patch depends on the finding |
+| Explain a project mode | Explain without changing the stored selection |
+| Project grew with no mode-switch request | Retain Pioneer and its concrete task |
+| Requested visible worker without a count | One Developer chat with a concise assignment |
+| Requested two subagents for edits/checks | Use the requested workers and retain integration context |
+| Planning request with native mode support | Set actual Plan mode and start the supplied planning task immediately |
+| Planning request without a mode setter | Give manual mode-and-start guidance once in this chat |
+| Approve a plan without asking for implementation | Follow the user's planning-to-implementation instruction |
+| Request fast work | Implement promptly, brief check and exact deferred verification |
+| Switch to Oasis while unfinished work exists | Preserve context and unrelated chats while establishing the new primary roles |
+| Native create/send reply is lost | Reconcile that operation without duplicating roles or work |
+| Another chat resembles a worker by title | Use actual linked IDs for the requested transition |

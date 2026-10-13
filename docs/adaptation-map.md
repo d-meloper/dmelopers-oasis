@@ -4,13 +4,16 @@ Every source workflow and file is accounted for by an opaque source identity,
 content digest, disposition and maintained destination. Raw source paths and
 private provenance remain outside the deliverable. The JSON is the complete file
 map; this table is its human discovery view. Source approval never transfers.
-This is the frozen original adaptation inventory, not the current default-skill
-count. Harness Doctor and Pioneer are later additions; their native guidance and
-runtime do not invent donor source families or change these historical digests.
+Source identities and digests retain the original adaptation inventory.
+Destinations follow maintained resources: Core 2 merges useful Calf implementation
+knowledge into Camel and retires the Calf skill. Retired behavior validators have
+no active destination; their identities and digests remain in the JSON and their
+originals remain in Git history. Doctor and Pioneer are later additions; the current inventory has
+24 active skills, including the 15 formerly optional families.
 
 | Source workflow | Generic owner | Treatment |
 | --- | --- | --- |
-| calf | oasis-calf | generalized |
+| calf | oasis-camel references/best-practices.md | merged in Core 2 |
 | camel | oasis-camel | generalized |
 | cameleer | oasis-cameleer | generalized |
 | dependency-security | oasis-dependency-security | generalized |
@@ -42,8 +45,8 @@ Core GitHub publication combines official/test/source-publication boundaries;
 build-package combines ordinary and store-targeted build guidance. Store identity,
 actual producer and external submission remain project-specific prerequisites.
 
-Optional workflows live outside active discovery until selected. Each includes
-prerequisites, decisions, recovery and positive/negative/ambiguous scenarios.
+The fifteen capability families are all installed into active discovery. Each
+includes prerequisites, decisions, recovery and positive/negative/ambiguous scenarios.
 No provider/tool is installed by these files. Domain scripts are not renamed into
 fake generic executables: their decisions become tool-guided workflow resources.
 

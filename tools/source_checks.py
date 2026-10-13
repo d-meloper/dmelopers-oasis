@@ -18,8 +18,9 @@ DEPENDENTS = {
     "github": {"github", "publication", "backup"},
     "build": {"build", "publication", "source_delivery"},
     "backup": {"backup", "gitops"}, "gitops": {"gitops", "backup"},
-    "sessions": {"sessions", "workflows"}, "knowledge": {"knowledge"},
-    "common": {"common"}, "packets": {"common", "knowledge", "sessions"},
+    "sessions": {"sessions", "session_transport", "workflows", "dependencies"}, "knowledge": {"knowledge"},
+    "workflows": {"workflows", "sessions", "workflow_installation", "dependencies"},
+    "common": {"common"},
     "public_source": {"public_source", "source_delivery", "distribution"},  # Retire legacy source-only module.
 }
 

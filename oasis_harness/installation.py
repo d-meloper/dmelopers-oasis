@@ -25,11 +25,11 @@ MANIFEST = ".oasis/install-manifest.json"
 ADOPTER_MANUALS = frozenset({
     "installation.md", "identity.md", "sessions.md", "doctor.md",
     "git-backup.md", "publication.md", "knowledge.md", "validation.md",
-    "adaptation-map.md", "adaptation-map.json", "migration-lessons.md", "license.md", "workflows.md",
+    "adaptation-map.md", "adaptation-map.json", "migration-lessons.md", "license.md", "workflows.md", "upgrade-index.json",
 })
 ADOPTER_MODULES = frozenset({
     "__init__.py", "backup.py", "build.py", "cli.py", "common.py", "doctor.py",
-    "gitops.py", "github.py", "installation.py", "knowledge.py", "packets.py",
+    "gitops.py", "github.py", "installation.py", "knowledge.py",
     "publication.py", "sessions.py", "skills.py", "workflows.py",
 })
 ENTRYPOINT = b'''#!/usr/bin/env python3
@@ -41,6 +41,10 @@ from oasis_harness.cli import main
 if __name__ == "__main__":
     raise SystemExit(main())
 '''
+CALF_PREFIX = ".agents/skills/oasis-calf/"
+CAMEL_NOTES = ".agents/skills/oasis-camel/references/calf-migration/"
+CALF_HISTORY = ".oasis/state/retired-skills/oasis-calf/"
+CAMEL_PRACTICES = ".agents/skills/oasis-camel/references/best-practices.md"
 
 
 def target_root(value):
@@ -83,7 +87,7 @@ def package_files(package):
     package = target_root(package)
     files = {}
     folded = {}
-    for folder, prefix in (("seed", ""), ("library", ".oasis/library/"), ("docs", ".oasis/manual/"),
+    for folder, prefix in (("seed", ""), ("library", ".agents/skills/"), ("docs", ".oasis/manual/"),
                            ("oasis_harness", ".oasis/runtime/oasis_harness/")):
         source = contained(package, folder)
         if not source.is_dir():
@@ -207,25 +211,162 @@ def merge_bytes(base, local, incoming, relative):
     return "".join(result).encode("utf-8")
 
 
-def upgrade_files(package, manifest, *, refresh_capabilities=False):
-    """Doctor may explicitly refresh selected skills; ordinary upgrades preserve them."""
+def _merge_project_bytes(base, local, incoming):
+    """Mode and Git selection belong to the existing project; all skills ship."""
+    if local is None or incoming is None:
+        return merge_bytes(base, local, incoming, ".oasis/project.json")
+    from .skills import validate_project
+    try:
+        project = validate_project(json.loads(local.decode("utf-8")))
+        candidate = validate_project(json.loads(incoming.decode("utf-8")))
+        candidate["git"]["profile"] = project["git"]["profile"]
+        project["capabilities"] = candidate["capabilities"]
+        existing_workflow = project["extensions"].get("workflow", {})
+        if "mode" in existing_workflow:
+            candidate["extensions"].setdefault("workflow", {})["mode"] = existing_workflow["mode"]
+        elif "workflow" in candidate["extensions"]:
+            candidate["extensions"]["workflow"].pop("mode", None)
+        adjusted = canonical(candidate) + b"\n"
+        if candidate == json.loads(incoming.decode("utf-8")):
+            adjusted = incoming
+        local_for_merge = local if project == json.loads(local.decode("utf-8")) else canonical(project) + b"\n"
+        return merge_bytes(base, local_for_merge, adjusted, ".oasis/project.json")
+    except (UnicodeError, ValueError) as exc:
+        raise HarnessError("Invalid project JSON during upgrade") from exc
+
+
+def upgrade_files(package, manifest):
+    """All capability skills are active and use the same owned three-way update."""
     incoming = package_files(package)
-    owners = {}
-    if refresh_capabilities:
-        from .skills import OPTIONAL_NAMES
-        selected = manifest.get("enabled_capabilities", [])
-        if not isinstance(selected, list) or any(not isinstance(name, str) or name not in OPTIONAL_NAMES for name in selected) or len(selected) != len(set(selected)):
-            raise HarnessError("Invalid installed capability selection; reconcile before refresh")
-        for name in selected:
-            prefix = ".oasis/library/" + name + "/"
-            members = {key: data for key, data in incoming.items() if key.startswith(prefix)}
-            if prefix + "SKILL.md" not in members:
-                raise HarnessError(f"Selected capability is absent upstream: {name}; owner decision required")
-            for key, data in members.items():
-                destination = ".agents/skills/" + name + "/" + key[len(prefix):]
-                incoming[destination] = data
-                owners[destination] = "capability:" + name
+    from .skills import OPTIONAL_NAMES
+    owners = {path: "capability:" + path.split("/")[2] for path in incoming
+              if path.startswith(".agents/skills/") and path.split("/")[2] in OPTIONAL_NAMES}
     return incoming, owners
+
+
+def _role_migration(root, previous, incoming):
+    """A role change is deferred for unfinished real task links, not receipts."""
+    if not previous["managed"] or ".oasis/core.json" not in incoming:
+        return False
+    try:
+        version = json.loads(incoming[".oasis/core.json"].decode("utf-8"))["core_version"]
+        if int(version.split(".")[0]) < 2:
+            return False
+        if any(name.startswith(CALF_PREFIX) for name in previous["managed"]):
+            return True
+        record = previous["managed"].get(".oasis/core.json")
+        if record is None:
+            return False
+        base = _bytes(checked_path(root, ".oasis/base/" + record["base_sha256"]))
+        if base is None or digest(base) != record["base_sha256"]:
+            raise HarnessError("Missing/corrupt installation base: .oasis/core.json")
+        return int(json.loads(base.decode("utf-8"))["core_version"].split(".")[0]) < 2
+    except (KeyError, ValueError, AttributeError, TypeError, UnicodeError) as exc:
+        raise HarnessError("Invalid role migration version metadata") from exc
+
+
+def _calf_resolutions(value):
+    """Reviewed useful text is ordinary file data, never a procedural approval."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict) or set(value) != {"schema_version", "files"} or type(value["schema_version"]) is not int or value["schema_version"] != 1 or not isinstance(value["files"], list):
+        raise HarnessError("Calf migration requires schema_version 1 and files")
+    result = {}
+    for row in value["files"]:
+        if not isinstance(row, dict) or set(row) != {"path", "before_sha256", "after_base64"}:
+            raise HarnessError("Calf migration file requires path, before_sha256 and after_base64")
+        relative = managed_path(row["path"])
+        if not relative.startswith(CALF_PREFIX) or not relative.endswith(".md"):
+            raise HarnessError("Calf knowledge migration sources must be Calf Markdown files")
+        if relative.casefold() in {name.casefold() for name in result}:
+            raise HarnessError(f"Duplicate Calf migration source: {relative}")
+        before = row["before_sha256"]
+        if not isinstance(before, str) or not re.fullmatch(r"[0-9a-f]{64}", before) or not isinstance(row["after_base64"], str):
+            raise HarnessError(f"Invalid Calf migration file bytes/hash: {relative}")
+        content = _decode(row["after_base64"])
+        try:
+            content.decode("utf-8")
+        except UnicodeError as exc:
+            raise HarnessError(f"Calf knowledge migration notes must be UTF-8: {relative}") from exc
+        result[relative] = (before, content)
+    return result
+
+
+def _prepare_calf_migration(root, previous, incoming, resolutions):
+    """Compare actual local bytes; archive originals and transfer selected notes.
+
+    Upstream implementation knowledge is already in Camel's best practices.
+    Locally edited Markdown requires content selection because a full old skill
+    body can include retired reporting/ACK rules. Other local assets are history.
+    """
+    selected = _calf_resolutions(resolutions)
+    sources = {name for name in previous["managed"] if name.startswith(CALF_PREFIX)}
+    folder = contained(root, CALF_PREFIX.rstrip("/"))
+    if folder.exists():
+        if not folder.is_dir():
+            raise HarnessError("Calf skill path is not a directory")
+        for path in folder.rglob("*"):
+            relative = path.relative_to(root).as_posix()
+            checked = contained(root, relative)
+            if checked.is_file():
+                sources.add(relative)
+    additions, owners, retire, conflicts, customizations = {}, {}, set(), [], []
+    used = set()
+    notes = []
+    for relative in sorted(sources):
+        current, base, customization = None, None, {"path": relative}
+        try:
+            current = _bytes(checked_path(root, relative))
+            record = previous["managed"].get(relative)
+            if record:
+                base = _bytes(checked_path(root, ".oasis/base/" + record["base_sha256"]))
+                if base is None or digest(base) != record["base_sha256"]:
+                    raise HarnessError(f"Missing/corrupt installation base: {relative}")
+            if current is None or current == base:
+                if relative in selected:
+                    raise HarnessError(f"Unused Calf migration content; no local customization: {relative}")
+                retire.add(relative)
+                continue
+            archive = CALF_HISTORY + digest(current) + "/" + relative[len(CALF_PREFIX):]
+            additions[archive] = current
+            owners[archive] = "migration:calf"
+            customization = {"path": relative, "before_sha256": digest(current),
+                             "base_sha256": digest(base) if base is not None else None,
+                             "archive": archive}
+            if relative.endswith(".md"):
+                if relative not in selected:
+                    customization["local_diff"] = "".join(difflib.unified_diff(
+                        (base or b"").decode("utf-8", errors="replace").splitlines(keepends=True),
+                        current.decode("utf-8", errors="replace").splitlines(keepends=True),
+                        fromfile="installed baseline", tofile=relative))
+                    raise HarnessError(f"Calf knowledge content conflict: {relative}; supply reviewed useful-note bytes with --calf-migration")
+                before, content = selected[relative]
+                used.add(relative)
+                if digest(current) != before:
+                    raise HarnessError(f"Calf migration source changed: {relative}")
+                if content:
+                    destination = CAMEL_NOTES + relative[len(CALF_PREFIX):]
+                    additions[destination] = content
+                    owners[destination] = "migration:calf"
+                    notes.append(destination)
+                    customization["destination"] = destination
+                else:
+                    customization["destination"] = None
+            retire.add(relative)
+        except (HarnessError, KeyError) as exc:
+            conflicts.append(str(exc))
+        finally:
+            if current is not None and current != base:
+                customizations.append(customization)
+    if set(selected) - used:
+        conflicts.extend(f"Unused Calf migration source: {name}" for name in sorted(set(selected) - used))
+    if notes and CAMEL_PRACTICES not in incoming:
+        conflicts.append("Incoming Camel best practices are missing; preserve Calf knowledge and reconcile the package")
+    return additions, owners, retire, conflicts, {"status": "review" if conflicts else "ready",
+            "customizations": customizations, "notes": notes,
+            "source_sha256": {name: digest(data) for name in sorted(sources)
+                              if (data := _bytes(checked_path(root, name))) is not None},
+            "history": "Exact customized originals are inactive history; only reviewed useful notes become Camel references"}
 
 
 def _initial_resolutions(value, root, incoming, previous, *, upgrade, installed):
@@ -357,21 +498,41 @@ def _workflow_selection(root, incoming, *, installed, upgrade, mode):
     return result
 
 
-def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, resolutions=None, mode=None):
+def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, calf_migration=None):
     root = target_root(target)
     package = Path(package) if package else Path(__file__).resolve().parents[1]
     manifest_path = checked_path(root, MANIFEST)
     previous = read_json(manifest_path) if manifest_path.exists() else {"schema_version": 1, "managed": {}}
     if previous.get("schema_version") != 1 or not isinstance(previous.get("managed"), dict):
         raise HarnessError("Unsupported installed manifest")
-    incoming, active_owners = upgrade_files(package, previous, refresh_capabilities=refresh_capabilities)
+    incoming, active_owners = upgrade_files(package, previous)
     version = package_version(incoming)
     workflow = _workflow_selection(root, incoming, installed=manifest_path.exists(), upgrade=upgrade, mode=mode)
     resolved = _initial_resolutions(resolutions, root, incoming, previous,
                                     upgrade=upgrade, installed=manifest_path.exists())
+    migration, retire = None, set()
+    migration_conflicts = []
+    if _role_migration(root, previous, incoming):
+        from .workflows import unfinished_tasks
+        unfinished = unfinished_tasks(root)
+        if unfinished:
+            value = {"schema_version": 1, "target": str(root), "upgrade": upgrade,
+                     "operations": [], "conflicts": [], "retained": [],
+                     "migration": {"status": "waiting", "unfinished_tasks": unfinished,
+                                   "resume": "Finish the linked Camel/Calf work, then create a fresh upgrade plan"}}
+            if workflow is not None:
+                value["workflow"] = workflow
+            value["plan_sha256"] = digest(value)
+            return value
+        additions, owners, retire, migration_conflicts, migration = _prepare_calf_migration(
+            root, previous, incoming, calf_migration)
+        incoming.update(additions)
+        active_owners.update(owners)
+    elif calf_migration is not None:
+        raise HarnessError("Calf migration content requires an installed role-contract transition")
     refreshed_owners = set(active_owners.values())
-    operations, conflicts, retained, records = [], [], [], {}
-    for relative in sorted(set(previous["managed"]) | set(incoming)):
+    operations, conflicts, retained, records = [], list(migration_conflicts), [], {}
+    for relative in sorted(set(previous["managed"]) | set(incoming) | retire):
         try:
             managed_path(relative)
             current = _bytes(checked_path(root, relative))
@@ -388,6 +549,13 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
                     raise HarnessError(f"Missing/corrupt capability base: {relative}")
                 records[relative] = dict(prior, sha256=digest(current))
                 continue
+            if prior and prior.get("owner") == "migration:calf" and new is None:
+                base = _bytes(checked_path(root, ".oasis/base/" + prior["base_sha256"]))
+                if base is None or digest(base) != prior["base_sha256"]:
+                    raise HarnessError(f"Missing/corrupt migration base: {relative}")
+                if current is not None:
+                    records[relative] = dict(prior, sha256=digest(current))
+                continue
             if prior:
                 base_path = checked_path(root, ".oasis/base/" + prior["base_sha256"])
                 base = _bytes(base_path)
@@ -395,10 +563,16 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
                     raise HarnessError(f"Missing/corrupt installation base: {relative}")
                 if not upgrade and new != base:
                     raise HarnessError(f"Package differs from installed base; use upgrade: {relative}")
-                if new is None and current != base:
+                if relative in retire:
+                    result = None
+                elif new is None and current != base:
                     retained.append(relative)
                     continue
-                result = merge_bytes(base, current, new, relative)
+                else:
+                    result = (_merge_project_bytes(base, current, new) if relative == ".oasis/project.json"
+                              else merge_bytes(base, current, new, relative))
+            elif relative in retire:
+                result = None
             else:
                 if current is not None and current != new:
                     if resolution is None:
@@ -411,6 +585,13 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
                 project = validate_project(json.loads(result.decode("utf-8")))
                 project["extensions"].setdefault("workflow", {})["mode"] = workflow["mode"]
                 result = canonical(project) + b"\n"
+            if relative == CAMEL_PRACTICES and migration and migration["notes"]:
+                if result is None:
+                    raise HarnessError("Camel best practices are missing from the incoming package")
+                additions = "\n## Migrated project implementation notes\n\n" + "".join(
+                    f"- [{name[len(CAMEL_NOTES):]}](calf-migration/{name[len(CAMEL_NOTES):]})\n"
+                    for name in migration["notes"])
+                result += additions.encode("utf-8")
             if new is not None:
                 if result is None:
                     raise HarnessError(f"Managed file was locally deleted; resolve explicitly: {relative}")
@@ -433,7 +614,8 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
         except HarnessError as exc:
             conflicts.append(str(exc))
     manifest = {"schema_version": 1, "package_version": version, "managed": records,
-                "enabled_capabilities": previous.get("enabled_capabilities", []),
+                "enabled_capabilities": sorted({record["owner"].partition(":")[2] for record in records.values()
+                                                if record.get("owner", "").startswith("capability:")}),
                 "retained_specializations": sorted(set(retained) | set(previous.get("retained_specializations", [])))}
     manifest_bytes = canonical(manifest) + b"\n"
     old_manifest = _bytes(manifest_path)
@@ -443,8 +625,45 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
              "operations": operations, "conflicts": sorted(set(conflicts)), "retained": retained}
     if workflow is not None:
         value["workflow"] = workflow
+    if migration is not None:
+        value["migration"] = migration
     value["plan_sha256"] = digest(value)
     return value
+
+
+def _migration_preflight(root, value):
+    migration = value.get("migration")
+    if not migration:
+        return
+    from .workflows import unfinished_tasks
+    if unfinished_tasks(root):
+        raise HarnessError("New unfinished Camel/Calf work appeared after planning; create a fresh upgrade plan after it ends")
+    current = {}
+    folder = contained(root, CALF_PREFIX.rstrip("/"))
+    if folder.exists():
+        if not folder.is_dir():
+            raise HarnessError("Calf skill path changed after planning")
+        for path in folder.rglob("*"):
+            relative = path.relative_to(root).as_posix()
+            checked = contained(root, relative)
+            if checked.is_file():
+                current[relative] = file_hash(checked)
+    if current != migration["source_sha256"]:
+        raise HarnessError("Calf migration source changed since plan; preserve the new bytes and create a fresh plan")
+
+
+def _retire_empty_calf_dirs(root, value):
+    if not value.get("migration"):
+        return
+    folder = contained(root, CALF_PREFIX.rstrip("/"))
+    if folder.is_dir():
+        directories = [folder, *(path for path in folder.rglob("*") if path.is_dir())]
+        for path in sorted(directories, key=lambda item: len(item.parts), reverse=True):
+            checked = contained(root, path.relative_to(root).as_posix())
+            try:
+                checked.rmdir()  # Empty retired directories only; new writer bytes stay.
+            except OSError:
+                pass
 
 
 def _validate_plan(value):
@@ -452,6 +671,8 @@ def _validate_plan(value):
     body = {key: item for key, item in value.items() if key != "plan_sha256"}
     if value.get("schema_version") != 1 or expected != digest(body) or value.get("conflicts"):
         raise HarnessError("Installation plan is invalid or has unresolved conflicts")
+    if value.get("migration", {}).get("status") == "waiting":
+        raise HarnessError("Role migration is waiting for unfinished Camel/Calf work; finish it and create a fresh plan")
     root = target_root(value["target"])
     seen = set()
     for op in value["operations"]:
@@ -487,6 +708,7 @@ def apply(value, *, state_root=None, interrupt_after=None):
     if state.resolve().is_relative_to(root):
         raise HarnessError("Transaction evidence must be outside the target")
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
+        _migration_preflight(root, value)
         for op in value["operations"]:
             if _bytes(checked_path(root, op["path"])) != _decode(op["before"]):
                 raise HarnessError(f"Destination changed since plan: {op['path']}")
@@ -508,6 +730,7 @@ def apply(value, *, state_root=None, interrupt_after=None):
                 raise HarnessError(f"Injected interruption; recover {journal_path}")
         journal["state"] = "complete"
         write_json(journal_path, journal)
+        _retire_empty_calf_dirs(root, value)
         return {"status": "installed", "target": str(root), "journal": str(journal_path),
                 "changed": [op["path"] for op in value["operations"] if not op["path"].startswith(".oasis/base/")]}
 
@@ -523,6 +746,10 @@ def recover(journal_path, *, action="resume"):
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         journal = read_json(journal_path)
         operations = journal["plan"]["operations"]
+        if action == "resume" and journal["plan"].get("migration") and journal.get("state") not in ("complete", "rolled_back"):
+            from .workflows import unfinished_tasks
+            if unfinished_tasks(root):
+                raise HarnessError("Role migration recovery is waiting for unfinished Camel/Calf work")
         for op in operations:
             if _bytes(checked_path(root, op["path"])) not in (_decode(op["before"]), _decode(op["after"])):
                 raise HarnessError(f"Recovery would overwrite changed user bytes: {op['path']}")
@@ -535,6 +762,8 @@ def recover(journal_path, *, action="resume"):
             _write_operation(root, op, side)
         journal["state"] = "complete" if action == "resume" else "rolled_back"
         write_json(journal_path, journal)
+        if action == "resume":
+            _retire_empty_calf_dirs(root, journal["plan"])
         return {"status": journal["state"], "journal": str(journal_path)}
 
 
@@ -568,11 +797,16 @@ def register(subparsers):
                                help="Explicit initial project mode; installed mode changes use workflow")
             child.add_argument("--resolutions", type=Path,
                                help="Exact reviewed initial collision bytes; not an overwrite or approval switch")
+        else:
+            child.add_argument("--calf-migration", type=Path,
+                               help="Reviewed project-local Calf knowledge bytes bound to exact current source hashes")
         def make(args, upgrade=name == "upgrade"):
             resolution_path = getattr(args, "resolutions", None)
+            migration_path = getattr(args, "calf_migration", None)
             result = plan(args.target, args.package, upgrade=upgrade,
                           resolutions=read_json(resolution_path) if resolution_path else None,
-                          mode=getattr(args, "mode", None))
+                          mode=getattr(args, "mode", None),
+                          calf_migration=read_json(migration_path) if migration_path else None)
             if args.output:
                 if args.output.exists():
                     raise HarnessError("Plan output already exists")

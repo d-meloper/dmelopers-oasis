@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Knowledge"
-  short_description: "Scoped workflow with explicit evidence boundaries"
-  default_prompt: "Use $oasis-knowledge for the requested project scope."
+  short_description: "Keep useful project experience current"
+  default_prompt: "Use $oasis-knowledge for the requested project work."

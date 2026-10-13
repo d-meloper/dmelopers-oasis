@@ -2,35 +2,35 @@
   "reviewed": {
     "oasis_harness/knowledge.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "c27d0810cb160cae91e730d53bff84d5dfa473fb4c6ca6ff62684962388f3334"
+      "sha256": "cea327f37fad424e9d95ba0561b2cfe3642f466fbe7ba2b6ac1432c15b2a88f0"
     },
     "oasis_harness/publication.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
       "sha256": "9fea40429cbf5bf2110d8dce163de2b13aec37c4a342986b9dfe6b9c2f48528a"
     },
     "oasis_harness/sessions.py": {
-      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
-      "sha256": "4cbf795054653b5e064bf542b759f882c7bbff71cb052f4ed50863775ec381a3"
+      "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
+      "sha256": "bb997bf9a0992b529477374726a9e91ab005c14741caa826a57060f2adeb4b52"
     },
     "oasis_harness/workflows.py": {
-      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
-      "sha256": "e22130d25bb1fb4be7e1e74026b0556eead155e57244ede3ce8931beb7e194eb"
+      "reason": "Reviewed complete native protocol field names and synthetic session/task fixtures for Core 2. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain.",
+      "sha256": "fbdd0cfba631194fe4cc8bf6b390db84a2cd81ecc266897aa52a4841b26e8f4e"
     },
     "tests/test_public_source.py": {
-      "reason": "Reviewed exact owner-selected replacement SVG pin, closed static stroke attributes and synthetic negative SVG fixtures. No private payload; exact artwork pins, UTF-8/XML and hard privacy/external-content gates remain mandatory.",
-      "sha256": "603689bb53a0290eb01c8c00f13992e9eed40f7cceb0736d25d791e7dfb3719a"
+      "reason": "Reviewed complete synthetic privacy/XML negatives and 24-skill distribution fixtures. No live private payload; exact artwork and hard secret/path checks remain.",
+      "sha256": "9152c46e697ba085a8e83978716c25c78abad2db485aa7ad168a8ad41e50d802"
     },
     "tests/test_sessions.py": {
-      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
-      "sha256": "ec3aca2842a0bd5949253512a3a0068a28ff90dbae3037e61c707c174ac2e99c"
+      "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
+      "sha256": "0e52fb0ebaccce1db9ba93cb8ce02a1ef7d3a0222f05a0a6e0ebe29a03ac80e6"
     },
     "tests/test_workflows.py": {
-      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
-      "sha256": "9d99bfa0db73b0c9155b144f229728dfed47b1a034dfaf6d19a193ae26e83083"
+      "reason": "Reviewed complete native protocol field names and synthetic session/task fixtures for Core 2. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain.",
+      "sha256": "84bc2616058a5231f93234a36030a2e41677731cf102e55e66536f221b190c83"
     },
     "tools/source_policy.py": {
-      "reason": "Reviewed exact owner-selected replacement SVG pin, closed static stroke attributes and synthetic negative SVG fixtures. No private payload; exact artwork pins, UTF-8/XML and hard privacy/external-content gates remain mandatory.",
-      "sha256": "39a5c81c9b116fc41476d3456c37cb578242ffa255a3fab6bf9f14fabf710461"
+      "reason": "Reviewed complete scanner literals and neutral distribution checks. Core behavior seals are removed; all 24 skill resources, exact asset pins and hard privacy/XML checks remain. No private payload.",
+      "sha256": "b3cc11bcf94f01bb96bd5d4df70343bedc0699d998dc2d68fee6a197b09a8866"
     }
   },
   "schema_version": 1

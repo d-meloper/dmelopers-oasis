@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis State Integrity"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "State Integrity for the requested project work"
   default_prompt: "Use $oasis-state-integrity for the requested project scope."

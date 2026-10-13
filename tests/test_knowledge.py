@@ -43,23 +43,21 @@ class KnowledgeContracts(unittest.TestCase):
             knowledge.capture(self.root, example())
         self.assertEqual(path.read_bytes(), before)
 
-    def test_hypothesis_alone_and_fake_performed_proof_rejected(self):
+    def test_notes_have_no_required_evidence_fields_or_fixed_format(self):
         case = example()
         case["observed"] = []
-        with self.assertRaises(HarnessError):
-            knowledge.validate_case(case)
+        self.assertTrue(knowledge.validate_case(case)["valid"])
         case = example()
         case["tests"][0]["evidence_sha256"] = None
-        with self.assertRaisesRegex(HarnessError, "evidence digest"):
-            knowledge.validate_case(case)
+        self.assertTrue(knowledge.validate_case(case)["valid"])
+        self.assertTrue(knowledge.validate_case({"id": "plain-note", "note": "A relevant observed implementation lesson."})["valid"])
 
-    def test_static_pass_is_not_adoption(self):
+    def test_labels_and_proof_do_not_block_or_verify_adoption(self):
         case = example()
         case["status"] = "adopted"
-        with self.assertRaisesRegex(HarnessError, "do not establish adoption"):
-            knowledge.validate_case(case)
+        self.assertIn("not independently verified", knowledge.validate_case(case)["proof"])
         case["tests"][0]["boundary"] = "semantic"
-        self.assertEqual(knowledge.validate_case(case)["semantic_authority_review"], "required")
+        self.assertTrue(knowledge.validate_case(case)["valid"])
 
     def test_private_material_blocked_without_echo(self):
         for private in ("C:" + r"\Users\person\private.log", "person@example.invalid", "token=synthetic-test-value", "Bearer fixture-key", "https://example.invalid/private", "12345678-1234-1234-1234-123456789abc"):
@@ -69,14 +67,13 @@ class KnowledgeContracts(unittest.TestCase):
                 knowledge.validate_case(case)
             self.assertNotIn(private, str(raised.exception))
 
-    def test_core_intrusion_requires_decision_and_cannot_self_adopt(self):
+    def test_role_messages_have_no_behavior_guard_and_structure_notes_are_advisory(self):
         case = example()
-        case["delta"] = "Calf may send directly to Cameleer after finishing."
-        self.assertTrue(knowledge.validate_case(case)["requires_owner_decision"])
+        case["delta"] = "Camel may send directly to Cameleer after finishing."
+        self.assertFalse(knowledge.validate_case(case)["requires_owner_decision"])
         case["status"] = "adopted"
         case["tests"][0]["boundary"] = "semantic"
-        with self.assertRaisesRegex(HarnessError, "cannot self-declare"):
-            knowledge.validate_case(case)
+        self.assertTrue(knowledge.validate_case(case)["valid"])
         case = example()
         case["change_kind"] = "new-skill"
         self.assertTrue(knowledge.validate_case(case)["requires_owner_decision"])
@@ -117,11 +114,21 @@ class KnowledgeContracts(unittest.TestCase):
         self.assertEqual(case, original)
         self.assertIn("not independently verified", knowledge.validate_case(case)["proof"])
 
-    def test_extra_approval_fields_cannot_create_authority(self):
+    def test_extra_fields_are_notes_and_invalid_storage_ids_still_fail(self):
         case = example()
         case["approved"] = True
-        with self.assertRaisesRegex(HarnessError, "unknown/missing fields"):
-            knowledge.validate_case(case)
+        self.assertTrue(knowledge.validate_case(case)["valid"])
+        self.assertIn("not independently verified", knowledge.validate_case(case)["proof"])
+        with self.assertRaises(HarnessError):
+            knowledge.validate_case({"id": "../outside"})
+
+    def test_freeform_note_can_export_without_classification(self):
+        output = Path(self.temp.name) / "plain-note.json"
+        result = knowledge.prepare_export(self.root, {"id": "plain-note", "note": "Observed a helpful decoding fix."}, output, True)
+        self.assertFalse(result["sent"])
+        self.assertEqual(read_json(output)["case"]["id"], "plain-note")
+        with self.assertRaises(HarnessError):
+            knowledge.validate_case({"id": "plain-note", "classification": []})
 
 
 if __name__ == "__main__":

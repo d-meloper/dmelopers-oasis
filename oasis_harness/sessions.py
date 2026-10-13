@@ -1,65 +1,362 @@
-"""Codex metadata adapter. It never starts turns, sends prompts, or edits app storage."""
+"""Native Codex sessions and one-shot delivery, without editing app storage."""
 from __future__ import annotations
 
+import base64
+import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
 import queue
 import re
 import shutil
+import socket
+import struct
 import subprocess
 import threading
 import time
 import uuid
+from urllib.parse import urlsplit
 
-from .common import HarnessError, clean_environment, operation_lock, read_json, write_json
+from .common import HarnessError, clean_environment, contained, operation_lock, read_json, write_json
 from . import __version__
 
 SOURCES = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"]
-GROUP = re.compile(r"^Camel_([A-Z]+)_.+$")
-OCCUPIED_GROUP = re.compile(r"^(?:Camel|Calf)_([A-Z]+)_.+$")
+ROLES = ("Oasis", "Cameleer", "Camel", "Pioneer", "Developer")
+
+
+class NativeError(HarnessError):
+    """A definite native rejection, distinct from a lost mutation response."""
+
+    def __init__(self, method, error):
+        self.method = method
+        self.code = error.get("code")
+        super().__init__(f"{method}: rejected ({self.code}): {error.get('message', 'native API error')}")
+
+
+class MissingSavedSettings(HarnessError):
+    """A rollout has no settings record yet, rather than a damaged record."""
 
 
 def canonical_root(path):
     return os.path.normcase(os.path.realpath(path))
 
 
+class _WebSocketEOF(Exception):
+    pass
+
+
+class _LoopbackWebSocket:
+    """RFC 6455 text transport for an explicitly supplied experimental endpoint.
+
+    This connects to an existing server. It neither starts a server nor owns
+    that server's process or turns. No extensions or authentication are inferred.
+    """
+    MAX_MESSAGE = 64 * 1024 * 1024
+    GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+
+    @staticmethod
+    def endpoint(value):
+        error = "OASIS_APP_SERVER_URL must be an explicit loopback ws:// URL without credentials or a fragment"
+        if not isinstance(value, str) or not value or any(ord(char) <= 32 or ord(char) == 127 for char in value):
+            raise HarnessError(error)
+        try:
+            parsed = urlsplit(value)
+            host = parsed.hostname
+            port = parsed.port if parsed.port is not None else 80
+            if (parsed.scheme != "ws" or not host or parsed.username is not None or parsed.password is not None
+                    or "#" in value or not 1 <= port <= 65535 or "%" in host):
+                raise ValueError
+            if host.casefold() == "localhost":
+                address = "127.0.0.1"  # Do not resolve a hostname outside loopback.
+            else:
+                address = str(ipaddress.ip_address(host))
+                if not ipaddress.ip_address(address).is_loopback:
+                    raise ValueError
+            target = parsed.path or "/"
+            if parsed.query:
+                target += "?" + parsed.query
+            target.encode("ascii")
+            authority = (f"[{host}]" if ":" in host else host) + f":{port}"
+        except (ValueError, UnicodeError):
+            raise HarnessError(error) from None
+        return address, port, target, authority
+
+    def __init__(self, url):
+        address, port, target, authority = self.endpoint(url)
+        self.socket = None
+        self.buffer = bytearray()
+        self.write_lock = threading.RLock()
+        self.closed = False
+        self.sent_close = False
+        try:
+            self.socket = socket.create_connection((address, port), timeout=10)
+            key = base64.b64encode(os.urandom(16)).decode("ascii")
+            request = (f"GET {target} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\n"
+                       f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
+            self.socket.sendall(request.encode("ascii"))
+            header = bytearray()
+            while b"\r\n\r\n" not in header:
+                chunk = self.socket.recv(4096)
+                if not chunk:
+                    raise HarnessError("Native WebSocket handshake ended before an upgrade response")
+                header.extend(chunk)
+                if len(header) > 65536:
+                    raise HarnessError("Native WebSocket handshake headers exceed the supported size")
+            raw, remainder = bytes(header).split(b"\r\n\r\n", 1)
+            lines = raw.decode("iso-8859-1").split("\r\n")
+            status = lines[0].split(" ", 2)
+            if len(status) < 2 or status[:2] != ["HTTP/1.1", "101"]:
+                raise HarnessError("Native WebSocket endpoint did not accept the protocol upgrade")
+            headers = {}
+            for line in lines[1:]:
+                if ":" not in line or line[:1] in (" ", "\t"):
+                    raise HarnessError("Native WebSocket upgrade contains an invalid header")
+                name, value = line.split(":", 1)
+                if not re.fullmatch(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+", name):
+                    raise HarnessError("Native WebSocket upgrade contains an invalid header")
+                headers.setdefault(name.casefold(), []).append(value.strip())
+            tokens = lambda name: {part.strip().casefold() for value in headers.get(name, []) for part in value.split(",")}
+            expected = base64.b64encode(hashlib.sha1((key + self.GUID).encode("ascii"), usedforsecurity=False).digest()).decode("ascii")
+            if ("websocket" not in tokens("upgrade") or "upgrade" not in tokens("connection")
+                    or headers.get("sec-websocket-accept") != [expected]
+                    or "sec-websocket-extensions" in headers or "sec-websocket-protocol" in headers):
+                raise HarnessError("Native WebSocket handshake acceptance or negotiation is invalid")
+            self.buffer.extend(remainder)
+            self.socket.settimeout(None)
+        except OSError:
+            self._drop()
+            raise HarnessError("Native loopback WebSocket is unavailable; supply the address of an already running caller-managed App Server") from None
+        except Exception:
+            self._drop()
+            raise
+
+    def _drop(self):
+        self.closed = True
+        if self.socket is not None:
+            try:
+                self.socket.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
+            self.socket.close()
+
+    def _exact(self, size):
+        while len(self.buffer) < size:
+            chunk = self.socket.recv(min(65536, size - len(self.buffer)))
+            if not chunk:
+                raise _WebSocketEOF
+            self.buffer.extend(chunk)
+        result = bytes(self.buffer[:size])
+        del self.buffer[:size]
+        return result
+
+    def _frame(self, opcode, payload, *, timeout=30):
+        deadline = time.monotonic() + timeout
+        if self.closed:
+            raise OSError("WebSocket connection is closed")
+        length = len(payload)
+        if length > self.MAX_MESSAGE or (opcode >= 8 and length > 125):
+            raise HarnessError("Native WebSocket outgoing message exceeds the supported size")
+        header = bytes((0x80 | opcode,))
+        if length < 126:
+            header += bytes((0x80 | length,))
+        elif length <= 65535:
+            header += bytes((0x80 | 126,)) + struct.pack("!H", length)
+        else:
+            header += bytes((0x80 | 127,)) + struct.pack("!Q", length)
+        mask = os.urandom(4)
+        encoded = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        finished = threading.Event()
+        errors = []
+
+        def write():
+            acquired = False
+            try:
+                acquired = self.write_lock.acquire(timeout=max(0, deadline - time.monotonic()))
+                if not acquired:
+                    raise TimeoutError("Native WebSocket write deadline expired")
+                if self.closed:
+                    raise OSError("WebSocket connection is closed")
+                if opcode != 8 or not self.sent_close:
+                    self.socket.sendall(header + mask + encoded)
+                    if opcode == 8:
+                        self.sent_close = True
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                if acquired:
+                    self.write_lock.release()
+                finished.set()
+
+        # Changing this socket's timeout would also interrupt the idle reader.
+        # A bounded writer lets shutdown release a saturated sendall instead.
+        threading.Thread(target=write, daemon=True).start()
+        if not finished.wait(max(0, deadline - time.monotonic())):
+            self._drop()
+            raise TimeoutError("Native WebSocket write deadline expired")
+        if errors:
+            self._drop()
+            raise errors[0]
+
+    def send(self, text, *, timeout=30):
+        self._frame(1, text.encode("utf-8"), timeout=timeout)
+
+    def _close_frame(self, payload):
+        try:
+            if not self.sent_close:
+                self._frame(8, payload, timeout=0.2)
+        except OSError:
+            pass
+        finally:
+            self._drop()
+
+    def _fail(self, message, code=1002):
+        self._close_frame(struct.pack("!H", code))
+        raise HarnessError(message)
+
+    def _text(self, payload):
+        try:
+            return payload.decode("utf-8")
+        except UnicodeError:
+            self._fail("Native WebSocket text is not valid UTF-8", 1007)
+
+    def receive(self):
+        fragments = None
+        try:
+            while not self.closed:
+                first, second = self._exact(2)
+                final, opcode = bool(first & 0x80), first & 0x0f
+                if first & 0x70 or second & 0x80:
+                    self._fail("Native WebSocket has unsupported extensions or a masked server frame")
+                length = second & 0x7f
+                if opcode >= 8 and (not final or length > 125):
+                    self._fail("Native WebSocket control frame is fragmented or oversized")
+                if length == 126:
+                    length = struct.unpack("!H", self._exact(2))[0]
+                    if length < 126:
+                        self._fail("Native WebSocket frame uses a nonminimal length")
+                elif length == 127:
+                    length = struct.unpack("!Q", self._exact(8))[0]
+                    if length < 65536 or length & (1 << 63):
+                        self._fail("Native WebSocket frame length is invalid")
+                if length > self.MAX_MESSAGE or (fragments is not None and len(fragments) + length > self.MAX_MESSAGE and opcode < 8):
+                    self._fail("Native WebSocket message exceeds the supported size", 1009)
+                payload = self._exact(length)
+                if opcode == 8:
+                    if len(payload) == 1:
+                        self._fail("Native WebSocket close payload is invalid")
+                    if payload:
+                        code = struct.unpack("!H", payload[:2])[0]
+                        if code not in (1000, 1001, 1002, 1003, 1007, 1008, 1009, 1010, 1011, 1012, 1013, 1014) and not 3000 <= code <= 4999:
+                            self._fail("Native WebSocket close status is invalid")
+                        self._text(payload[2:])
+                    self._close_frame(payload)
+                    return None
+                if opcode == 9:
+                    self._frame(10, payload)
+                    continue
+                if opcode == 10:
+                    continue
+                if opcode == 2:
+                    self._fail("Native App Server transport requires WebSocket text messages", 1003)
+                if opcode == 1:
+                    if fragments is not None:
+                        self._fail("Native WebSocket starts a message before finishing its fragmented predecessor")
+                    if final:
+                        return self._text(payload)
+                    fragments = bytearray(payload)
+                elif opcode == 0:
+                    if fragments is None:
+                        self._fail("Native WebSocket continuation has no preceding message")
+                    fragments.extend(payload)
+                    if final:
+                        return self._text(fragments)
+                else:
+                    self._fail("Native WebSocket frame opcode is unsupported")
+        except _WebSocketEOF:
+            self._drop()
+            return None
+
+    def close(self):
+        if self.closed:
+            return
+        self._close_frame(struct.pack("!H", 1000))
+
+
 class AppServer:
     def __init__(self, originator):
-        executable = shutil.which("codex")
-        if not executable:
-            raise HarnessError("Codex CLI is unavailable; install or select the supported host explicitly")
-        self.process = subprocess.Popen([executable, "app-server", "--stdio"], stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                                        encoding="utf-8", env=clean_environment(),
-                                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.process = None
+        self.transport = None
+        self.closing = False
         self.incoming = queue.Queue()
         self.sequence = 0
-        threading.Thread(target=self._read, daemon=True).start()
+        endpoint = os.environ.get("OASIS_APP_SERVER_URL")
+        if endpoint is not None:
+            self.transport = _LoopbackWebSocket(endpoint)
+        else:
+            executable = shutil.which("codex")
+            if not executable:
+                raise HarnessError("Codex CLI is unavailable; install or select the supported host explicitly")
+            command = [executable, "app-server", "proxy"]
+            if os.environ.get("OASIS_APP_SERVER_SOCKET"):
+                command += ["--sock", os.environ["OASIS_APP_SERVER_SOCKET"]]
+            self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
+                                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                                            encoding="utf-8", env=clean_environment(),
+                                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.reader = threading.Thread(target=self._read, daemon=True)
+        self.reader.start()
         try:
             self.call("initialize", {"clientInfo": {"name": originator, "version": __version__}, "capabilities": {"experimentalApi": True}})
             self._send({"method": "initialized"})
-        except Exception:
+        except Exception as exc:
             self.close()
+            if self.process is not None and isinstance(exc, HarnessError) and not isinstance(exc, NativeError):
+                raise HarnessError("Native App Server proxy is unavailable; this path requires an already running daemon/control socket. Select its OASIS_APP_SERVER_SOCKET, or explicitly supply a caller-managed experimental loopback OASIS_APP_SERVER_URL. No server was started.") from None
             raise
 
     def _read(self):
-        for line in self.process.stdout:
-            try:
-                self.incoming.put(json.loads(line))
-            except ValueError:
-                continue
-        self.incoming.put(None)
+        try:
+            if self.transport is not None:
+                while (message := self.transport.receive()) is not None:
+                    try:
+                        value = json.loads(message)
+                    except ValueError:
+                        raise HarnessError("Native WebSocket returned invalid JSON") from None
+                    if not isinstance(value, dict):
+                        raise HarnessError("Native WebSocket returned a non-object protocol message")
+                    self.incoming.put(value)
+            else:
+                for line in self.process.stdout:
+                    try:
+                        self.incoming.put(json.loads(line))
+                    except ValueError:
+                        continue
+        except (OSError, ValueError, HarnessError) as exc:
+            if not self.closing:
+                self.incoming.put(exc if isinstance(exc, HarnessError) else HarnessError("Native App Server transport connection ended"))
+        finally:
+            self.incoming.put(None)
 
-    def _send(self, value):
-        self.process.stdin.write(json.dumps(value, ensure_ascii=False) + "\n")
-        self.process.stdin.flush()
+    def _send(self, value, *, deadline=None):
+        text = json.dumps(value, ensure_ascii=False)
+        try:
+            if self.transport is not None:
+                timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
+                self.transport.send(text, timeout=timeout)
+            else:
+                self.process.stdin.write(text + "\n")
+                self.process.stdin.flush()
+        except TimeoutError:
+            raise HarnessError("Native App Server send timed out; outcome uncertain") from None
+        except OSError:
+            raise HarnessError("Native App Server send failed; outcome uncertain") from None
 
     def call(self, method, params, timeout=30):
+        deadline = time.monotonic() + timeout
         self.sequence += 1
         sequence = self.sequence
-        self._send({"id": sequence, "method": method, "params": params})
-        deadline = time.monotonic() + timeout
+        self._send({"id": sequence, "method": method, "params": params}, deadline=deadline)
         while True:
             try:
                 reply = self.incoming.get(timeout=max(0, deadline - time.monotonic()))
@@ -67,12 +364,14 @@ class AppServer:
                 raise HarnessError(f"{method}: outcome uncertain; reconcile before another mutation") from None
             if reply is None:
                 raise HarnessError(f"{method}: connection ended; outcome uncertain")
+            if isinstance(reply, HarnessError):
+                raise HarnessError(f"{method}: {reply}; outcome uncertain") from None
             if reply.get("id") == sequence and "method" not in reply:
                 if "error" in reply:
-                    raise HarnessError(f"{method}: rejected ({reply['error'].get('code')}); no permission fallback")
+                    raise NativeError(method, reply["error"])
                 return reply["result"]
             if "id" in reply and "method" in reply:
-                self._send({"id": reply["id"], "error": {"code": -32601, "message": "Metadata client runs no tools or turns"}})
+                self._send({"id": reply["id"], "error": {"code": -32601, "message": "Use the native host for interactive requests"}}, deadline=deadline)
 
     def pages(self, method, params):
         seen = set()
@@ -88,6 +387,11 @@ class AppServer:
             params = {**params, "cursor": cursor}
 
     def close(self):
+        self.closing = True
+        if self.transport is not None:
+            self.transport.close()
+            self.reader.join(timeout=1)
+            return
         if not self.process.stdin.closed:
             try:
                 self.process.stdin.close()
@@ -109,16 +413,26 @@ class AppServer:
 
 def latest_settings(path):
     settings = None
+    found = False
     with Path(path).open(encoding="utf-8") as stream:
         for line in stream:
             record = json.loads(line)
+            if not isinstance(record, dict):
+                raise HarnessError("Native rollout record must be an object")
             payload = record.get("payload", {})
             if record.get("type") == "turn_context":
+                found = True
                 settings = payload
-            elif record.get("type") == "event_msg" and payload.get("type") == "thread_settings_applied":
-                settings = payload["thread_settings"]
-    if not settings:
-        raise HarnessError("Caller has no saved settings; cannot infer permissions")
+            elif record.get("type") == "event_msg":
+                if not isinstance(payload, dict):
+                    raise HarnessError("Native event payload must be an object")
+                if payload.get("type") == "thread_settings_applied":
+                    found = True
+                    settings = payload.get("thread_settings")
+    if not found:
+        raise MissingSavedSettings("Caller has no saved settings; cannot infer permissions")
+    if not isinstance(settings, dict) or not settings:
+        raise HarnessError("Saved native settings must be a nonempty object")
     return settings
 
 
@@ -176,10 +490,9 @@ def project_id(server, target):
 
 
 def prepare(server, source_id, target):
-    from .skills import check_core
-    check_core(target)
+    require_text(source_id, "Source thread ID")
     source = server.call("thread/read", {"threadId": source_id, "includeTurns": False})["thread"]
-    settings = inherited_settings(latest_settings(source["path"]))
+    settings, _ = _actual_settings(server, source_id, thread=source)
     identity = project_id(server, target)
     profiles = list(server.pages("permissionProfile/list", {"cwd": str(target)}))
     if not any(row.get("id") == settings["permissions"] and row.get("allowed") for row in profiles):
@@ -204,51 +517,47 @@ def letters(index):
     return result
 
 
-def title_for(role, goal, source, threads, receipts, *, pioneer_id=None):
-    if any(row.get("phase") not in ("ready", "archived", "prepared") for row in receipts):
-        raise HarnessError("An earlier creation is incomplete or uncertain; inspect and resume its receipt before creating another chat")
-    if role in ("Oasis", "Cameleer", "Pioneer"):
-        if any(row.get("name") == role for row in threads):
-            raise HarnessError("This role already exists; inspect and reuse it instead of duplicating it")
-        return role
-    if role == "Developer":
-        if not pioneer_id or source.get("id") != pioneer_id:
-            raise HarnessError("A Developer requires the bound Pioneer as its actual caller, plus the owner's explicit delegation")
-        if not goal or not goal.isascii() or any(c in goal for c in "\r\n\0"):
-            raise HarnessError("Developer goal must be one nonempty English line")
-        return f"Developer_{goal}"
-    if role not in ("Camel", "Calf"):
-        raise HarnessError("Unknown session role")
-    if not goal or not goal.isascii() or any(c in goal for c in "\r\n\0"):
-        raise HarnessError("Grouped goal must be one nonempty English line")
+def require_text(value, label):
+    if not isinstance(value, str) or not value.strip() or "\0" in value:
+        raise HarnessError(f"{label} must be nonempty text")
+    return value
+
+
+def retired_role():
+    return {"status": "retired_role", "role": "Calf", "replacement": "Camel",
+            "message": "Calf was retired in core 2.0.0. Assign implementation and checks to Camel; existing Calf records remain readable.",
+            "thread_created": False}
+
+
+def title_for(role, goal, source=None, threads=(), receipts=(), *, pioneer_id=None):
+    """Choose a readable convention; role and parent links use actual IDs."""
     if role == "Calf":
-        match = GROUP.fullmatch(source.get("name") or "")
-        if not match:
-            raise HarnessError("A Calf requires its actual grouped Camel as caller")
-        group = match[1]
-    else:
-        if source.get("name") != "Cameleer":
-            raise HarnessError("A grouped Camel requires the actual Cameleer as caller")
-        occupied = {match[1] for row in threads if (match := OCCUPIED_GROUP.fullmatch(row.get("name") or ""))}
-        for receipt in receipts:
-            if receipt.get("phase") != "archived" and (match := OCCUPIED_GROUP.fullmatch(receipt.get("title") or "")):
-                occupied.add(match[1])
-        index = 1
-        while letters(index) in occupied:
-            index += 1
-        group = letters(index)
-    return f"{role}_{group}_{goal}"
+        return None
+    if role not in ROLES:
+        raise HarnessError("Unknown session role")
+    if role in ("Oasis", "Cameleer", "Pioneer"):
+        return role
+    require_text(goal, "Task goal")
+    label = " ".join(goal.split())
+    if role == "Developer":
+        return f"Developer_{label}"
+    occupied = {row.get("name") for row in threads} | {row.get("title") for row in receipts}
+    index = 1
+    while f"camel_{letters(index)}_{label}" in occupied:
+        index += 1
+    return f"camel_{letters(index)}_{label}"
 
 
 def verify_response(response, receipt):
+    """Check the creation result once so permission inheritance is not widened."""
     expected = receipt["settings"]
     if (response.get("activePermissionProfile") or {}).get("id") != expected["permissions"]:
-        raise HarnessError("Saved permission profile mismatch")
+        raise HarnessError("Created permission profile differs from the caller")
     for key in ("approvalPolicy", "approvalsReviewer"):
         if response.get(key) != expected[key]:
-            raise HarnessError(f"Saved {key} mismatch")
+            raise HarnessError(f"Created {key} differs from the caller")
     if response.get("sandbox") != expected["effective_sandbox"]:
-        raise HarnessError("Effective sandbox changed; no work may be delivered")
+        raise HarnessError("Created effective sandbox differs from the caller")
     if canonical_root(response["cwd"]) != canonical_root(receipt["target"]) or response["thread"].get("projectId") != receipt["project_id"]:
         raise HarnessError("Created project/root mismatch")
     if expected.get("model") and response.get("model") != expected["model"]:
@@ -258,7 +567,10 @@ def verify_response(response, receipt):
 
 
 def create_metadata(path, receipt, factory=AppServer):
-    refresh_readiness(receipt)
+    if receipt.get("role") == "Calf":
+        return retired_role()
+    if receipt.get("phase") == "ready" and receipt.get("thread_id"):
+        return receipt
     settings = receipt["settings"]
     options = {"cwd": receipt["target"], "projectId": receipt["project_id"],
                **{key: settings[key] for key in ("permissions", "approvalPolicy", "approvalsReviewer")}}
@@ -267,34 +579,35 @@ def create_metadata(path, receipt, factory=AppServer):
     if settings.get("reasoning"):
         options["config"] = {"model_reasoning_effort": settings["reasoning"]}
     if not receipt.get("thread_id") and receipt["phase"] != "prepared":
-        raise HarnessError("Uncertain creation must be reconciled before retry; never start another chat")
+        raise HarnessError("Creation response is uncertain; inspect this receipt instead of creating another chat")
     try:
         with factory(receipt["originator"]) as server:
-            if receipt.get("thread_id"):
-                response = server.call("thread/resume", {"threadId": receipt["thread_id"], "excludeTurns": True})
-            else:
+            if not receipt.get("thread_id"):
                 receipt["phase"] = "creation_started"
                 write_json(path, receipt)
                 response = server.call("thread/start", options)
-                receipt.update(thread_id=response["thread"]["id"], phase="created")
+                receipt.update(thread_id=response["thread"]["id"], phase="created", creation_verified=False)
                 write_json(path, receipt)
-            verify_response(response, receipt)
+                verify_response(response, receipt)
+                receipt["creation_verified"] = True
+                write_json(path, receipt)
+            else:
+                # Native read verifies identity without repeated cold resumes or
+                # resetting a user's later model/permission selection.
+                thread = server.call("thread/read", {"threadId": receipt["thread_id"], "includeTurns": False})["thread"]
+                if canonical_root(thread["cwd"]) != canonical_root(receipt["target"]) or thread.get("projectId") != receipt["project_id"]:
+                    raise HarnessError("Reconciled thread belongs to another project/root")
+                if not receipt.get("creation_verified"):
+                    # Only unresolved creation needs this check. A failed
+                    # inheritance response must not become a ready wider chat.
+                    resume_options = {key: value for key, value in options.items() if key not in ("cwd", "projectId")}
+                    response = server.call("thread/resume", {"threadId": receipt["thread_id"], "excludeTurns": True, **resume_options})
+                    verify_response(response, receipt)
+                    receipt["creation_verified"] = True
+                    write_json(path, receipt)
             server.call("thread/name/set", {"threadId": receipt["thread_id"], "name": receipt["title"]})
-        receipt["phase"] = "named"
-        write_json(path, receipt)
-        with factory(receipt["originator"]) as server:
-            resume = {key: value for key, value in options.items() if key not in ("cwd", "projectId")}
-            response = server.call("thread/resume", {"threadId": receipt["thread_id"], "excludeTurns": True, **resume})
-            verify_response(response, receipt)
-        receipt["phase"] = "settings_saved"
-        write_json(path, receipt)
-        with factory(receipt["originator"]) as server:
-            response = server.call("thread/resume", {"threadId": receipt["thread_id"], "excludeTurns": True})
-            verify_response(response, receipt)
-            if response["thread"].get("name") != receipt["title"]:
-                raise HarnessError("Title did not survive cold resume")
-        refresh_readiness(receipt)
-        receipt.update(phase="ready", first_turn_verified=False, handoff_delivered=False)
+        receipt.update(phase="ready", handoff_delivered=False)
+        receipt.pop("error", None)
         write_json(path, receipt)
         return receipt
     except Exception as exc:
@@ -306,73 +619,284 @@ def create_metadata(path, receipt, factory=AppServer):
 def inspect(path, factory=AppServer):
     receipt = read_json(path)
     with factory(receipt["originator"] + "_inspect") as server:
-        rows = discover(server, receipt["target"], receipt["project_id"])
-        identities = {row["id"] for row in rows if row.get("originator") == receipt["originator"]}
         if receipt.get("thread_id"):
-            identities.add(receipt["thread_id"])
-        if len(identities) != 1:
-            return {"phase": "uncertain", "matches": sorted(identities), "retry_allowed": False}
-        identity = next(iter(identities))
+            identity = receipt["thread_id"]
+        else:
+            rows = discover(server, receipt["target"], receipt["project_id"])
+            identities = {row["id"] for row in rows if row.get("originator") == receipt["originator"]}
+            if len(identities) != 1:
+                return {"phase": "uncertain", "matches": sorted(identities), "retry_allowed": False}
+            identity = next(iter(identities))
         thread = server.call("thread/read", {"threadId": identity, "includeTurns": False})["thread"]
         if canonical_root(thread["cwd"]) != canonical_root(receipt["target"]) or thread.get("projectId") != receipt["project_id"]:
             raise HarnessError("Reconciled thread belongs to another project/root")
         return {"phase": receipt["phase"], "thread_id": identity, "name": thread.get("name"),
-                "target": thread.get("cwd"), "retry_allowed": False, "receipt": str(path)}
+                "target": thread.get("cwd"), "receipt": str(path)}
 
 
-def resume(path, authority, factory=AppServer):
-    if not authority:
-        raise HarnessError("Resume only within the real owner's original session creation scope")
+def resume(path, authority=None, factory=AppServer):
     receipt = read_json(path)
-    with operation_lock(Path(receipt["target"]) / ".oasis/local/operations.lock"):
+    with operation_lock(contained(receipt["target"], ".oasis/local/operations.lock")):
         result = inspect(path, factory)
         if not result.get("thread_id"):
-            raise HarnessError("Creation identity is unresolved; no automatic retry is permitted")
+            raise HarnessError("Creation identity is unresolved; preserve the receipt without retrying creation")
         receipt["thread_id"] = result["thread_id"]
         write_json(path, receipt)
+        if receipt.get("role") == "Calf":
+            return {**receipt, "legacy_role": True}
         return create_metadata(path, receipt, factory)
 
 
-def source_readiness(target, requested_lane):
-    from .skills import check_core
-    from .gitops import status
-    config = check_core(target)["project"]
-    state = status(target)
-    if state["profile"] != config["git"]["profile"]:
-        raise HarnessError("Desired and active Git profiles differ; complete the reviewed transition before session delivery")
-    if config["git"]["profile"] == "unmanaged":
-        return {"profile": "unmanaged", "lane_action": "preserve existing workflow"}
-    if not state["active"]:
-        raise HarnessError("Managed source profile is inactive; repair its binding before session delivery")
-    if not requested_lane or state["branch"] != requested_lane:
-        raise HarnessError("Managed task needs an explicit lane matching the actual checkout; only its switch owner may transition it")
-    return {"profile": state["profile"], "branch": state["branch"], "head": state["head"]}
+def create(target, role, source_id, goal=None, *, title=None, apply=False, factory=AppServer, **_legacy):
+    if role == "Calf":
+        return retired_role()
+    if role not in ROLES:
+        raise HarnessError("Unknown session role")
+    require_text(source_id, "Source thread ID")
+    from .installation import target_root
+    target = target_root(target)
+    originator = "oasis_session_" + uuid.uuid4().hex
+    with factory(originator) as server:
+        identity, settings, source = prepare(server, source_id, target)
+        selected_title = title if title is not None else title_for(role, goal, source, discover(server, target, identity))
+    require_text(selected_title, "Chat title")
+    receipt = {"schema_version": 1, "originator": originator, "source_thread_id": source_id,
+               "target": str(target), "project_id": identity, "settings": settings, "title": selected_title,
+               "role": role, "parent_thread_id": source_id if role in ("Camel", "Developer") else None,
+               "phase": "prepared"}
+    if not apply:
+        return receipt
+    with operation_lock(contained(target, ".oasis/local/operations.lock")):
+        path = contained(target, f".oasis/local/sessions/{originator}/receipt.json")
+        write_json(path, receipt)
+        return {**create_metadata(path, receipt, factory), "receipt": str(path)}
 
 
-def refresh_readiness(receipt):
-    expected = receipt.get("source_readiness")
-    if not isinstance(expected, dict):
-        raise HarnessError("Session receipt has no source-readiness evidence; inspect current ownership before resumption")
-    actual = source_readiness(receipt["target"], expected.get("branch"))
-    if actual != expected:
-        raise HarnessError("Source readiness changed; no work may be delivered until the owner reconciles this existing session")
+def read_turns(server, thread_id):
+    """A requested reconciliation read, never a monitoring loop."""
+    thread = server.call("thread/read", {"threadId": thread_id, "includeTurns": True})["thread"]
+    turns = thread.get("turns")
+    if isinstance(turns, list) and thread.get("turnsView", "full") == "full":
+        return turns
+    return list(server.pages("thread/turns/list", {"threadId": thread_id, "itemsView": "full", "limit": 100}))
+
+
+def _message_text(item):
+    return "\n".join(part.get("text", "") for part in item.get("content", []) if part.get("type") == "text")
+
+
+def reconcile_delivery(server, value):
+    matches = []
+    for turn in read_turns(server, value["thread_id"]):
+        for item in turn.get("items", []):
+            if item.get("type") != "userMessage":
+                continue
+            if item.get("clientId") == value["message_id"] or (
+                    not item.get("clientId") and (item.get("id") not in value.get("before_user_item_ids", [])
+                    if item.get("id") else turn.get("id") not in value.get("before_turn_ids", []))
+                    and _message_text(item) == value["text"]):
+                matches.append(turn)
+    if matches:
+        value.update(state="accepted", turn_id=matches[0].get("id"), duplicate_observed=len(matches) > 1)
+        value.pop("error", None)
+        return True
+    return False
+
+
+def _collaboration(settings, mode):
+    model = settings.get("model")
+    if not isinstance(model, str) or not model:
+        raise HarnessError("The native collaboration mode needs the existing thread's model")
+    return {"mode": mode, "settings": {"model": model, "reasoning_effort": settings.get("reasoning"),
+                                       "developer_instructions": None}}
+
+
+def _verified_initial_settings(thread, thread_id):
+    """Use exact creation evidence only before the first settings record exists."""
+    root = Path(thread["cwd"]).resolve()
+    matches = []
+    for path in contained(root, ".oasis/local/sessions").glob("*/receipt.json"):
+        row = read_json(contained(root, path.relative_to(root).as_posix()))
+        if (not isinstance(row, dict) or row.get("thread_id") != thread_id
+                or row.get("creation_verified") is not True):
+            continue
+        if canonical_root(row.get("target", "")) != canonical_root(root) or row.get("project_id") != thread.get("projectId"):
+            raise HarnessError("Initial settings record has a different native project/root")
+        if not isinstance(row.get("settings"), dict):
+            raise HarnessError("Verified initial settings record is invalid")
+        matches.append(row["settings"])
+    if not matches:
+        raise MissingSavedSettings("Native thread has no saved settings or matching verified creation record")
+    if any(settings != matches[0] for settings in matches[1:]):
+        raise HarnessError("Conflicting initial settings records for this native thread")
+    settings = matches[0]
+    sandbox = settings.get("effective_sandbox")
+    kinds = {"dangerFullAccess": "danger-full-access", "workspaceWrite": "workspace-write", "readOnly": "read-only"}
+    fields = {"writableRoots": "writable_roots", "networkAccess": "network_access",
+              "excludeTmpdirEnvVar": "exclude_tmpdir_env_var", "excludeSlashTmp": "exclude_slash_tmp"}
+    if not isinstance(sandbox, dict) or sandbox.get("type") not in kinds or set(sandbox) - {"type", *fields}:
+        raise HarnessError("Verified initial sandbox representation is unsupported")
+    saved = {"active_permission_profile": {"id": settings.get("permissions")},
+             "sandbox_policy": {"type": kinds[sandbox["type"]],
+                                **{fields[key]: value for key, value in sandbox.items() if key in fields}},
+             "approval_policy": settings.get("approvalPolicy"), "approvals_reviewer": settings.get("approvalsReviewer"),
+             "model": settings.get("model"), "reasoning_effort": settings.get("reasoning")}
+    return inherited_settings(saved), saved
+
+
+def _actual_settings(server, thread_id, *, thread=None):
+    thread = thread if thread is not None else server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
+    if thread.get("id") != thread_id:
+        raise HarnessError("Native settings lookup returned another thread ID")
+    try:
+        saved = latest_settings(thread["path"])
+    except MissingSavedSettings:
+        return _verified_initial_settings(thread, thread_id)
+    return inherited_settings(saved), saved
+
+
+def _resume_current(server, thread, settings):
+    """Load only a cold recipient with its current selections, then verify once.
+
+    On the observed native host a no-override resume resets model effort and
+    approval/profile fields to server defaults. Explicit identical selections
+    preserve this thread's configuration without writing global settings.
+    """
+    require_text(settings.get("model"), "Current native model")
+    options = {key: settings[key] for key in ("permissions", "approvalPolicy", "approvalsReviewer", "model")}
+    if settings.get("reasoning") is not None:
+        options["config"] = {"model_reasoning_effort": settings["reasoning"]}
+    response = server.call("thread/resume", {"threadId": thread["id"], "excludeTurns": True, **options})
+    verify_response(response, {"settings": settings, "target": thread["cwd"], "project_id": thread.get("projectId")})
+    if response.get("reasoningEffort") != settings.get("reasoning"):
+        raise HarnessError("Cold resume did not preserve the current reasoning selection")
+
+
+def _plan_route(server, thread_id, settings):
+    try:
+        modes = server.call("collaborationMode/list", {})["data"]
+    except NativeError as exc:
+        if exc.code == -32601:
+            return "manual", None
+        raise
+    if not any(row.get("mode") == "plan" for row in modes):
+        return "manual", None
+    mode = _collaboration(settings, "plan")
+    try:
+        server.call("thread/settings/update", {"threadId": thread_id, "collaborationMode": mode})
+        return "settings", mode
+    except NativeError as exc:
+        if exc.code == -32601:
+            return "turn", mode
+        raise
+
+
+def send_once(path, thread_id, text, server, *, planning=False, execution=False, skill=None):
+    """Send one native user message and retain an ambiguous attempt for recovery.
+
+    A client ID identifies this delivery; it imposes no format on role messages.
+    Definite native rejection is retryable. Lost responses never replay a turn.
+    """
+    require_text(thread_id, "Recipient thread ID")
+    require_text(text, "Message")
+    path = Path(path)
+    value = read_json(path) if path.exists() else {
+        "schema_version": 1, "thread_id": thread_id, "text": text, "message_id": str(uuid.uuid4()),
+        "planning": planning, "execution": execution, "state": "not_started"}
+    if not isinstance(value, dict) or value.get("state") not in ("not_started", "started", "uncertain", "accepted", "rejected", "manual_plan"):
+        raise HarnessError("Invalid delivery record; preserve it for recovery")
+    if value.get("thread_id") != thread_id or value.get("text") != text:
+        raise HarnessError("Delivery path already belongs to another message; preserve it and use its existing action")
+    if value["state"] == "accepted":
+        return value
+    if value["state"] in ("started", "uncertain"):
+        reconcile_delivery(server, value)
+        write_json(path, value)
+        return value
+    settings = saved = None
+    collaboration = None
+    native = server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
+    if (native.get("status") or {}).get("type") == "notLoaded":
+        settings, saved = _actual_settings(server, thread_id, thread=native)
+        _resume_current(server, native, settings)
+    if planning or execution:
+        if settings is None:
+            settings, saved = _actual_settings(server, thread_id, thread=native)
+    if planning:
+        actual_mode = (saved.get("collaboration_mode") or {}).get("mode")
+        route, collaboration = ("manual_already_set", None) if actual_mode == "plan" else _plan_route(server, thread_id, settings)
+        value["plan_route"] = route
+        if route == "manual":
+            value["state"] = "manual_plan"
+            if not value.get("manual_instruction_shown"):
+                value["manual_instruction_shown"] = True
+                write_json(path, value)
+                return {**value, "instruction": f"Enable actual Codex Plan mode in chat {thread_id}, then start planning with the assigned request."}
+            write_json(path, value)
+            return value
+    elif execution:
+        # Only an explicit implementation follow-up requests this mode change.
+        collaboration = _collaboration(settings, "default")
+    if "before_turn_ids" not in value:
+        before = read_turns(server, thread_id)
+        value["before_turn_ids"] = [turn.get("id") for turn in before]
+        value["before_user_item_ids"] = [item["id"] for turn in before for item in turn.get("items", [])
+                                         if item.get("type") == "userMessage" and item.get("id")]
+    params = {"threadId": thread_id, "input": [{"type": "text", "text": text}],
+              "clientUserMessageId": value["message_id"]}
+    if skill:
+        params["input"].append({"type": "skill", "name": skill["name"], "path": skill["path"]})
+    if collaboration is not None:
+        params["collaborationMode"] = collaboration
+    value["state"] = "started"
+    write_json(path, value)
+    try:
+        result = server.call("turn/start", params)
+        value.update(state="accepted", turn_id=result["turn"]["id"])
+        value.pop("error", None)
+    except NativeError as exc:
+        if planning and exc.code == -32602 and "collaboration" in str(exc).casefold():
+            value.update(state="manual_plan", plan_route="manual", error=str(exc))
+            if not value.get("manual_instruction_shown"):
+                value["manual_instruction_shown"] = True
+                write_json(path, value)
+                return {**value, "instruction": f"Enable actual Codex Plan mode in chat {thread_id}, then start planning with the assigned request."}
+        else:
+            value.update(state="rejected", error=str(exc))
+            write_json(path, value)
+            raise
+    except Exception as exc:
+        value.update(state="uncertain", error=str(exc))
+        write_json(path, value)
+        raise
+    write_json(path, value)
+    return value
+
+
+def archive(server, thread_id):
+    require_text(thread_id, "Thread ID")
+    return server.call("thread/archive", {"threadId": thread_id})
+
+
+def restore(server, thread_id):
+    require_text(thread_id, "Thread ID")
+    return server.call("thread/unarchive", {"threadId": thread_id})
 
 
 def workflow_pioneer(target, source_id, server=None):
-    """Read an established workflow binding; a title cannot assign Pioneer."""
     from .workflows import bound_pioneer
     return bound_pioneer(target, source_id, server)
 
 
 def register(subparsers):
-    parser = subparsers.add_parser("session", help="Codex metadata only; no prompt delivery or model turn")
+    parser = subparsers.add_parser("session", help="Native chats, assignment and retained delivery recovery")
     commands = parser.add_subparsers(dest="session_command", required=True)
     p = commands.add_parser("inspect")
     p.add_argument("receipt")
     p.set_defaults(func=lambda args: inspect(args.receipt))
     p = commands.add_parser("resume")
     p.add_argument("receipt")
-    p.add_argument("--authority", required=True)
+    p.add_argument("--authority", help="Legacy request reference", default=None)
     p.set_defaults(func=lambda args: resume(args.receipt, args.authority))
     p = commands.add_parser("discovery")
     p.add_argument("--target", required=True)
@@ -384,50 +908,12 @@ def register(subparsers):
     p.set_defaults(func=discovery)
     p = commands.add_parser("create")
     p.add_argument("--target", required=True)
-    p.add_argument("--role", required=True, choices=("Oasis", "Cameleer", "Camel", "Calf", "Pioneer", "Developer"))
+    p.add_argument("--role", required=True, choices=(*ROLES, "Calf"))
     p.add_argument("--goal")
-    p.add_argument("--lane", choices=("main", "test"))
+    p.add_argument("--title")
+    p.add_argument("--lane", choices=("main", "test"), help="Legacy lane hint; preserves the selected Git workflow")
     p.add_argument("--source-thread-id", default=os.environ.get("CODEX_THREAD_ID"))
-    p.add_argument("--authority", help="Reference to the real owner request; a string is not independent proof")
+    p.add_argument("--authority", help="Legacy request reference")
     p.add_argument("--apply", action="store_true")
-    def command(args):
-        if not args.source_thread_id or (os.environ.get("CODEX_THREAD_ID") and args.source_thread_id != os.environ["CODEX_THREAD_ID"]):
-            raise HarnessError("Actual caller thread ID is required")
-        target = Path(args.target).resolve()
-        receipts_root = target / ".oasis/local/sessions"
-        if args.apply and not args.authority:
-            raise HarnessError("Verify the owner's concrete session request before applying")
-        def prepare_receipt():
-            workflow_state = target / ".oasis/local/workflows/state.json"
-            if workflow_state.exists() and read_json(workflow_state).get("pending_operation"):
-                raise HarnessError("A workflow transition owns this project's checkpoint; finish/resume it before creating another role or worker")
-            if args.role == "Pioneer":
-                from .workflows import _root, effective_mode
-                _, project = _root(target)
-                if effective_mode(project) != "pioneer":
-                    raise HarnessError("Pioneer metadata requires the selected Pioneer mode; use a reviewed workflow transition")
-            readiness = source_readiness(target, args.lane)
-            originator = "oasis_session_" + uuid.uuid4().hex
-            with AppServer(originator) as server:
-                identity, settings, source = prepare(server, args.source_thread_id, target)
-                if args.role in ("Camel", "Calf", "Developer") and (canonical_root(source["cwd"]) != canonical_root(target) or source.get("projectId") != identity):
-                    raise HarnessError("Task caller must belong to the target project")
-                receipts = [read_json(path) for path in receipts_root.glob("*/receipt.json")]
-                pioneer_id = workflow_pioneer(target, args.source_thread_id, server) if args.role == "Developer" else None
-                if args.role == "Developer" and not args.authority:
-                    raise HarnessError("An ordinary Developer needs the owner's explicit delegation; do not infer it from Pioneer mode")
-                title = title_for(args.role, args.goal, source, discover(server, target, identity), receipts, pioneer_id=pioneer_id)
-            return {"schema_version": 1, "originator": originator, "source_thread_id": args.source_thread_id,
-                    "target": str(target), "project_id": identity, "settings": settings, "title": title,
-                    "role": args.role, "parent_thread_id": args.source_thread_id if args.role in ("Camel", "Calf", "Developer") else None,
-                    "assignment_marker": f"[OASIS_SESSION_ROLE {originator} {args.role}]",
-                    "source_readiness": readiness,
-                    "authority_reference": args.authority, "authority_independently_verified": False, "phase": "prepared"}
-        if not args.apply:
-            return prepare_receipt()
-        with operation_lock(target / ".oasis/local/operations.lock"):
-            receipt = prepare_receipt()
-            path = receipts_root / receipt["originator"] / "receipt.json"
-            write_json(path, receipt)
-            return {**create_metadata(path, receipt), "receipt": str(path)}
-    p.set_defaults(func=command)
+    p.set_defaults(func=lambda args: create(args.target, args.role, args.source_thread_id, args.goal,
+                                           title=args.title, apply=args.apply))

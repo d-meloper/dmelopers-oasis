@@ -132,7 +132,9 @@ class PublicSourceContracts(unittest.TestCase):
         modes = {name: "100644" for name in files}
         modes["oasis.py"] = "100755"
         result = validate_harness_distribution(files, reviewed, expected_hashes=hashes, modes=modes)
-        self.assertEqual((result["default_skills"], result["optional_skills"]), (10, 15))
+        self.assertEqual((result["default_skills"], result["optional_skills"]), (9, 15))
+        self.assertEqual(result["core_version"], "2.0.0")
+        self.assertEqual(result["active_skills"], 24)
         self.assertTrue(result["modes_verified"])
         self.assertFalse(result["authority_verified"])
         self.assertEqual(result["files"]["oasis.py"]["mode"], "100755")
@@ -180,14 +182,13 @@ class PublicSourceContracts(unittest.TestCase):
             with self.subTest(address=address), self.assertRaises(HarnessError):
                 scan_harness_file("docs/example.md", address)
 
-    def test_core_and_unbound_project_templates_cannot_be_waived(self):
+    def test_core_metadata_is_not_sealed_and_project_template_stays_unbound(self):
         data = (PACKAGE / "seed/.oasis/core.json").read_bytes()
         core = json.loads(data)
-        core["routing"]["owner_relay"] = "automatic"
+        core["project_note"] = "Useful local role description"
         changed = json.dumps(core).encode()
-        with self.assertRaisesRegex(HarnessError, "core template drift"):
-            scan_harness_file("seed/.oasis/core.json", changed,
-                              {"seed/.oasis/core.json": {"sha256": digest(changed), "reason": "Not core approval."}})
+        self.assertEqual(scan_harness_file("seed/.oasis/core.json", changed)["classification"],
+                         "neutral-core-template")
         for change in ({"git": {"profile": "single-main"}}, {"name": "Selected project"},
                        {"publication": {"configured": True}}, {"backup": {"configured": 0}}):
             project = {**NEUTRAL_PROJECT, **change}
@@ -241,7 +242,7 @@ class PublicSourceContracts(unittest.TestCase):
 
     def test_missing_or_renamed_skill_metadata_cannot_claim_25_definitions(self):
         files, reviewed = fixture()
-        for name in ("seed/.agents/skills/oasis-calf/agents/openai.yaml",
+        for name in ("seed/.agents/skills/oasis-camel/agents/openai.yaml",
                      "library/oasis-review/capability.json"):
             changed = dict(files)
             del changed[name]

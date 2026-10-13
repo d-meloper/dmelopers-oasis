@@ -1,4 +1,5 @@
 import os
+import json
 from pathlib import Path
 import shutil
 import subprocess
@@ -108,6 +109,73 @@ class CommitVersionTests(unittest.TestCase):
         path = self.root / "oasis_harness/__init__.py"
         path.write_bytes(path.read_bytes().replace(b"1.2.3", version.encode("ascii")))
         self.git("add", "--", "oasis_harness/__init__.py")
+
+    def stage_delta(self, version="1.2.4", previous="1.2.3", files=None):
+        path = self.root / "docs/upgrade-index.json"
+        path.parent.mkdir(exist_ok=True)
+        history = json.loads(path.read_text(encoding="utf-8"))["releases"] if path.exists() else []
+        entry = {"version":version,"previous":previous,
+            "summary":["Fixture scoped change"],"areas":[],"source_only":["Fixture has no adopter effects"],
+            "files":["work.txt"] if files is None else files}
+        if history and history[-1]["version"] == version and history[-1]["previous"] == previous:
+            history[-1] = entry
+        else:
+            history.append(entry)
+        path.write_text(json.dumps({"schema_version":1,"releases":history}),encoding="utf-8")
+        self.git("add", "--", "docs/upgrade-index.json")
+
+    def test_version_notes_cover_exact_staged_scope_before_version_writes(self):
+        self.stage_work()
+        self.stage_delta(files=[])
+        before = (self.root / "oasis_harness/__init__.py").read_bytes()
+        rejected = self.git("commit", "-m", "Missing file delta", check=False)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn(b"exactly cover", rejected.stderr)
+        self.assertEqual((self.root / "oasis_harness/__init__.py").read_bytes(), before)
+        self.stage_delta()
+        self.git("commit", "-m", "Reviewed predecessor delta")
+        self.assertIn(b'__version__ = "1.2.4"', self.committed())
+        self.assertNotEqual(self.git("commit", "--allow-empty", "-m", "Missing next delta", check=False).returncode, 0)
+        self.stage_delta(version="1.2.5", previous="1.2.4", files=[])
+        self.git("commit", "-m", "Explicit version-only delta")
+        self.assertIn(b'__version__ = "1.2.5"', self.committed())
+
+    def test_tracked_version_index_cannot_be_removed_to_skip_note_gate(self):
+        self.stage_work(); self.stage_delta()
+        self.git("commit", "-m", "Introduce version delta")
+        self.git("rm", "--cached", "docs/upgrade-index.json")
+        before = (self.root / "oasis_harness/__init__.py").read_bytes()
+        rejected = self.git("commit", "-m", "Remove delta gate", check=False)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn(b"Keep the tracked version delta", rejected.stderr)
+        self.assertEqual((self.root / "oasis_harness/__init__.py").read_bytes(), before)
+
+    def test_exact_reset_reuses_a_label_without_losing_chronological_history(self):
+        self.stage_work(); self.stage_delta()
+        self.git("commit", "-m", "First indexed patch")
+        self.stage_delta(version="1.2.5", previous="1.2.4", files=[])
+        self.git("commit", "-m", "Second indexed patch")
+        path=self.root/"oasis_harness/__init__.py"
+        path.write_bytes(path.read_bytes().replace(b"1.2.5",b"1.2.4"))
+        self.git("add","--","oasis_harness/__init__.py")
+        self.stage_delta(version="1.2.4", previous="1.2.5", files=[])
+        self.git("-c","oasis.versionTarget=1.2.4","commit","-m","Explicit indexed reset")
+        history=json.loads((self.root/"docs/upgrade-index.json").read_text())["releases"]
+        self.assertEqual([r["version"] for r in history],["1.2.4","1.2.5","1.2.4"])
+        self.stage_delta(version="1.2.5", previous="1.2.4", files=[])
+        self.git("commit","-m","Ordinary patch after indexed reset")
+        self.assertIn(b'__version__ = "1.2.5"',self.committed())
+
+    def test_earlier_delta_cannot_be_dropped_by_a_normal_next_patch(self):
+        self.stage_work(); self.stage_delta()
+        self.git("commit","-m","Indexed patch")
+        self.stage_delta(version="1.2.5",previous="1.2.4",files=[])
+        path=self.root/"docs/upgrade-index.json"
+        value=json.loads(path.read_text());value["releases"]=value["releases"][-1:]
+        path.write_text(json.dumps(value),encoding="utf-8");self.git("add","--","docs/upgrade-index.json")
+        result=self.git("commit","-m","Dropped history",check=False)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn(b"Retain prior chronological",result.stderr)
 
     def test_command_local_exact_reset_then_normal_patch(self):
         before = (self.root / ".oasis/core.json").read_bytes()

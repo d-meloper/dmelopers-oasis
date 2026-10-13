@@ -9,6 +9,68 @@ from oasis_harness.common import HarnessError, file_hash, read_json, write_json
 PACKAGE = Path(__file__).resolve().parents[1]
 
 
+class UpgradeGuidanceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="oasis-deltas-")
+        self.addCleanup(self.temp.cleanup)
+        self.package = Path(self.temp.name)
+        (self.package / "docs").mkdir()
+        self.index = self.package / "docs/upgrade-index.json"
+        self.area = {"name":"Scoped fixture","paths":["AGENTS.md"],"change":"Fixture delta",
+                     "apply":"Merge at authorized handoff","checks":["Scoped check"]}
+        self.data = {"schema_version":1,"releases":[
+            {"version":"1.0.1","previous":"1.0.0","summary":["Guide change"],"areas":[self.area],"source_only":[]},
+            {"version":"1.0.2","previous":"1.0.1","summary":["Artwork change"],"areas":[],"source_only":["No adopter changes"]}]}
+        write_json(self.index,self.data)
+
+    def differences(self, *names):
+        return [{"path":name,"upstream_changed":True,"local_changed":name=="AGENTS.md"} for name in names]
+
+    def test_skipped_versions_select_only_actual_areas_and_keep_local_review(self):
+        result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md",".oasis/runtime/oasis_harness/__init__.py"))
+        self.assertTrue(result["chain_complete"])
+        self.assertEqual([r["version"] for r in result["releases"]],["1.0.1","1.0.2"])
+        self.assertEqual(result["affected_areas"][0]["actual_paths"],["AGENTS.md"])
+        self.assertEqual(result["unmapped_paths"],[])
+        self.assertEqual(result["local_review_paths"],["AGENTS.md"])
+        self.assertTrue(result["advisory_only"])
+
+    def test_source_only_patch_needs_no_adopter_area(self):
+        result=doctor.upgrade_guidance(self.package,"1.0.1","1.0.2",self.differences(".oasis/runtime/oasis_harness/__init__.py"))
+        self.assertTrue(result["chain_complete"])
+        self.assertEqual(result["affected_areas"],[])
+        self.assertEqual(result["releases"][0]["source_only"],["No adopter changes"])
+
+    def test_repeated_version_labels_from_explicit_reset_are_conservative(self):
+        reset={**self.data["releases"][0],"previous":"1.0.2"}
+        self.data["releases"].extend([reset,{**self.data["releases"][1],"previous":"1.0.1"}])
+        write_json(self.index,self.data)
+        ambiguous=doctor.upgrade_guidance(self.package,"1.0.1","1.0.2",self.differences("AGENTS.md"))
+        self.assertFalse(ambiguous["chain_complete"])
+        self.assertIn("Repeated installed version",ambiguous["reason"])
+        first=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md"))
+        self.assertTrue(first["chain_complete"])
+        self.assertEqual(len(first["releases"]),4)
+
+    def test_unknown_changed_paths_and_same_version_bytes_do_not_disappear(self):
+        result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("new-unmapped.txt"))
+        self.assertEqual(result["unmapped_paths"],["new-unmapped.txt"])
+        result=doctor.upgrade_guidance(self.package,"1.0.2","1.0.2",self.differences("AGENTS.md"))
+        self.assertFalse(result["chain_complete"])
+        self.assertEqual(result["unmapped_paths"],["AGENTS.md"])
+
+    def test_missing_malformed_or_cyclic_metadata_falls_back_to_complete_diff(self):
+        for data in ([],{"schema_version":2,"releases":[]},
+                     {"schema_version":1,"releases":[{**self.data["releases"][1],"previous":"1.0.2"}]},
+                     {"schema_version":1,"releases":[{**self.data["releases"][1],"areas":[None]}]}):
+            write_json(self.index,data)
+            result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md"))
+            self.assertFalse(result["chain_complete"])
+            self.assertEqual(result["unmapped_paths"],["AGENTS.md"])
+        self.index.unlink()
+        self.assertFalse(doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",[])["chain_complete"])
+
+
 class DoctorTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-doctor-")
@@ -18,9 +80,9 @@ class DoctorTests(unittest.TestCase):
             (self.package / name).mkdir(parents=True)
         for name in ("core.json", "project.json"):
             shutil.copyfile(PACKAGE / "seed/.oasis" / name, self.package / "seed/.oasis" / name)
-        for name in skills.DEFAULT_NAMES:
-            folder = self.package / "seed/.agents/skills" / name
-            folder.mkdir(parents=True)
+        for name in skills.ALL_NAMES:
+            folder = (self.package / "library" if name in skills.OPTIONAL_NAMES else self.package / "seed/.agents/skills") / name
+            folder.mkdir(parents=True, exist_ok=True)
             (folder / "SKILL.md").write_text(f"---\nname: {name}\ndescription: Neutral disposable lifecycle fixture for owned resource updates.\n---\n", encoding="utf-8")
         (self.package / "seed/AGENTS.md").write_text("one\ntwo\nthree\n", encoding="utf-8")
         (self.package / "seed/.gitignore").write_text("/.oasis/local/\n", encoding="utf-8")
@@ -39,10 +101,7 @@ class DoctorTests(unittest.TestCase):
         self.temp.cleanup()
 
     def select_review(self):
-        project = read_json(self.root / ".oasis/project.json")
-        project["capabilities"] = ["oasis-review"]
-        write_json(self.root / ".oasis/project.json", project)
-        skills.activate(self.root, ["oasis-review"], package=self.package)
+        self.assertTrue((self.root / ".agents/skills/oasis-review/SKILL.md").is_file())
 
     def hashes(self):
         return {p.relative_to(self.root).as_posix(): file_hash(p) for p in self.root.rglob("*") if p.is_file()}
@@ -80,13 +139,13 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(local.read_bytes(), b"private-evidence\n")
         self.assertEqual(doctor.audit(self.root, self.package)["status"], "current")
 
-    def test_selected_skill_refresh_preserves_ownership_and_local_knowledge(self):
+    def test_active_skill_refresh_preserves_ownership_and_local_knowledge(self):
         self.select_review()
         active = self.root / ".agents/skills/oasis-review/rule.txt"
         active.write_text("one\ntwo\nproject\n", encoding="utf-8")
         (self.package / "library/oasis-review/rule.txt").write_text("upstream\ntwo\nthree\n", encoding="utf-8")
         ordinary = installation.plan(self.root, self.package, upgrade=True)
-        self.assertFalse(any(op["path"] == ".agents/skills/oasis-review/rule.txt" for op in ordinary["operations"]))
+        self.assertTrue(any(op["path"] == ".agents/skills/oasis-review/rule.txt" for op in ordinary["operations"]))
         installation.apply(doctor.plan(self.root, self.package), state_root=self.state)
         self.assertEqual(active.read_text(encoding="utf-8"), "upstream\ntwo\nproject\n")
         record = read_json(self.root / installation.MANIFEST)["managed"][".agents/skills/oasis-review/rule.txt"]
@@ -94,7 +153,7 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(record["base_sha256"], file_hash(self.package / "library/oasis-review/rule.txt"))
         self.assertEqual(doctor.audit(self.root, self.package)["status"], "current")
 
-    def test_reports_default_and_selected_conflicts_together_without_apply(self):
+    def test_reports_role_and_capability_conflicts_together_without_apply(self):
         self.select_review()
         (self.root / "AGENTS.md").write_text("local\ntwo\nthree\n", encoding="utf-8")
         (self.package / "seed/AGENTS.md").write_text("upstream\ntwo\nthree\n", encoding="utf-8")
@@ -121,16 +180,46 @@ class DoctorTests(unittest.TestCase):
             doctor.plan(self.root, self.package)
         self.assertEqual(self.hashes(), before)
 
-    def test_incoming_core_change_is_blocked(self):
+    def test_incoming_core_bytes_are_reviewed_without_a_hash_seal(self):
         core = read_json(self.package / "seed/.oasis/core.json")
-        core["routing"]["owner_relay"] = "automatic"
+        core["project_notes"] = "Native task links use actual chat IDs"
         write_json(self.package / "seed/.oasis/core.json", core)
         before = self.hashes()
         result = doctor.audit(self.root, self.package)
-        self.assertEqual({row["kind"] for row in result["issues"]}, {"core_migration"})
-        with self.assertRaises(HarnessError):
-            doctor.plan(self.root, self.package)
+        self.assertEqual(result["status"], "outdated")
+        self.assertEqual(result["issues"], [])
+        self.assertTrue(any(op["path"] == ".oasis/core.json" for op in doctor.plan(self.root, self.package)["operations"]))
         self.assertEqual(self.hashes(), before)
+        installation.apply(doctor.plan(self.root, self.package), state_root=self.state)
+        self.assertEqual(read_json(self.root / ".oasis/core.json"), core)
+
+    def test_core_one_to_two_upgrade_waits_on_real_task_links_without_blocking_on_version(self):
+        legacy = self.base / "legacy-core-one"
+        shutil.copytree(self.package, legacy)
+        write_json(legacy / "seed/.oasis/core.json", {"schema_version": 1, "core_version": "1.0.0"})
+        calf = legacy / "seed/.agents/skills/oasis-calf"
+        calf.mkdir()
+        (calf / "SKILL.md").write_bytes(b"---\nname: oasis-calf\ndescription: Legacy fixture.\n---\nLegacy instructions.\n")
+        root = self.base / "legacy-project"
+        root.mkdir()
+        installation.apply(installation.plan(root, legacy), state_root=self.base / "legacy-journals")
+        task_path = root / ".oasis/local/tasks/state.json"
+        task = {"id": "legacy-task", "camel_thread_id": "actual-fixture-chat-id", "cameleer_thread_id": "fixture-manager-id",
+                "goal": "Finish old work", "phase": "running", "location": str(root), "result": "", "checks": ""}
+        write_json(task_path, {"schema_version": 1, "tasks": [task], "dependencies": []})
+        report = doctor.audit(root, self.package)
+        self.assertEqual(report["status"], "waiting")
+        self.assertEqual(report["issues"], [])
+        value = doctor.plan(root, self.package)
+        self.assertEqual(value["operations"], [])
+        with self.assertRaisesRegex(HarnessError, "waiting for unfinished"):
+            installation.apply(value, state_root=self.base / "legacy-journals")
+        task["phase"] = "completed"
+        write_json(task_path, {"schema_version": 1, "tasks": [task], "dependencies": []})
+        self.assertEqual(doctor.audit(root, self.package)["status"], "outdated")
+        installation.apply(doctor.plan(root, self.package), state_root=self.base / "legacy-journals")
+        self.assertEqual(read_json(root / ".oasis/core.json")["core_version"], "2.0.0")
+        self.assertFalse((root / ".agents/skills/oasis-calf").exists())
 
     def test_private_payload_refuses_before_doctor_planning(self):
         private = self.package / "seed/.oasis/local/settings.json"
@@ -151,7 +240,7 @@ class DoctorTests(unittest.TestCase):
             doctor.plan(unowned, self.package)
         self.assertEqual(list(unowned.iterdir()), [])
 
-    def test_new_defaults_install_into_an_older_eight_skill_adopter(self):
+    def test_new_defaults_install_into_an_older_adopter(self):
         resource = self.package / "seed/.agents/skills/oasis-harness-doctor/SKILL.md"
         content = resource.read_bytes()
         resource.unlink()
@@ -169,11 +258,12 @@ class DoctorTests(unittest.TestCase):
         installation.apply(doctor.plan(older, self.package), state_root=self.base / "older-journals")
         self.assertEqual((older / ".agents/skills/oasis-harness-doctor/SKILL.md").read_bytes(), content)
         self.assertEqual((older / ".agents/skills/oasis-pioneer/SKILL.md").read_bytes(), pioneer_content)
-        self.assertEqual(len(skills.validate_skills(older)["skills"]), 10)
+        self.assertEqual(len(skills.validate_skills(older)["skills"]), 24)
 
-    def test_retired_selected_resources_preserve_specialization(self):
+    def test_retired_active_resources_preserve_specialization(self):
         for name in ("obsolete.txt", "specialized.txt"):
             (self.package / "library/oasis-review" / name).write_bytes(b"base")
+        installation.apply(doctor.plan(self.root, self.package), state_root=self.state)
         self.select_review()
         active = self.root / ".agents/skills/oasis-review"
         (active / "specialized.txt").write_bytes(b"project knowledge")
@@ -186,16 +276,16 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual((active / "specialized.txt").read_bytes(), b"project knowledge")
         self.assertIn(".agents/skills/oasis-review/specialized.txt", read_json(self.root / installation.MANIFEST)["retained_specializations"])
 
-    def test_selection_mismatch_is_a_pending_decision(self):
+    def test_legacy_capability_subset_does_not_gate_active_skill_updates(self):
         project = read_json(self.root / ".oasis/project.json")
         project["capabilities"] = ["oasis-review"]
         write_json(self.root / ".oasis/project.json", project)
         before = self.hashes()
         report = doctor.audit(self.root, self.package)
-        self.assertEqual(report["status"], "blocked")
-        self.assertTrue(any(row["kind"] == "selection_mismatch" for row in report["issues"]))
-        with self.assertRaises(HarnessError):
-            doctor.plan(self.root, self.package)
+        self.assertEqual(report["status"], "current")
+        self.assertEqual(report["issues"], [])
+        self.assertEqual(report["capabilities_refreshed"], list(skills.OPTIONAL_NAMES))
+        self.assertEqual(len(skills.validate_skills(self.root)["skills"]), 24)
         self.assertEqual(self.hashes(), before)
 
 

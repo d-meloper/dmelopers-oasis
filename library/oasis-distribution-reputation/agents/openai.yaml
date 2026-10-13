@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Distribution Reputation"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Distribution Reputation for the requested project work"
   default_prompt: "Use $oasis-distribution-reputation for the requested project scope."

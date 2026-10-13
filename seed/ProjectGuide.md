@@ -1,170 +1,117 @@
 # Project guide
 
-`.oasis/project.json` owns project selections and adapter bindings. Its default
-Git profile is unmanaged; installation itself does not initialize or alter Git.
-Set the project name and select only requested capabilities. Keep the exact
-schema; project mode is `extensions.workflow.mode`, either `pioneer` or `oasis`.
+`.oasis/project.json` records the project name, Git profile, skill inventory,
+adapter bindings and `extensions.workflow.mode`. Installation uses
+the unmanaged Git profile unless this project selects another workflow.
 
-The eight protected core skills, `oasis-harness-doctor` and `oasis-pioneer` live
-in `.agents/skills`: ten defaults. Optional families remain outside that discovery
-directory until explicitly selected and activated. Inspect the relevant family
-workflow and prerequisites before selection. Tool availability, provider
-registration and actual execution are separate from skill installation.
-
-Use [BestPractice](BestPractice/README.md) for selective durable knowledge and
-[identity](.oasis/docs/identity.md) for protected decisions. Adopting projects own
-their product knowledge, commands and settings. Keep source/runtime, user state,
-generated output, packages and public exports distinguished in their closest
-project guide. Adapters cannot override core routing or grant external authority.
+All 24 skills are installed and active in `.agents/skills`: nine role/operations
+skills and fifteen domain skills. The role/operations skills are Cameleer, Camel,
+Oasis maintenance, Pioneer, Skill Manager, Knowledge, Git Operations, GitHub
+Publication and Harness Doctor. Domain skills cover build/package, dependency and
+artifact security, distribution reputation, published content, review, support,
+interfaces, assets, rendering, input timing, state, lifecycle and updates. Use the
+relevant skill without a separate selection or activation step. Tools and provider
+setup are separate from the skill files. Use [role guidance](.oasis/docs/identity.md)
+and the relevant skill's references for the current task.
 
 ## Project modes
 
-| Selection | Goal and visible owners |
+| Selection | Work |
 |---|---|
-| 개척 모드 / Pioneer (`pioneer`) | Develop or investigate the owner's requested scope promptly in one Pioneer chat |
-| 오아시스 모드 / Oasis (`oasis`) | Use the existing Oasis, Cameleer, Camel and Calf responsibilities and rules |
+| 개척 모드 / Pioneer (`pioneer`) | Handle the requested development or investigation directly in one Pioneer chat |
+| 오아시스 모드 / Oasis (`oasis`) | Oasis maintains the harness; Cameleer assigns visible Camels that investigate, implement and check work |
 
-A fresh empty project starts in Pioneer. Git, a license, guidance and development
-environment preparation alone do not make it an existing program; application
-source, a code-bearing scaffold, inline application code in setup configuration
-or product data do. Ambiguous/malformed package configuration stays visible for
-review under the conservative Oasis default. A fresh existing program
-starts in Oasis. A partial installation needs ownership/recovery review. An
-already installed configuration without a mode resolves to Oasis and an update
-does not create chats or change that selection. An explicit initial choice wins.
+A fresh empty project defaults to Pioneer; an existing program defaults to
+Oasis. Git, licensing and environment preparation alone do not count as program
+content. Existing installations without a mode retain Oasis. An explicit choice
+wins and persists until the owner requests a switch; project size does not switch
+modes. `프로토타입 개발` and `운영` are aliases when used as actual mode requests.
 
-The mode persists until the owner explicitly switches it. Project size never
-switches it automatically and there is no temporary per-task prototype override.
-Recognize an explicit switch using these names or `프로토타입 개발` / `운영`.
-Definitions, quotations and requests to document the names do not switch modes.
-Observed coordination or repeated-delivery needs may justify one brief switch
-suggestion; do not repeat a declined suggestion for the same reason or monitor
-the project in the background.
+Initialization creates Pioneer, or Oasis plus Cameleer. Installation alone leaves
+them ready for a task; an accompanying product request can start immediately.
+The file installer does not create chats. A later switch carries useful context
+to the target roles, preserves unfinished and unrelated chats, and archives the
+replaced roles only after the new roles are available. Follow the
+[workflow manual](.oasis/manual/workflows.md) for commands and recovery.
 
-In Pioneer, use `$oasis-pioneer` and the relevant engineering knowledge below.
-Handle the requested development, investigation, checks and compatible local
-harness/guide upkeep directly. There is no fixed product-completion threshold;
-the owner's purpose and scope decide the result. Default to solo work and short,
-useful checks. An explicit visible-worker request uses ordinary Developer chats,
-one when no count is given; they are not Calfs. Subagents require the owner's
-requested count/scope. On `서브에이전트로만 작업해`, Pioneer coordinates, reads,
-reviews and reports; delegate code edits, tests and integration edits. Keep
-already authorized operations within their existing scope.
+Pioneer works directly and may use the workers requested for its task. A request
+for visible workers without a count uses one Developer chat. On
+`서브에이전트로만 작업해`, Pioneer coordinates and reviews while the requested
+subagents edit and check. Independent specialist assignments remain in their
+existing chats across mode switches; see the
+[session reference](LocalGitWorkflow.md#independent-specialist-sessions).
 
-Installation authorizes initialization of the selected mode's visible owners:
-Pioneer alone, or Oasis plus Cameleer. An install-only request leaves them waiting;
-an installation accompanied by a concrete product task may deliver that task to
-the new primary. File apply itself creates no chats. A genuine later switch uses
-fresh target chats, verified inherited settings, bounded context and waiting
-acknowledgements before archiving explicitly linked old owners/workers. Preserve
-unrelated chats and unfinished saved work. Follow the installed
-[workflow manual](.oasis/manual/workflows.md) for native evidence, failures and
-resumption. A name or discovery entry never assigns a role.
+## Camel work and task context
 
-In Oasis, owner-established independent specialty work follows the single
-[independent specialist session contract](LocalGitWorkflow.md#independent-specialist-sessions).
-It preserves the existing core roles and their reporting boundaries. Mode
-transitions preserve those independent chats, concrete requests and unfinished
-work. Pioneer introduces no independent specialist role.
+Cameleer creates a Camel for a new assignment, or restores the same Camel for
+follow-up. `camel_A_goal` is a title convention; actual chat IDs identify work.
+In `.oasis/state/tasks.md`, keep the chat ID/link, goal, current stage/dependency,
+work location/result reference and final result/check summary. Update this short
+list when assigning, collecting or resuming work. Focus reads on active tasks or
+the relevant entry; completed entries keep a brief result and link.
+
+Camel sends completion directly to Cameleer. Cameleer reviews the requested
+result, diff and checks, integrates it, performs additional checks only where
+integration changes behavior or evidence is doubtful, and archives the completed
+Camel with its result link retained. Restore that same chat for corrections.
+Required deployment follows this project's request and configured workflow.
+Reuse passing checks while their code, tests and consumed inputs still match;
+version labels or handoffs alone do not require repeating functional checks.
+Verify changed inputs and the final deliverable's actual bytes separately.
+See [communication](.oasis/docs/communication.md) for concise handoffs and
+[dependencies](LocalGitWorkflow.md#dependency-waiting-and-resumption) for waits.
 
 ## Engineering knowledge
 
-Pioneer and Calf use the same relevant engineering principles while keeping
-their own authority and reporting routes. Verify scope, actual source/lane and
-owned files before mutation. Investigate the responsible layer and connected
-callers/tests; inspect existing project capabilities, platform/library facilities
-and installed tools before adding code. Choose a complete architectural fit.
-An investigation-only request or uncertain cause does not require an invented
-change. Preserve public interfaces, persisted meanings, encodings and
-authorization. Select checks matching the changed behavior and requested pace;
-ordinary work does not imply builds, scans or publication. Coordinate overlapping
-files/resources and serialize Git ownership. Retain failures, deferred checks
-and an exact resume point. Read applicable project/BestPractice knowledge and
-optional skill resources selectively; consulting them does not activate a skill
-or assign another role. Do not load every guide for a small task.
+Camel and Pioneer share the applicable
+[implementation experience](.agents/skills/oasis-camel/references/best-practices.md).
+Consult the section relevant to the affected interface, data, encoding or checks,
+and the relevant domain skill when its subject is involved. Project commands,
+product behavior and local knowledge stay in this project.
 
 ## Harness health and updates
 
-Use `oasis-harness-doctor` on an owner-requested harness health/update task.
-It compares the complete selected upstream at an exact commit with actual local
-ownership, diagnoses defects/missing resources and applies compatible owned
-updates. Project specializations are not automatically defects. Obtain the
-actual project's upstream selection before fetching. Preserve mode, settings,
-capabilities and local knowledge; no update initializes or switches role chats.
-Present every unresolved material conflict, new/removed skill, structural or
-authority/core change for the owner. Core meaning changes require versioning and
-migration. Audit-only requests do not apply. Source checkouts use their own Git
-workflow rather than self-installation.
+Use `oasis-harness-doctor` for harness health/update requests. It compares complete
+bytes from the selected upstream, preserves local settings, installed skills and
+knowledge, and applies compatible owned changes through the installer. Conflicts
+and unresolved material choices stay visible. Source checkouts use source Git
+review. Upgrading a legacy Camel/Calf project waits for active work to finish,
+transfers useful local Calf knowledge into Camel references, then retires Calf.
+Existing chat/task records remain available. See the
+[Doctor manual](.oasis/manual/doctor.md).
 
 ## Planning work
 
-On `계획작업으로 진행해`, select the mode's waiting flow without another choice
-question. Recognize `계획 작업으로 진행해` and a clear request for a Plan mode
-conversation as the same intent. Mentioning or documenting the trigger does not
-dispatch a chat or start planning.
+`계획작업으로 진행해`, `계획 작업으로 진행해`, or a clear Plan request selects
+planning for the supplied task. Use a supported native
+`thread/settings/update.collaborationMode` or `turn/start.collaborationMode`
+interface to select actual Plan mode with the current model and reasoning
+settings, then start investigating and planning from that request immediately.
+The native Plan instructions apply; no extra planning-start signal is needed.
+See the [official App Server documentation](https://learn.chatgpt.com/docs/app-server).
 
-In Pioneer, stay in the same Pioneer chat. An owner-established independent
-Oasis chat also stays in that same chat under the
-[independent session contract](LocalGitWorkflow.md#independent-specialist-sessions).
-Give only the waiting acknowledgement below, without tools, reads, research,
-planning questions, plans or workers. Create no Camel for either case. Ordinary
-coordinated Oasis work preserves the existing Camel `plan-wait` assignment:
-Cameleer carries the actual bundle into its visible Camel, reusing that bundle's
-owner for follow-up/resumption. Preserve the selected source/lane readiness and
-existing messaging authorization. Resolve missing bundle scope before creation.
-
-For a coordinated Oasis handoff, include the goal, owner authority reference, scope,
-source/lane, conversation language and the self-contained waiting instruction
-in the initial `mode: plan-wait` prompt. A waiting Camel cannot read guidance to
-learn its first response. For a Korean owner, the assigned waiting chat says:
-
-> 계획 작업을 맡고 대기하겠습니다. 이 채팅에서 Codex 계획 모드를 켠 뒤,
-> 계획 대화를 시작해 주세요.
-
-If the runtime already establishes Plan mode, ask only for the planning
-conversation to start. Prompt labels do not change native Codex mode. The session
-adapter creates metadata only and currently exposed creation/messaging tools
-have no Plan mode setter. The owner enables actual Plan mode in that chat's UI
-(the official `/plan` command is documented where supported). Do not send an
-agent-authored `/plan` and assume a toggle, alter saved settings/private app data,
-or silently plan in Default mode. See
-[official Plan mode guidance](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex).
-
-Wait until the owner starts planning in that same chat and the actual runtime
-establishes Plan mode. A toggle alone starts no planning. Plan approval starts
-no implementation; require a separate implementation instruction and a native
-mode that permits it. Camel questions/results stay local for manual owner relay
-to Cameleer. Fast work changes none of these gates. No polling or recurring
-reminder follows from waiting.
+For coordinated Oasis work, assign or reuse its Camel. Pioneer and independent
+specialist work use their current chat. If the available interface cannot set
+actual Plan mode, give the manual instruction once: enable Plan mode in the
+assigned chat and start its planning conversation. Resume planning when that
+happens. Implementation follows the user's instruction. Ordinary implementation
+assignments start directly.
 
 ## Fast work
 
-`빠른 작업` / `fast work` is the named task pacing option. On
-`빠른 작업으로 진행해` or `fast work` requested for the current authorized work, apply it
-immediately without another confirmation. It ends with that task or the owner's
-changed instruction; it does not change project mode, role or authority. A
-definition, quotation or naming request does not invoke it. Generic requests to
-look quickly retain their actual review/implementation scope and do not alone
-select a named full-suite waiver.
+`빠른 작업` / `fast work` names task pacing. On `빠른 작업으로 진행해`, apply it
+to the current requested task without another confirmation. Implement promptly,
+use a brief relevant check and leave a runnable verification entry point plus
+exact deferred checks and resume steps. Describe limited verification accurately.
+The setting ends with that task or a changed instruction and preserves project
+mode. Mentioning, quoting or documenting either trigger does not invoke it.
 
-Inspect the responsible code, immediate contracts and inputs needed for the
-scope, then implement promptly in small complete changes. Keep review/checks
-brief and relevant. Defer broad research, architecture reconsideration, full
-suites and extra reviewers created only for coverage. Preserve a reproducible
-entry point, perform the shortest useful check when practical, and leave exact
-deferred commands/actions, inputs and resume steps. If no brief check is
-practical, record it as not run. Do not replace the saved time with a large new
-verification system.
+## Command references
 
-Report the implemented scope, performed check, failures and deferred coverage.
-Describe limited verification accurately; do not claim an unperformed check
-passed. Keep required identity/byte checks before an authorized external write,
-implementation permission, manual relay and user-setting protection. Pioneer's
-ordinary short checks and explicitly selected fast work are separate choices.
-
-Installed command guides live in `.oasis/manual`: [installation](.oasis/manual/installation.md),
-[workflows](.oasis/manual/workflows.md), [sessions](.oasis/manual/sessions.md),
-[Doctor](.oasis/manual/doctor.md), [Git and backup](.oasis/manual/git-backup.md),
-[publication](.oasis/manual/publication.md) and [verification limits](.oasis/manual/validation.md).
-Invoke `python -B -X utf8 tools/oasis.py`; these manuals remain available without
-the original distribution folder.
+Invoke `python -B -X utf8 tools/oasis.py` in an installed project. Detailed
+manuals remain available after separating it from the source distribution:
+[installation](.oasis/manual/installation.md), [workflows](.oasis/manual/workflows.md),
+[sessions](.oasis/manual/sessions.md), [Git and backup](.oasis/manual/git-backup.md),
+[publication](.oasis/manual/publication.md), and
+[verification boundaries](.oasis/manual/validation.md).
+For learning, see [BestPractice](BestPractice/README.md).

@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Pioneer"
-  short_description: "Develop requested work directly in Pioneer mode"
-  default_prompt: "Use $oasis-pioneer to develop or investigate the requested scope in this Pioneer project."
+  short_description: "Handle requested work directly in Pioneer mode"
+  default_prompt: "Use $oasis-pioneer for the requested project work."
