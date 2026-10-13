@@ -61,6 +61,12 @@ unrelated chats and unfinished saved work. Follow the installed
 [workflow manual](.oasis/manual/workflows.md) for native evidence, failures and
 resumption. A name or discovery entry never assigns a role.
 
+In Oasis, owner-established independent specialty work follows the single
+[independent specialist session contract](LocalGitWorkflow.md#independent-specialist-sessions).
+It preserves the existing core roles and their reporting boundaries. Mode
+transitions preserve those independent chats, concrete requests and unfinished
+work. Pioneer introduces no independent specialist role.
+
 ## Engineering knowledge
 
 Pioneer and Calf use the same relevant engineering principles while keeping
@@ -97,17 +103,20 @@ question. Recognize `계획 작업으로 진행해` and a clear request for a Pl
 conversation as the same intent. Mentioning or documenting the trigger does not
 dispatch a chat or start planning.
 
-In Pioneer, stay in the same Pioneer chat. Give only the waiting acknowledgement
-below, without tools, reads, research, planning questions, plans or workers. Do not
-create a Camel. In Oasis, preserve the existing Camel `plan-wait` assignment:
+In Pioneer, stay in the same Pioneer chat. An owner-established independent
+Oasis chat also stays in that same chat under the
+[independent session contract](LocalGitWorkflow.md#independent-specialist-sessions).
+Give only the waiting acknowledgement below, without tools, reads, research,
+planning questions, plans or workers. Create no Camel for either case. Ordinary
+coordinated Oasis work preserves the existing Camel `plan-wait` assignment:
 Cameleer carries the actual bundle into its visible Camel, reusing that bundle's
 owner for follow-up/resumption. Preserve the selected source/lane readiness and
 existing messaging authorization. Resolve missing bundle scope before creation.
 
-For an Oasis handoff, include the goal, owner authority reference, scope,
+For a coordinated Oasis handoff, include the goal, owner authority reference, scope,
 source/lane, conversation language and the self-contained waiting instruction
 in the initial `mode: plan-wait` prompt. A waiting Camel cannot read guidance to
-learn its first response. For a Korean owner, Pioneer or Camel says:
+learn its first response. For a Korean owner, the assigned waiting chat says:
 
 > 계획 작업을 맡고 대기하겠습니다. 이 채팅에서 Codex 계획 모드를 켠 뒤,
 > 계획 대화를 시작해 주세요.

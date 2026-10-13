@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from oasis_harness.common import HarnessError, digest
 from tools.source_policy import (
-    NEUTRAL_PROJECT, review_policy, scan_harness_file,
+    NEUTRAL_PROJECT, README_SVGS, review_policy, scan_harness_file,
     validate_harness_directory, validate_harness_distribution,
 )
 
@@ -23,6 +23,8 @@ def fixture():
     for name in ("README.md", "AGENTS.md", "oasis.py", ".gitignore", ".gitattributes"):
         files[name] = (PACKAGE / name).read_bytes()
     files["assets/readme-hero.png"] = (PACKAGE / "assets/readme-hero.png").read_bytes()
+    for name in README_SVGS:
+        files[name] = (PACKAGE / name).read_bytes()
     # These source modules contain the reviewed scanner patterns or native
     # metadata field names. No folder-wide or hard-secret waiver is permitted.
     reviewed = {
@@ -35,6 +37,75 @@ def fixture():
 
 
 class PublicSourceContracts(unittest.TestCase):
+    def scan_pinned_svg_fixture(self, data, *, reviewed=None):
+        name = "assets/readme-title.svg"
+        with patch.dict("tools.source_policy.README_SVGS", {name: digest(data)}):
+            return scan_harness_file(name, data, reviewed)
+
+    def test_only_two_exact_source_svg_assets_are_permitted(self):
+        self.assertEqual(set(README_SVGS), {"assets/readme-title.svg", "assets/readme-hero.svg"})
+        for name in README_SVGS:
+            data = (PACKAGE / name).read_bytes()
+            with self.subTest(name=name):
+                result = scan_harness_file(name, data)
+                self.assertEqual(result["classification"], "readme-svg")
+                self.assertFalse(result["authority_verified"])
+                changed = data + b"\n<!-- Unreviewed bytes -->\n"
+                with self.assertRaisesRegex(HarnessError, "SVG byte hash drift"):
+                    scan_harness_file(name, changed, {name: {"sha256": digest(changed), "reason": "Not artwork authority"}})
+                with self.assertRaises(HarnessError):
+                    scan_harness_file("assets/unapproved.svg", data)
+
+    def test_svg_xml_safety_is_checked_beyond_the_pin(self):
+        start = b'<svg xmlns="http://www.w3.org/2000/svg"'
+        payloads = {
+            "script": start + b'><script>alert(1)</script></svg>',
+            "event": start + b' onload="alert(1)"></svg>',
+            "foreign-object": start + b'><foreignObject><div>HTML</div></foreignObject></svg>',
+            "external-image": start + b'><image href="https://fixture.invalid/image.png"/></svg>',
+            "external-clip": start + b'><g clip-path="url(https://fixture.invalid/clip)"/></svg>',
+            "relative-clip": start + b'><g clip-path="url(other.svg#clip)"/></svg>',
+            "encoded-external-clip": start + b'><g clip-path="url(&#104;ttps://fixture.invalid/clip)"/></svg>',
+            "xml-base": start + b' xml:base="https://fixture.invalid/"></svg>',
+            "import-css": start + b'><style>@import "https://fixture.invalid/style.css";</style></svg>',
+            "url-css": start + b'><style>.title { fill: url(https://fixture.invalid/fill); }</style></svg>',
+            "escaped-css": start + b'><style>.title { fill: u\\72l(https://fixture.invalid/fill); }</style></svg>',
+            "animation": start + b'><animate attributeName="fill"/></svg>',
+            "malformed-xml": start + b'><g></svg>',
+            "not-svg-root": b'<html xmlns="http://www.w3.org/2000/svg"/>',
+            "foreign-namespace": start + b'><g xmlns="https://fixture.invalid/foreign"/></svg>',
+            "invalid-encoding": start + b'><title>\xff</title></svg>',
+            "non-utf8-declaration": b'<?xml version="1.0" encoding="ISO-8859-1"?>' + start + b'/>',
+            "stylesheet-instruction": b'<?xml-stylesheet href="https://fixture.invalid/style.css"?>' + start + b'/>',
+            "dtd": b'<!DOCTYPE svg [<!ENTITY text "expanded">]>' + start + b'><text>&text;</text></svg>',
+            "duplicate-id": start + b'><title id="same"/><desc id="same"/></svg>',
+            "missing-clip": start + b'><g clip-path="url(#missing)"/></svg>',
+        }
+        name = "assets/readme-title.svg"
+        for label, data in payloads.items():
+            policy = {name: {"sha256": digest(data), "reason": "Synthetic negative case; cannot waive XML safety"}}
+            with self.subTest(label=label), self.assertRaises(HarnessError):
+                self.scan_pinned_svg_fixture(data, reviewed=policy)
+
+    def test_svg_static_media_css_and_resolved_internal_clip_are_supported(self):
+        data = b'''<svg xmlns="http://www.w3.org/2000/svg" aria-labelledby="title">
+<title id="title">Static fixture</title><defs><clipPath id="clip"><path d="M0 0H10V10Z"/></clipPath></defs>
+<style>.title { fill: #fff; } @media (prefers-color-scheme: dark) { .title { fill: #000; } }</style>
+<g clip-path="url(#clip)"><text class="title" x="1" y="1">Plain text</text></g></svg>'''
+        self.assertEqual(self.scan_pinned_svg_fixture(data)["classification"], "readme-svg")
+
+    def test_new_root_guide_is_an_exact_mandatory_source_member(self):
+        files, reviewed = fixture()
+        name = "seed/LocalGitWorkflow.md"
+        self.assertEqual(scan_harness_file(name, files[name])["classification"], "seed-guidance")
+        for required in {name, *README_SVGS}:
+            changed = dict(files)
+            del changed[required]
+            with self.subTest(required=required), self.assertRaisesRegex(HarnessError, "missing source"):
+                validate_harness_distribution(changed, reviewed)
+        with self.assertRaises(HarnessError):
+            scan_harness_file("seed/OtherGitGuide.md", b"Unapproved guidance")
+
     def test_only_the_exact_owner_supplied_readme_png_is_allowed(self):
         name = "assets/readme-hero.png"
         data = (PACKAGE / name).read_bytes()

@@ -1,9 +1,9 @@
 # Project guidance
 
-A Camel assigned in `plan-wait`, or Pioneer explicitly waiting for a planning
-conversation, gives only the supplied waiting acknowledgement: no reads or tools,
-including the guide/skill reads below, until the owner starts planning in actual
-Codex Plan mode.
+A Camel assigned in `plan-wait`, Pioneer or an owner-established independent
+Oasis chat explicitly waiting for planning gives only the supplied waiting
+acknowledgement: no reads or tools, including the guide/skill reads below, until
+the owner starts planning in actual Codex Plan mode.
 
 Read [ProjectGuide.md](ProjectGuide.md) and only the applicable local skill.
 Preserve user-owned files and existing project contracts. Inspect before editing;
@@ -16,6 +16,10 @@ Pioneer handles the owner's requested purpose/scope directly in one visible chat
 Oasis retains all existing role responsibilities and manual owner relay. Switch
 only on an explicit owner request, using the workflow manual. Project size does
 not switch modes and there is no per-task prototype override.
+In Oasis, follow the single [independent specialist session contract](LocalGitWorkflow.md#independent-specialist-sessions)
+for work actually assigned that way by the owner. It changes no core role or
+reporting route. Mode switches preserve existing independent chats, concrete
+requests and unfinished work.
 
 On `빠른 작업으로 진행해`, immediately apply
 [Fast work](ProjectGuide.md#fast-work) to the current authorized task without
@@ -24,10 +28,11 @@ verification/resume steps. The task pacing leaves project mode and authority
 unchanged. Naming, quoting or defining it is not an invocation.
 
 `계획작업으로 진행해` selects the mode's waiting flow without another choice
-question. Follow [Planning work](ProjectGuide.md#planning-work): in Pioneer,
-acknowledge and wait in this same chat; in Oasis, use the existing Camel
-`plan-wait` assignment. Ask the owner to enable actual Codex Plan mode and start
-the conversation there. Planning and implementation need distinct instructions.
+question. Follow [Planning work](ProjectGuide.md#planning-work): Pioneer and
+owner-established independent Oasis chats acknowledge and wait in the same chat;
+ordinary coordinated Oasis work uses the existing Camel `plan-wait` assignment.
+Ask the owner to enable actual Codex Plan mode and start the conversation there.
+Planning and implementation need distinct instructions.
 Naming, quoting or documenting the trigger does not dispatch a chat.
 
 The protected [Oasis identity](.oasis/docs/identity.md) defines role and authority

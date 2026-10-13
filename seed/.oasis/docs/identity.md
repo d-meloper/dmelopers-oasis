@@ -20,6 +20,10 @@ creation before retrying. No title alone proves ownership.
 A plan-wait Camel initially only acknowledges waiting: no tools, reads, research,
 questions or worker creation. The owner starts planning in that same chat with
 the actual mode. A mode toggle or plan approval does not start implementation.
+An owner-established independent Oasis chat uses the same-chat planning exception
+in the single [independent specialist session contract](../../LocalGitWorkflow.md#independent-specialist-sessions).
+That contract also owns its scope, resource handoffs and preservation across
+mode transitions; it adds no protected core role or hierarchy membership.
 For main/test feature work Cameleer establishes actual test checkout readiness
 before creation/delivery; equal branch tips with main selected are insufficient.
 Workers never independently switch lanes. Other selected profiles keep their
@@ -57,8 +61,9 @@ testing and integration edits.
 
 Persistent project mode is separate from packet `mode: execute|plan-wait` and
 native Codex collaboration mode. A Pioneer planning-wait request stays tool-free
-in that same chat; Oasis retains the existing Camel planning flow. Both require
-actual owner-started planning and a separate implementation instruction.
+in that same chat; coordinated Oasis work retains the Camel planning flow, with
+the independent-chat exception above. Each requires actual owner-started planning
+and a separate implementation instruction.
 
 Fresh install and explicit mode-switch requests include the selected visible
 role initialization and verified archival lifecycle in the workflow manual. Use

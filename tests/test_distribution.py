@@ -3,11 +3,28 @@ import shutil
 import tempfile
 import unittest
 
-from oasis_harness import installation
+from oasis_harness import installation, skills
 from oasis_harness.common import HarnessError, digest, read_json
 from tools.source_checks import select
 
 PACKAGE = Path(__file__).resolve().parents[1]
+GUIDE = "LocalGitWorkflow.md"
+INDEPENDENT_LINK = "../../../LocalGitWorkflow.md#independent-specialist-sessions"
+
+
+def guide_package(root, *, include_guide=True):
+    """Small donor fixture for the installer's file ownership/merge boundary."""
+    for name in ("seed", "library", "docs", "oasis_harness"):
+        (root / name).mkdir(parents=True)
+    (root / "oasis_harness/__init__.py").write_bytes(b'__version__ = "1.2.3"\n')
+    if include_guide:
+        (root / "seed" / GUIDE).write_bytes((PACKAGE / "seed" / GUIDE).read_bytes())
+    return root
+
+
+def file_bytes(root):
+    return {path.relative_to(root).as_posix(): path.read_bytes()
+            for path in root.rglob("*") if path.is_file()}
 
 
 class DistributionBoundary(unittest.TestCase):
@@ -23,11 +40,100 @@ class DistributionBoundary(unittest.TestCase):
         self.assertIn(".oasis/runtime/oasis_harness/workflows.py", payload)
         self.assertIn(".oasis/manual/workflows.md", payload)
         self.assertIn(".agents/skills/oasis-pioneer/SKILL.md", payload)
+        self.assertEqual(payload[GUIDE], (PACKAGE / "seed" / GUIDE).read_bytes())
+        self.assertNotIn(".oasis/manual/" + GUIDE, payload)
+        for artwork in ("assets/readme-title.svg", "assets/readme-hero.svg", "assets/readme-hero.png"):
+            self.assertNotIn(artwork, payload)
         self.assertEqual(payload[".oasis/manual/adaptation-map.json"],
                          (PACKAGE / "docs/adaptation-map.json").read_bytes())
         self.assertFalse(any(name.startswith(".githooks/") for name in payload))
         self.assertEqual(digest(read_json(PACKAGE / "seed/.oasis/core.json")),
                          "1ddc968c0c19c1e2f89c56158cf40036c41838f7d97d33799cbf7cf3d6d1b07f")
+
+    def test_independent_contract_links_resolve_in_source_and_installed_skills(self):
+        payload = installation.package_files(PACKAGE)
+        self.assertIn(b"## Independent specialist sessions", payload[GUIDE])
+        with tempfile.TemporaryDirectory(prefix="oasis-guide-links-") as tmp:
+            installed = Path(tmp)
+            # Materialize the real adopter payload without invoking native chats
+            # or treating structural links as semantic/live adoption evidence.
+            for name, data in payload.items():
+                path = installed / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(data)
+            for role in ("oasis-maintenance", "oasis-cameleer"):
+                for root in (PACKAGE / "seed", installed):
+                    directory = root / ".agents/skills" / role
+                    with self.subTest(role=role, layout="source" if root == PACKAGE / "seed" else "installed"):
+                        self.assertIn("(" + INDEPENDENT_LINK + ")",
+                                      (directory / "SKILL.md").read_text(encoding="utf-8"))
+                        self.assertEqual((directory / INDEPENDENT_LINK.split("#")[0]).resolve(),
+                                         (root / GUIDE).resolve())
+                        self.assertEqual(skills.inspect_skill(directory)["name"], role)
+            (installed / GUIDE).unlink()
+            for role in ("oasis-maintenance", "oasis-cameleer"):
+                with self.subTest(role=role), self.assertRaisesRegex(HarnessError, GUIDE):
+                    skills.inspect_skill(installed / ".agents/skills" / role)
+
+    def test_fresh_install_refuses_existing_same_name_guide_without_writes(self):
+        with tempfile.TemporaryDirectory(prefix="oasis-guide-collision-") as tmp:
+            parent = Path(tmp)
+            target = parent / "project"; target.mkdir()
+            (target / GUIDE).write_bytes(b"Owner's existing Git workflow\r\n")
+            before = file_bytes(target)
+            value = installation.plan(target, PACKAGE, mode="oasis")
+            self.assertTrue(any("Existing file differs: " + GUIDE in conflict for conflict in value["conflicts"]))
+            self.assertEqual(file_bytes(target), before)
+            with self.assertRaisesRegex(HarnessError, "unresolved conflicts"):
+                installation.apply(value, state_root=parent / "journals")
+            self.assertEqual(file_bytes(target), before)
+            self.assertFalse((target / installation.MANIFEST).exists())
+            self.assertFalse((parent / "journals").exists())
+
+    def test_new_guide_upgrade_refuses_preexisting_unmanaged_owner_file(self):
+        with tempfile.TemporaryDirectory(prefix="oasis-guide-upgrade-collision-") as tmp:
+            parent = Path(tmp)
+            old = guide_package(parent / "old", include_guide=False)
+            incoming = guide_package(parent / "incoming")
+            target = parent / "project"; target.mkdir()
+            state = parent / "journals"
+            installation.apply(installation.plan(target, old), state_root=state)
+            self.assertNotIn(GUIDE, read_json(target / installation.MANIFEST)["managed"])
+            (target / GUIDE).write_bytes(b"Owner introduced this guide before the harness update.\n")
+            before, journals = file_bytes(target), file_bytes(state)
+            value = installation.plan(target, incoming, upgrade=True)
+            self.assertTrue(any("Existing file differs: " + GUIDE in conflict for conflict in value["conflicts"]))
+            with self.assertRaisesRegex(HarnessError, "unresolved conflicts"):
+                installation.apply(value, state_root=state)
+            self.assertEqual(file_bytes(target), before)
+            self.assertEqual(file_bytes(state), journals)
+
+    def test_owned_guide_update_preserves_local_edit_and_original_upstream_bases(self):
+        with tempfile.TemporaryDirectory(prefix="oasis-guide-upgrade-merge-") as tmp:
+            parent = Path(tmp)
+            donor = guide_package(parent / "package")
+            target = parent / "project"; target.mkdir()
+            state = parent / "journals"
+            original = (donor / "seed" / GUIDE).read_bytes()
+            installation.apply(installation.plan(target, donor), state_root=state)
+            local_addition = b"\nOwner's project-specific checkout rule.\n"
+            (target / GUIDE).write_bytes(original + local_addition)
+            updated = original.replace(b"# Local Git workflow", b"# Updated local Git workflow", 1)
+            self.assertNotEqual(updated, original)
+            (donor / "seed" / GUIDE).write_bytes(updated)
+            value = installation.plan(target, donor, upgrade=True)
+            self.assertEqual(value["conflicts"], [])
+            self.assertEqual((target / GUIDE).read_bytes(), original + local_addition)
+            installation.apply(value, state_root=state)
+            self.assertEqual((target / GUIDE).read_bytes(), updated + local_addition)
+            record = read_json(target / installation.MANIFEST)["managed"][GUIDE]
+            self.assertEqual(record["sha256"], digest(updated + local_addition))
+            self.assertEqual(record["base_sha256"], digest(updated))
+            for upstream in (original, updated):
+                self.assertEqual((target / ".oasis/base" / digest(upstream)).read_bytes(), upstream)
+            self.assertEqual(installation.verify(target)["specialized"], [GUIDE])
+            self.assertEqual(installation.apply(installation.plan(target, donor, upgrade=True),
+                                               state_root=state)["status"], "unchanged")
 
     def test_upgrade_removes_old_owned_source_files_and_keeps_local_edits(self):
         with tempfile.TemporaryDirectory() as tmp:

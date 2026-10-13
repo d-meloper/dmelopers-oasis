@@ -23,7 +23,7 @@ stop before creation; an absent policy never defaults to broader access.
 5. Show the actual chat to the owner. Initial role assignment, skill discovery,
    first-turn behavior and existing-chat adoption are separate verification steps.
 
-In Oasis mode, `계획작업으로 진행해` routes an owner-assigned bundle to Camel `plan-wait`;
+For coordinated Oasis work, `계획작업으로 진행해` routes an owner-assigned bundle to Camel `plan-wait`;
 the shared rule is in the project's `ProjectGuide.md` under "Planning work".
 Supply the waiting instruction in the initial handoff, so Camel performs no
 reads or tools before acknowledging and asking the owner to enable actual Codex
@@ -36,6 +36,14 @@ and implementation start remain distinct. No global settings are changed.
 In Pioneer mode the same phrase stays in the current Pioneer: tool-free waiting
 acknowledgement requesting actual Plan mode and planning start, with no Camel
 creation. The adapter never silently toggles either chat's collaboration mode.
+
+An owner-established independent Oasis chat instead waits in its current chat
+under the single `LocalGitWorkflow.md#independent-specialist-sessions` contract.
+The guide is at the installed project's root, or `seed/LocalGitWorkflow.md` in
+the source distribution. An independent specialty is an actual owner assignment,
+not a new adapter role or authority inferred from a title or discovery. Use
+that contract for shared resource ownership, messages and application timing.
+Mode transitions preserve these chats, concrete requests and unfinished work.
 
 Only the actual named Cameleer creates grouped Camels; only a grouped Camel
 creates its Calfs. Native thread identity, project and root must agree; title

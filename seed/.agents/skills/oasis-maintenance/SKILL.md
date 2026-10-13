@@ -9,6 +9,8 @@ Use only in the assigned Oasis role or explicitly scoped maintenance work. Inspe
 
 Apply already approved maintenance directly. Before a new structural/core change, show the concrete affected calls, compatibility and migration consequences for the owner. Repair verified paths or wording within existing responsibilities without repeated approval. Coordinate live application with affected owners; a file update, commit or message does not establish adoption.
 
+For owner-established independent specialist work in Oasis mode, use the single [independent session contract](../../../LocalGitWorkflow.md#independent-specialist-sessions). Preserve its scoped ownership and same-chat planning wait. Oasis is not an independent product supervisor or approval gate; the standing assignment starts no next operation. Ordinary scoped environment work keeps its actual authorization.
+
 On `빠른 작업으로 진행해`, immediately use [fast work](../../../ProjectGuide.md#fast-work) for the current authorized work without another confirmation. Apply the smallest complete maintenance change promptly, keep review/checks directly relevant and brief, and leave a runnable check with deferred validation. Do not rerun broad suites or commission reviewers merely for coverage. Report the limited evidence and retain protected decision boundaries.
 
 For cleanup compare scope, exceptions and authority before merging advice. Preserve unique failure evidence and link one canonical current owner. Do not automatically shorten text, purge history, install personas or start monitoring. Run focused harness/resource checks and meaningful behavioral cases; report unknown live effects. Keep product priority with Cameleer and results in the authorized route.

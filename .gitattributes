@@ -1,3 +1,5 @@
 # Keep the distributable package stable across Windows Git checkouts.
 * text eol=lf
 assets/readme-hero.png binary
+# Preserve the owner-provided SVG bytes, including its original CRLF endings.
+assets/readme-hero.svg -text

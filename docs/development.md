@@ -61,13 +61,18 @@ the mode runtime or Pioneer as active adopter configuration. Review distributed
 mode changes using disposable adopter fixtures and distinguish local/native
 evidence. Existing adopter upgrades preserve mode and do not initialize chats.
 
-`계획작업으로 진행해` selects the existing Camel `plan-wait` assignment flow.
-Use the shared "Planning work" rule in `seed/ProjectGuide.md`. Carry the actual
-bundle and owner request into the handoff; the Camel only asks the owner to
-enable Codex Plan mode and start the planning conversation there, then waits.
-Do not claim a native mode toggle from prompt text. Starting planning and
-starting implementation remain separate owner instructions. A request to add
-or explain this trigger is source maintenance, not a Camel dispatch.
+Owner-established independent Oasis work follows the single
+[independent specialist session contract](../seed/LocalGitWorkflow.md#independent-specialist-sessions).
+It changes no protected core role and transfers no source account or external
+authorization to adopters. Keep domain entry points in target domain skills.
+
+`계획작업으로 진행해` uses the shared "Planning work" rule in
+`seed/ProjectGuide.md`: an established independent Oasis chat stays in that same
+chat for tool-free waiting; ordinary coordinated work retains the Camel
+`plan-wait` handoff. The assigned waiting chat asks for actual Codex Plan mode and
+the owner's planning start. Do not claim a native mode toggle from prompt text.
+Starting planning and starting implementation remain separate owner instructions.
+A request to add or explain this trigger is source maintenance, not a dispatch.
 
 Installing the package into itself is a separate material decision. It would
 add active skills, root contracts, installed manuals, a manifest and a duplicate
@@ -160,9 +165,12 @@ path/hash/reason scanner-literal or synthetic-fixture exceptions are permitted i
 Actual credentials, private settings, unknown files and binaries cannot be
 exempted. The owner-selected README hero is the sole binary exception: its exact
 PNG path and inspected SHA256 are pinned in `tools/source_policy.py`; changed
-bytes or any other image path fail. Artwork stays in this source repository,
-outside the installed adopter payload. Bounded scans do not prove absence of all
-unknown secrets.
+bytes or any other binary image path fail. The two UTF-8/XML SVG source files
+`assets/readme-title.svg` and `assets/readme-hero.svg` have separate exact path/hash
+pins and restricted markup with no external or executable references. These
+text pins grant no additional binary exception; changed bytes need fresh scoped
+review. Artwork stays in this source repository, outside the installed adopter
+payload. Bounded scans do not prove absence of all unknown secrets.
 
 ## Commit version
 
