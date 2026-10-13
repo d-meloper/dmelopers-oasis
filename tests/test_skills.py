@@ -54,7 +54,7 @@ class SkillContracts(unittest.TestCase):
 
     def test_optional_library_not_active_or_discovery_proof(self):
         result = skills.list_skills(self.root)
-        self.assertEqual(len(result["skills"]), 24)
+        self.assertEqual(len(result["skills"]), 25)
         self.assertFalse(result["discovery_verified"])
         optional = [row for row in result["skills"] if row["kind"] == "optional"]
         self.assertEqual(len(optional), 15)
@@ -70,6 +70,19 @@ class SkillContracts(unittest.TestCase):
         self.assertTrue(doctor["selected"] and doctor["installed"])
         self.assertNotIn("oasis-harness-doctor", skills.OPTIONAL_NAMES)
         path = self.root / ".agents/skills/oasis-harness-doctor/SKILL.md"
+        path.unlink()
+        with self.assertRaisesRegex(HarnessError, "Missing regular SKILL.md"):
+            skills.validate_skills(self.root)
+
+    def test_pioneer_is_required_default_outside_protected_eight_roles(self):
+        self.assertEqual(len(skills.DEFAULT_NAMES), 10)
+        self.assertNotIn("oasis-pioneer", skills.CORE_NAMES)
+        self.assertNotIn("oasis-pioneer", skills.OPTIONAL_NAMES)
+        result = skills.list_skills(self.root)
+        pioneer = next(row for row in result["skills"] if row["name"] == "oasis-pioneer")
+        self.assertEqual(pioneer["kind"], "default")
+        self.assertTrue(pioneer["selected"] and pioneer["installed"])
+        path = self.root / ".agents/skills/oasis-pioneer/SKILL.md"
         path.unlink()
         with self.assertRaisesRegex(HarnessError, "Missing regular SKILL.md"):
             skills.validate_skills(self.root)

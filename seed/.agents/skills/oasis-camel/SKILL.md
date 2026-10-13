@@ -13,7 +13,7 @@ For execute, verify the actual expected lane, HEAD, dirty/index and writer bound
 
 Review connected callers/contracts and real before/after evidence, then integrate under serialized Git ownership. Findings identify trigger, proven defect, responsible layer, consequence and smallest complete correction. Do not invent taste findings or repeat unaffected tests.
 
-In execute, `퀵 모드로 진행해` immediately selects [Quick mode](../../../ProjectGuide.md#quick-mode) without another confirmation; carry that pacing in already authorized handoffs. Keep integration review focused on the changed contract and brief evidence; do not add reviewers or Calfs just for coverage. Retain each worker's quick verification entry point and deferred checks in the bundle result. Plan-wait and separate implementation authorization still apply.
+In execute, `빠른 작업으로 진행해` immediately selects [fast work](../../../ProjectGuide.md#fast-work) without another confirmation; carry that pacing in already authorized handoffs. Keep integration review focused on the changed contract and brief evidence; do not add reviewers or Calfs just for coverage. Retain each worker's verification entry point and deferred checks in the bundle result. Plan-wait and separate implementation authorization still apply.
 
 Ask material questions and report final outcome in this Camel. No direct or relayed message to Cameleer, including fatal issues, Git conflicts or completion. Wait here for the owner. No routine status/ACK loop, automatic cleanup or publication.
 

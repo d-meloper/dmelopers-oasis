@@ -51,7 +51,10 @@ class DoctorTests(unittest.TestCase):
         before = self.hashes()
         result = doctor.audit(self.root, self.package)
         self.assertEqual(result["status"], "current")
-        self.assertEqual(result["differences"], [])
+        self.assertEqual([row["path"] for row in result["differences"]], [".oasis/project.json"])
+        self.assertTrue(result["differences"][0]["local_changed"])
+        self.assertFalse(result["differences"][0]["upstream_changed"])
+        self.assertEqual(read_json(self.root / ".oasis/project.json")["extensions"]["workflow"]["mode"], "pioneer")
         self.assertFalse(result["remote_verified"] or result["applied"])
         self.assertEqual(result["semantic_review"], "not performed")
         self.assertEqual(self.hashes(), before)
@@ -148,20 +151,25 @@ class DoctorTests(unittest.TestCase):
             doctor.plan(unowned, self.package)
         self.assertEqual(list(unowned.iterdir()), [])
 
-    def test_new_default_installs_into_an_older_eight_skill_adopter(self):
+    def test_new_defaults_install_into_an_older_eight_skill_adopter(self):
         resource = self.package / "seed/.agents/skills/oasis-harness-doctor/SKILL.md"
         content = resource.read_bytes()
         resource.unlink()
+        pioneer = self.package / "seed/.agents/skills/oasis-pioneer/SKILL.md"
+        pioneer_content = pioneer.read_bytes()
+        pioneer.unlink()
         older = self.base / "older-adopter"
         older.mkdir()
         installation.apply(installation.plan(older, self.package), state_root=self.base / "older-journals")
         resource.write_bytes(content)
+        pioneer.write_bytes(pioneer_content)
         report = doctor.audit(older, self.package)
         self.assertEqual(report["status"], "outdated")
         self.assertTrue(any(row["path"].endswith("oasis-harness-doctor/SKILL.md") and row["new_upstream_file"] for row in report["differences"]))
         installation.apply(doctor.plan(older, self.package), state_root=self.base / "older-journals")
         self.assertEqual((older / ".agents/skills/oasis-harness-doctor/SKILL.md").read_bytes(), content)
-        self.assertEqual(len(skills.validate_skills(older)["skills"]), 9)
+        self.assertEqual((older / ".agents/skills/oasis-pioneer/SKILL.md").read_bytes(), pioneer_content)
+        self.assertEqual(len(skills.validate_skills(older)["skills"]), 10)
 
     def test_retired_selected_resources_preserve_specialization(self):
         for name in ("obsolete.txt", "specialized.txt"):

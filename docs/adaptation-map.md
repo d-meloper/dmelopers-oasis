@@ -4,6 +4,9 @@ Every source workflow and file is accounted for by an opaque source identity,
 content digest, disposition and maintained destination. Raw source paths and
 private provenance remain outside the deliverable. The JSON is the complete file
 map; this table is its human discovery view. Source approval never transfers.
+This is the frozen original adaptation inventory, not the current default-skill
+count. Harness Doctor and Pioneer are later additions; their native guidance and
+runtime do not invent donor source families or change these historical digests.
 
 | Source workflow | Generic owner | Treatment |
 | --- | --- | --- |

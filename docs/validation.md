@@ -6,7 +6,8 @@ external-service evidence belongs to each installing project and stays local.
 | Surface | Local evidence | Separate real verification |
 |---|---|---|
 | Files/install/update | Empty and existing project fixtures; transaction, concurrency, recovery, merge conflicts | Review actual project conflicts and final manifest |
-| Skills | 8 protected core + 1 default Doctor + 15 optional metadata/resources, activation, negative routing cases | Native catalog paths, model selection, old-chat adoption |
+| Skills | 8 protected core + default Doctor/Pioneer + 15 optional metadata/resources, activation, negative routing cases | Native catalog paths, model selection, old-chat adoption |
+| Project modes | Fresh/legacy selection, preserved specialization/bases, verified-role transition and pending/resume fixtures | Real initialization, first-turn waiting, UI navigation, archive cascade and adoption |
 | Session metadata | Lost-response reconciliation, restricted-policy persistence fixtures, no implicit turns | Approved diagnostic chat, cold resume, actual first-turn behavior |
 | Git | Disposable repositories, common-state engine, historical branches, refs/index preservation | Actual project ownership and selected profile |
 | Backup | Disposable external relay and remote-only inactive restore | Approved private repository, exact commit sync and independent restore |
@@ -19,27 +20,30 @@ The suite creates only disposable local filesystem/Git fixtures. Actual GitHub
 writes and chat creation are deliberately absent. Read-only native protocol
 availability is useful evidence but is not end-to-end session verification.
 
-When the owner says `퀵 모드로 진행해`, immediately apply Quick mode to the current
-authorized task without another mode-confirmation question. Prioritize
-implementation and a quick-verification entry point. Use a brief relevant check
+When the owner says `빠른 작업으로 진행해`, immediately apply fast work to the
+current authorized task without another confirmation. Prioritize implementation
+and a reproducible verification entry point. Use a brief relevant check
 instead of spending the task on broad review or the full suite. Record the exact
 deferred checks and required inputs; if no brief check is practical, mark it not
-run. Describe the outcome as limited verification or ready for quick verification.
+run. Describe the outcome as limited verification or ready for verification.
 The full-suite command above remains the normal-depth path, not a prerequisite
-for completing implementation in this mode. Existing authority, plan-wait and
+for completing implementation under this task pacing. Project mode, role,
+existing authority, plan-wait and
 required external-write identity/byte checks remain unchanged. The shared trigger
 and scope rule lives in the project's ProjectGuide; source operators reach it
 through README. Recognition examples are guidance, not performed model evaluations.
 
-The `계획작업으로 진행해` trigger reuses the existing `plan-wait` contract.
+In Oasis, `계획작업으로 진행해` reuses the existing Camel `plan-wait` contract.
 Its handoff includes a tool-free acknowledgement requesting that the owner
-enable actual Codex Plan mode and start the conversation in the Camel. Static
+enable actual Codex Plan mode and start the conversation in the Camel. In Pioneer
+the same initial acknowledgement/waiting stays in the existing Pioneer chat;
+no Camel is created. Static
 guidance/resource checks do not verify native mode switching, trigger recognition
 by a real model or first-turn waiting. The session adapter remains metadata-only;
 the currently exposed creation/messaging tools have no Plan mode setter. A live
 trial must distinguish waiting, actual mode selection, owner-started planning,
 plan approval and separately authorized implementation. Historical role trials
-below do not establish behavior for this new invocation wording.
+below do not establish behavior for the new mode-dependent invocation wording.
 
 For behavioral evaluation, present the scenarios in each skill's references to
 an independent reviewer without the expected answer first. Record selected role,
@@ -54,8 +58,21 @@ drift, private payloads and self-installation. The helper is local audit/plannin
 it does not fetch, apply, prove semantic approval or establish live discovery.
 The original trials below describe the original eight-core/15-optional package;
 they do not establish live recognition, private upstream access or updating for
-the newly added Doctor. Its workflow obtains all material owner decisions before
+Doctor, Pioneer or mode transitions. Doctor obtains all material owner decisions before
 application; ordinary installer upgrades retain their active-skill preservation.
+
+Project mode fixtures exercise deterministic configuration and native-evidence
+state handling with injected session metadata/history. A journal entry, claimed
+delivery flag or quoted acknowledgement does not itself prove model behavior.
+Even an observed exact first acknowledgement establishes only that tool-free
+waiting response, not future skill use or complete role adoption.
+Meaningful transition checks must preserve old active roles until target standby,
+avoid duplicate creation/prompt replay after uncertainty, validate linked IDs,
+block unscoped archive descendants and retain unfinished work. Fresh default
+selection specializes the target without changing its original donor base;
+updates preserve mode/optional selections and do not initialize chats. Real
+Codex first-turn responses, native archive cascades and existing-chat adoption
+remain separate checks. See [workflows](workflows.md).
 
 Source development version-hook fixtures use real disposable Git commits,
 including amend, failed commit/retry, explicit minor-base selection and partial
@@ -72,7 +89,7 @@ hashes and cleanup expectations. Obtain the owner's concrete authorization only
 after these are reviewable. Never reuse a project's production repository for
 the preview trial. Retain failed, denied, partial and manual checks explicitly.
 
-Initial implementation verification includes these performed neutral trials:
+Historical baseline implementation verification includes these performed neutral trials:
 
 - Two empty projects with different selected capabilities installed and upgraded
   without Git initialization. Native discovery found the expected 9 and 10 local

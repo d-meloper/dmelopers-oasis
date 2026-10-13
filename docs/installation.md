@@ -1,6 +1,10 @@
 # Installation and upgrade
 
-Oasis Harness targets Windows and Codex. Use the packaged `oasis.py` with Python 3.11 or later. Installing files does not initialize Git, activate hooks, create chats, change Codex permissions, or connect services. The default project policy is `unmanaged`.
+Oasis Harness targets Windows and Codex. Use the packaged `oasis.py` with Python
+3.11 or later. Raw file installation does not initialize Git, activate hooks,
+create chats, change Codex permissions or connect services. The agent-assisted
+bootstrap below also initializes the selected mode's roles within the owner's
+installation request. The default Git policy is `unmanaged`.
 
 ## Project bootstrap from a repository URL
 
@@ -12,12 +16,14 @@ project authorizes the complete local bootstrap below. Use the owner-supplied re
 
 This selects the supplied repository's `main` latest commit as the read-only
 harness upstream, unless the owner explicitly supplies a different ref. It covers
-installation of the nine default skills (eight protected core skills plus
-`oasis-harness-doctor`) and the compatible local initialization described here.
+installation of ten default skills (eight protected core skills plus
+`oasis-harness-doctor` and `oasis-pioneer`), compatible local initialization and
+the selected mode's role initialization described here.
 Do not stop after proposing a plan or ask for a second generic install approval.
 Actual collisions, unknown ownership and material decisions still need a concrete
-review. Installation is not a product implementation assignment or a role/chat
-assignment; plan-wait, planning and implementation remain distinct.
+review. An install-only request leaves the initialized roles waiting; a concrete
+product task in that same request may be delivered after initialization.
+Plan-wait, actual planning and implementation remain distinct instructions.
 
 ### Identify the target and preserve its state
 
@@ -86,6 +92,18 @@ python -B -X utf8 'C:\Review\OasisSource\oasis.py' install plan --help
 python -B -X utf8 'C:\Review\OasisSource\oasis.py' install plan --target 'C:\Projects\Example' --package 'C:\Review\OasisSource' --output 'C:\Review\example-install.json'
 python -B -X utf8 'C:\Review\OasisSource\oasis.py' install apply --plan 'C:\Review\example-install.json'
 ```
+
+The fresh plan records its mode, classification basis and required native role
+initialization. Empty projects default to Pioneer, including Git/license/guidance
+and environment preparation alone. Application source, a code-bearing scaffold
+or product data defaults to Oasis. Inline application code in package setup
+commands also counts as program material; ambiguous/malformed package
+configuration retains its path for review under the conservative Oasis default.
+Use `--mode pioneer` or `--mode oasis` on
+`install audit` or `install plan` for the owner's explicit fresh choice. A partial
+installation remains a recovery question even with a supplied mode. The neutral
+donor `.oasis/project.json` stays unchanged; target selection is a specialization
+against its immutable original bytes. See [workflows](workflows.md).
 
 Review `conflicts`, all decoded `operations`, before/after hashes and intended
 ownership before apply. The baseline includes project guidance, protected
@@ -167,7 +185,28 @@ an initialization checklist. Leave unknown choices as pending information.
 Optional skills require explicit selection; present suitable candidates after
 examining their responsibilities/prerequisites rather than activating all 15.
 Git initialization, profile/hook activation, commits/pushes, backups, publication,
-global settings, chats and external services require their separate assignments.
+global settings and external services require their separate assignments. Extra
+workers or unrelated chats also need their own explicit assignment.
+
+### Initialize the selected mode's roles
+
+After owned-file verification and native discovery, inspect the planned mode
+and actual Codex project/caller/settings. Use the [workflow procedure](workflows.md)
+to prepare one fresh visible Pioneer for `pioneer`, or fresh visible Oasis plus
+Cameleer for `oasis`. Reconcile existing linked identities and partial operations
+before creating duplicates. The installed `workflow status`, `plan`, `start`,
+`inspect` and `resume` commands coordinate local receipts and metadata; supported
+Codex app tools deliver exact first prompts and perform authorized native actions.
+They preserve actual caller settings and inspect saved settings through cold
+resume; they do not silently toggle native Plan mode or widen permissions.
+
+Deliver role/context prompts in the owner's language and verify actual messages,
+completed waiting acknowledgements and standby. An installation-only request
+leaves roles waiting. If the human also assigned a concrete product task, deliver
+it afterward to Pioneer or Cameleer using its normal flow. Navigate to that primary
+chat, and in Oasis provide the Oasis chat link too. Unsupported native interfaces
+or uncertain responses leave initialization pending with exact resume actions;
+file success or a created title is not complete mode initialization.
 
 ### Verify and hand back a usable project
 
@@ -180,30 +219,36 @@ python -B -X utf8 'C:\Projects\Example\tools\oasis.py' skills list --project 'C:
 python -B -X utf8 'C:\Projects\Example\tools\oasis.py' session discovery --target 'C:\Projects\Example'
 ```
 
-Check nine target-local default skills and their resources, protected core
+Check ten target-local default skills and their resources, protected core
 v1.0.0, manifest/base integrity, intended project specializations and zero
 unexpected optional activations. The native catalog may also show shared or
 pre-existing local skills; verify target paths and errors rather than requiring
-the whole catalog to contain exactly nine entries. Preserve existing skills.
+the whole catalog to contain exactly ten entries. Preserve existing skills.
 Discovery failure is a pending check, not permission to change the host's
-configuration or fabricate adoption. Do not create a chat or send an automated
-test message to prove first-turn behavior under an installation request.
+configuration or fabricate adoption. Initialize only the selected real role
+chats within the installation request; extra diagnostic chats/messages require
+their own concrete scope and authorization.
 
 Recheck preserved user settings, unowned files and Git state. Report the actual
 pinned commit/version, installed paths, checks performed, specializations,
 all unresolved decisions, external journal and exact resume commands. Installing
 and discovering skills does not prove that an existing chat reloaded them; the
 current task can read the installed instructions, and later chats require their
-own real adoption evidence. Product work starts only when separately assigned.
+own real adoption evidence. Verify the new role initialization separately and
+report its primary link or pending state. Product work needs a concrete assignment,
+whether included in the initial request or supplied afterward.
 
 ### Repeat requests and already installed targets
 
 A valid manifest routes to [Doctor](doctor.md), not a new install. Preserve the
-project's selected capabilities, local knowledge/settings and chosen upstream.
+project's mode, selected capabilities, local knowledge/settings and chosen upstream.
 If an existing upstream selection differs from the supplied URL/ref, show the
 binding change for the owner's explicit decision. Against the same inspected
 immutable donor, run `doctor audit`; a healthy current installation is a no-op
 apart from authorized missing initialization information and verification.
+An existing pending mode operation resumes its retained IDs and journal; an
+update or repeat request does not invent a new initialization. Existing installed
+configurations without a mode use Oasis fallback without spontaneous chat creation.
 Compatible owned updates use `doctor plan` and the existing reviewed apply
 procedure. Conflicts, missing/corrupt bases, new/removed skills and structural or
 authority/core changes remain the Doctor workflow's material decisions. A
@@ -246,6 +291,9 @@ When the source distribution contains `LICENSE` and `NOTICE`, their exact bytes
 are retained under `.oasis/manual/LICENSE` and `.oasis/manual/NOTICE`. The
 installer preserves the adopting project's root license and does not apply the
 harness license to unrelated project source.
+Portable `extensions.workflow.mode` retains the selected project mode. Actual
+chat bindings, transition context and pending actions belong only in
+`.oasis/local/`, separate from installer bases and durable project knowledge.
 
 An external journal is created before the first write under `%LOCALAPPDATA%\OasisHarness\installations\<target-id>\<operation-id>\journal.json`. The result reports its exact location. It includes the reviewed plan and both sides of every file operation. Keep this directory until recovery is no longer needed. Journals may contain project guidance and should be treated as private project data.
 
@@ -277,5 +325,9 @@ python oasis.py install apply --plan 'C:\Review\example-upgrade.json'
 ```
 
 Upgrade produces a plan; it does not apply automatically. It compares the saved upstream base, current project bytes, and incoming package. Independent JSON-key changes and non-overlapping UTF-8 text edits combine. Conflicting text, binary edits, additions, or deletions stop the operation. A removed upstream file with local specialization is retained and listed in the manifest. Explicitly activated capability files preserve their current content and upstream base; a missing capability file is a conflict. Learning records outside package ownership are preserved.
+
+Upgrade preserves `extensions.workflow.mode` or its legacy absence and performs
+no native initialization. `--mode` is a fresh-install choice, not an upgrade
+override; use the separate owner-requested workflow transition to switch modes.
 
 `verify` reports locally specialized files separately from missing files and validates all saved bases. A specialization is expected project knowledge, not permission to overwrite it. Runtime changes that alter structure, roles, approval boundaries, or core policy still require the owner's review. Upgrading installed runtime files does not silently replace an already active Git engine; deliberate `git rebind` refreshes that local binding after the reviewed files are committed.

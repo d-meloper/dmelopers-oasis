@@ -13,6 +13,7 @@ import time
 import uuid
 
 from .common import HarnessError, clean_environment, operation_lock, read_json, write_json
+from . import __version__
 
 SOURCES = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"]
 GROUP = re.compile(r"^Camel_([A-Z]+)_.+$")
@@ -36,7 +37,7 @@ class AppServer:
         self.sequence = 0
         threading.Thread(target=self._read, daemon=True).start()
         try:
-            self.call("initialize", {"clientInfo": {"name": originator, "version": "1.0.0"}, "capabilities": {"experimentalApi": True}})
+            self.call("initialize", {"clientInfo": {"name": originator, "version": __version__}, "capabilities": {"experimentalApi": True}})
             self._send({"method": "initialized"})
         except Exception:
             self.close()
@@ -203,13 +204,21 @@ def letters(index):
     return result
 
 
-def title_for(role, goal, source, threads, receipts):
+def title_for(role, goal, source, threads, receipts, *, pioneer_id=None):
     if any(row.get("phase") not in ("ready", "archived", "prepared") for row in receipts):
         raise HarnessError("An earlier creation is incomplete or uncertain; inspect and resume its receipt before creating another chat")
-    if role in ("Oasis", "Cameleer"):
+    if role in ("Oasis", "Cameleer", "Pioneer"):
         if any(row.get("name") == role for row in threads):
             raise HarnessError("This role already exists; inspect and reuse it instead of duplicating it")
         return role
+    if role == "Developer":
+        if not pioneer_id or source.get("id") != pioneer_id:
+            raise HarnessError("A Developer requires the bound Pioneer as its actual caller, plus the owner's explicit delegation")
+        if not goal or not goal.isascii() or any(c in goal for c in "\r\n\0"):
+            raise HarnessError("Developer goal must be one nonempty English line")
+        return f"Developer_{goal}"
+    if role not in ("Camel", "Calf"):
+        raise HarnessError("Unknown session role")
     if not goal or not goal.isascii() or any(c in goal for c in "\r\n\0"):
         raise HarnessError("Grouped goal must be one nonempty English line")
     if role == "Calf":
@@ -349,6 +358,12 @@ def refresh_readiness(receipt):
         raise HarnessError("Source readiness changed; no work may be delivered until the owner reconciles this existing session")
 
 
+def workflow_pioneer(target, source_id, server=None):
+    """Read an established workflow binding; a title cannot assign Pioneer."""
+    from .workflows import bound_pioneer
+    return bound_pioneer(target, source_id, server)
+
+
 def register(subparsers):
     parser = subparsers.add_parser("session", help="Codex metadata only; no prompt delivery or model turn")
     commands = parser.add_subparsers(dest="session_command", required=True)
@@ -369,7 +384,7 @@ def register(subparsers):
     p.set_defaults(func=discovery)
     p = commands.add_parser("create")
     p.add_argument("--target", required=True)
-    p.add_argument("--role", required=True, choices=("Oasis", "Cameleer", "Camel", "Calf"))
+    p.add_argument("--role", required=True, choices=("Oasis", "Cameleer", "Camel", "Calf", "Pioneer", "Developer"))
     p.add_argument("--goal")
     p.add_argument("--lane", choices=("main", "test"))
     p.add_argument("--source-thread-id", default=os.environ.get("CODEX_THREAD_ID"))
@@ -383,16 +398,29 @@ def register(subparsers):
         if args.apply and not args.authority:
             raise HarnessError("Verify the owner's concrete session request before applying")
         def prepare_receipt():
+            workflow_state = target / ".oasis/local/workflows/state.json"
+            if workflow_state.exists() and read_json(workflow_state).get("pending_operation"):
+                raise HarnessError("A workflow transition owns this project's checkpoint; finish/resume it before creating another role or worker")
+            if args.role == "Pioneer":
+                from .workflows import _root, effective_mode
+                _, project = _root(target)
+                if effective_mode(project) != "pioneer":
+                    raise HarnessError("Pioneer metadata requires the selected Pioneer mode; use a reviewed workflow transition")
             readiness = source_readiness(target, args.lane)
             originator = "oasis_session_" + uuid.uuid4().hex
             with AppServer(originator) as server:
                 identity, settings, source = prepare(server, args.source_thread_id, target)
-                if args.role in ("Camel", "Calf") and canonical_root(source["cwd"]) != canonical_root(target):
-                    raise HarnessError("Grouped task caller must belong to the target project")
+                if args.role in ("Camel", "Calf", "Developer") and (canonical_root(source["cwd"]) != canonical_root(target) or source.get("projectId") != identity):
+                    raise HarnessError("Task caller must belong to the target project")
                 receipts = [read_json(path) for path in receipts_root.glob("*/receipt.json")]
-                title = title_for(args.role, args.goal, source, discover(server, target, identity), receipts)
+                pioneer_id = workflow_pioneer(target, args.source_thread_id, server) if args.role == "Developer" else None
+                if args.role == "Developer" and not args.authority:
+                    raise HarnessError("An ordinary Developer needs the owner's explicit delegation; do not infer it from Pioneer mode")
+                title = title_for(args.role, args.goal, source, discover(server, target, identity), receipts, pioneer_id=pioneer_id)
             return {"schema_version": 1, "originator": originator, "source_thread_id": args.source_thread_id,
                     "target": str(target), "project_id": identity, "settings": settings, "title": title,
+                    "role": args.role, "parent_thread_id": args.source_thread_id if args.role in ("Camel", "Calf", "Developer") else None,
+                    "assignment_marker": f"[OASIS_SESSION_ROLE {originator} {args.role}]",
                     "source_readiness": readiness,
                     "authority_reference": args.authority, "authority_independently_verified": False, "phase": "prepared"}
         if not args.apply:

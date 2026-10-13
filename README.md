@@ -31,7 +31,7 @@ For a project owner request such as:
 carry out the [project bootstrap procedure](docs/installation.md#project-bootstrap-from-a-repository-url)
 in the owner's current project, distinct from the acquired source. The request
 selects this repository's `main` as the read-only upstream and authorizes its
-nine default skills plus safe local initialization; do not ask again merely to
+ten default skills plus safe local and selected-mode role initialization; do not ask again merely to
 confirm installation. Check actual repository identity and visibility, pin the
 full commit/tree, acquire it outside the project, and inspect complete source
 bytes before executing the installer. Public source reads require no account or
@@ -41,10 +41,13 @@ Continue through a reviewed conflict-free plan, apply, project name/upstream
 record, owned-file verification, skill validation and actual native discovery.
 Use existing project facts for local guidance; leave unknown commands and domain
 choices pending. Collect all actual conflicts and material decisions with exact
-affected bytes for the owner. The one-line request does not create chats, choose
-a role, start product implementation, initialize Git, activate hooks, connect
-backup/publication, enable optional skills, alter global settings or authorize
-remote writes. These boundaries preserve the existing role/authority contract.
+affected bytes for the owner. Fresh empty projects initialize one Pioneer chat;
+existing programs initialize Oasis plus Cameleer. An install-only request leaves
+them waiting; a concrete product task in the same request may start after
+initialization. The raw file installer creates no chats. Installation does not
+initialize Git, activate hooks, connect backup/publication, enable optional skills,
+alter global settings or authorize remote writes. These boundaries preserve the
+existing role/authority contract.
 Repeated requests inspect existing ownership first and use Doctor/no-op rather
 than reinstallation. Stop at an unavailable prerequisite with exact resume steps;
 do not claim successful adoption from file inventory alone.
@@ -75,7 +78,7 @@ receipts or historical approvals.
 - `oasis_harness/`: runtime implementation; `oasis.py`: source CLI entry point.
 - `tests/`: disposable local filesystem/Git fixtures and injected service tests.
 - `docs/`: operational contracts, validation limits and retained knowledge.
-- `seed/`: adopter defaults, eight protected core skills and the default Harness Doctor.
+- `seed/`: adopter defaults, eight protected core skills, Harness Doctor and Pioneer.
 - `library/`: fifteen optional skill definitions for deliberate selection.
 - `.oasis/local/`: private operational evidence; excluded from source commits.
 
@@ -95,13 +98,30 @@ Inspect each command's `--help` before constructing an operation. Installed
 adopters invoke `tools/oasis.py`. Use disposable adopter fixtures for source
 verification; the ordinary adoption workflow never installs into this source.
 
+## Project modes
+
+| Mode | Goal |
+|---|---|
+| 개척 모드 / Pioneer | Handle the owner's requested development or investigation directly in one visible Pioneer chat |
+| 오아시스 모드 / Oasis | Operate with the existing Oasis, Cameleer, Camel and Calf responsibilities and rules |
+
+A fresh empty project defaults to Pioneer; a fresh existing program defaults to
+Oasis. Existing installations without a mode retain Oasis compatibility. The
+selection persists until the owner explicitly switches it, regardless of size.
+Mode switches prepare verified fresh target roles before archiving linked old
+roles; unrelated chats and unfinished work are preserved. There is no temporary
+per-task prototype mode or fixed program-completion threshold. See
+[workflow selection, initialization and recovery](docs/workflows.md). This
+independent source keeps its existing Oasis operating rules.
+
 ## Operation routing
 
 | Requested operation | Read |
 |---|---|
 | Source development and repository ownership | [Development](docs/development.md) |
-| `퀵 모드로 진행해`: immediate implementation-first, brief-check pacing | [Quick mode](seed/ProjectGuide.md#quick-mode) |
-| `계획작업으로 진행해`: assign Camel in plan-wait and request a Codex Plan mode conversation | [Planning work](seed/ProjectGuide.md#planning-work) |
+| `빠른 작업으로 진행해`: immediate implementation-first, brief-check task pacing | [Fast work](seed/ProjectGuide.md#fast-work) |
+| `계획작업으로 진행해`: same-chat Pioneer waiting or Oasis's existing Camel plan-wait | [Planning work](seed/ProjectGuide.md#planning-work) |
+| Persistent mode, selected-role initialization or explicit switch | [Workflows](docs/workflows.md) |
 | Installation, upgrade, conflict or recovery | [Installation](docs/installation.md) |
 | Harness health, complete upstream comparison and compatible updates | [Harness Doctor](docs/doctor.md) |
 | Roles, manual owner relay and authorization | [Identity](docs/identity.md) |
@@ -161,10 +181,10 @@ explicit owner request; see [commit version](docs/development.md#commit-version)
 Verify behavior appropriate to the change. For this source, the delivery adapter selects tests against actual public main
 and retains that single checked run. Full coverage remains available with
 `--full` and is selected for common/CLI or unknown Python changes. An explicit
-`퀵 모드로 진행해` request immediately selects prompt implementation, brief checks
-and precise deferred verification steps without a mode-confirmation question;
-use the linked rule rather than the broad-suite path. `퀵모드` and the previous
-`빠른 검증 모드` remain aliases.
+`빠른 작업으로 진행해` request immediately selects prompt implementation, brief
+checks and precise deferred verification steps without another confirmation;
+use the linked task-pacing rule rather than the broad-suite path. Project mode,
+role and authority remain unchanged.
 Distinguish static checks, fixtures,
 native catalog discovery, model adoption and live effects. Report failed, unknown
 and unperformed checks explicitly; historical results grant no approval.

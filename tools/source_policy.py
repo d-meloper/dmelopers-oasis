@@ -304,12 +304,12 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
     scanned = [scan_harness_file(name, data, policy) for name, data in sorted(files.items())]
     mandatory = {
         "README.md", "AGENTS.md", "oasis.py", "oasis_harness/__init__.py",
-        "docs/installation.md",
+        "docs/installation.md", "docs/workflows.md",
         "docs/identity.md", "docs/publication.md", "docs/doctor.md", "docs/validation.md",
     } | SEED_FILES | NEUTRAL_OASIS | set(README_IMAGES)
     mandatory |= {"oasis_harness/" + module + ".py" for module in (
         "backup", "build", "cli", "common", "doctor", "gitops", "github",
-        "installation", "knowledge", "packets", "publication", "sessions", "skills",
+        "installation", "knowledge", "packets", "publication", "sessions", "skills", "workflows",
     )}
     if mandatory - set(files):
         _fail("missing source entry, manual or neutral template")

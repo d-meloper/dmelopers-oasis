@@ -1,143 +1,161 @@
 # Project guide
+
 `.oasis/project.json` owns project selections and adapter bindings. Its default
 Git profile is unmanaged; installation itself does not initialize or alter Git.
-Set the project name and select only requested capabilities. Core roles do not
-create chats until the corresponding human assignment/request exists.
+Set the project name and select only requested capabilities. Keep the exact
+schema; project mode is `extensions.workflow.mode`, either `pioneer` or `oasis`.
 
-The eight protected core skills and default `oasis-harness-doctor` live in
-`.agents/skills`. Optional families remain outside
-that discovery directory until explicitly selected and activated. Inspect the
-available family workflow and prerequisites before selection. Tool availability,
-provider registration and actual execution are separate from skill installation.
+The eight protected core skills, `oasis-harness-doctor` and `oasis-pioneer` live
+in `.agents/skills`: ten defaults. Optional families remain outside that discovery
+directory until explicitly selected and activated. Inspect the relevant family
+workflow and prerequisites before selection. Tool availability, provider
+registration and actual execution are separate from skill installation.
 
 Use [BestPractice](BestPractice/README.md) for selective durable knowledge and
-[identity](.oasis/docs/identity.md) for protected decisions. Keep source/runtime,
-user state, generated output, packages and public exports explicitly distinguished
-in the relevant project's domain guide. Do not copy private state into defaults.
+[identity](.oasis/docs/identity.md) for protected decisions. Adopting projects own
+their product knowledge, commands and settings. Keep source/runtime, user state,
+generated output, packages and public exports distinguished in their closest
+project guide. Adapters cannot override core routing or grant external authority.
 
-Adapters describe real project commands, readers/writers, artifact variants and
-verification boundaries. They cannot override core routing or grant external
-authority. Free-form config needs semantic review; structural validation is limited.
+## Project modes
+
+| Selection | Goal and visible owners |
+|---|---|
+| 개척 모드 / Pioneer (`pioneer`) | Develop or investigate the owner's requested scope promptly in one Pioneer chat |
+| 오아시스 모드 / Oasis (`oasis`) | Use the existing Oasis, Cameleer, Camel and Calf responsibilities and rules |
+
+A fresh empty project starts in Pioneer. Git, a license, guidance and development
+environment preparation alone do not make it an existing program; application
+source, a code-bearing scaffold, inline application code in setup configuration
+or product data do. Ambiguous/malformed package configuration stays visible for
+review under the conservative Oasis default. A fresh existing program
+starts in Oasis. A partial installation needs ownership/recovery review. An
+already installed configuration without a mode resolves to Oasis and an update
+does not create chats or change that selection. An explicit initial choice wins.
+
+The mode persists until the owner explicitly switches it. Project size never
+switches it automatically and there is no temporary per-task prototype override.
+Recognize an explicit switch using these names or `프로토타입 개발` / `운영`.
+Definitions, quotations and requests to document the names do not switch modes.
+Observed coordination or repeated-delivery needs may justify one brief switch
+suggestion; do not repeat a declined suggestion for the same reason or monitor
+the project in the background.
+
+In Pioneer, use `$oasis-pioneer` and the relevant engineering knowledge below.
+Handle the requested development, investigation, checks and compatible local
+harness/guide upkeep directly. There is no fixed product-completion threshold;
+the owner's purpose and scope decide the result. Default to solo work and short,
+useful checks. An explicit visible-worker request uses ordinary Developer chats,
+one when no count is given; they are not Calfs. Subagents require the owner's
+requested count/scope. On `서브에이전트로만 작업해`, Pioneer coordinates, reads,
+reviews and reports; delegate code edits, tests and integration edits. Keep
+already authorized operations within their existing scope.
+
+Installation authorizes initialization of the selected mode's visible owners:
+Pioneer alone, or Oasis plus Cameleer. An install-only request leaves them waiting;
+an installation accompanied by a concrete product task may deliver that task to
+the new primary. File apply itself creates no chats. A genuine later switch uses
+fresh target chats, verified inherited settings, bounded context and waiting
+acknowledgements before archiving explicitly linked old owners/workers. Preserve
+unrelated chats and unfinished saved work. Follow the installed
+[workflow manual](.oasis/manual/workflows.md) for native evidence, failures and
+resumption. A name or discovery entry never assigns a role.
+
+## Engineering knowledge
+
+Pioneer and Calf use the same relevant engineering principles while keeping
+their own authority and reporting routes. Verify scope, actual source/lane and
+owned files before mutation. Investigate the responsible layer and connected
+callers/tests; inspect existing project capabilities, platform/library facilities
+and installed tools before adding code. Choose a complete architectural fit.
+An investigation-only request or uncertain cause does not require an invented
+change. Preserve public interfaces, persisted meanings, encodings and
+authorization. Select checks matching the changed behavior and requested pace;
+ordinary work does not imply builds, scans or publication. Coordinate overlapping
+files/resources and serialize Git ownership. Retain failures, deferred checks
+and an exact resume point. Read applicable project/BestPractice knowledge and
+optional skill resources selectively; consulting them does not activate a skill
+or assign another role. Do not load every guide for a small task.
 
 ## Harness health and updates
 
 Use `oasis-harness-doctor` on an owner-requested harness health/update task.
 It compares the complete selected upstream at an exact commit with actual local
 ownership, diagnoses defects/missing resources and applies compatible owned
-updates. Project specializations are not automatically defects. No upstream
-binding is selected by installation; obtain the actual project's repository/ref
-selection before fetching. Preserve settings and local knowledge. Present every
-unresolved material conflict, new/removed skill, structural or authority/core
-change for the owner's decision. Core meaning changes require versioning and
-migration. An audit-only request performs no application, and the source checkout
-uses its Git workflow rather than self-installation.
+updates. Project specializations are not automatically defects. Obtain the
+actual project's upstream selection before fetching. Preserve mode, settings,
+capabilities and local knowledge; no update initializes or switches role chats.
+Present every unresolved material conflict, new/removed skill, structural or
+authority/core change for the owner. Core meaning changes require versioning and
+migration. Audit-only requests do not apply. Source checkouts use their own Git
+workflow rather than self-installation.
 
 ## Planning work
 
-When the owner says `계획작업으로 진행해`, immediately select the existing
-Camel `plan-wait` assignment flow without another mode-selection question.
-Recognize `계획 작업으로 진행해` and a clear request to assign a bundle for a
-Plan mode conversation as the same intent. Quoting the phrase, asking what it
-means or asking to add this guidance does not assign or dispatch a Camel.
+On `계획작업으로 진행해`, select the mode's waiting flow without another choice
+question. Recognize `계획 작업으로 진행해` and a clear request for a Plan mode
+conversation as the same intent. Mentioning or documenting the trigger does not
+dispatch a chat or start planning.
 
-Cameleer carries the actual owner-assigned bundle into one visible Camel, reusing
-its existing owner for follow-up or resumption. Preserve the selected profile's
-source/lane readiness and existing chat/message authorization. If no bundle is
-identifiable, resolve that missing scope before creation. This trigger does not
-assign Cameleer to an ordinary chat or authorize extra workers.
+In Pioneer, stay in the same Pioneer chat. Give only the waiting acknowledgement
+below, without tools, reads, research, planning questions, plans or workers. Do not
+create a Camel. In Oasis, preserve the existing Camel `plan-wait` assignment:
+Cameleer carries the actual bundle into its visible Camel, reusing that bundle's
+owner for follow-up/resumption. Preserve the selected source/lane readiness and
+existing messaging authorization. Resolve missing bundle scope before creation.
 
-Deliver a self-contained `mode: plan-wait` handoff. Include the actual goal,
-owner authority reference, scope, source/lane, conversation language, and an
-instruction to give only the waiting acknowledgement below. Include that
-instruction in the initial prompt; a waiting Camel must not read files to learn
-what to do. The initial response requests the actual Codex Plan mode conversation,
-without tools, reads, research, planning questions, plans, implementation or Calfs.
-For a Korean owner, use:
+For an Oasis handoff, include the goal, owner authority reference, scope,
+source/lane, conversation language and the self-contained waiting instruction
+in the initial `mode: plan-wait` prompt. A waiting Camel cannot read guidance to
+learn its first response. For a Korean owner, Pioneer or Camel says:
 
 > 계획 작업을 맡고 대기하겠습니다. 이 채팅에서 Codex 계획 모드를 켠 뒤,
 > 계획 대화를 시작해 주세요.
 
-If the current runtime already establishes Plan mode, say that the Camel is
-waiting for the owner to start the planning conversation in that mode; no second
-toggle is needed. Prompt wording and a handoff label do not change native Codex
-mode. The current session adapter creates metadata only and the exposed app
-creation/messaging tools provide no Plan mode setter. Ask the owner to enable it
-in that Camel's UI (the official `/plan` command is documented where supported).
-Do not send `/plan` as an agent-authored message and assume it toggled the UI,
-edit saved settings or a private app database, or silently plan in Default mode.
-See [official Plan mode guidance](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex).
+If the runtime already establishes Plan mode, ask only for the planning
+conversation to start. Prompt labels do not change native Codex mode. The session
+adapter creates metadata only and currently exposed creation/messaging tools
+have no Plan mode setter. The owner enables actual Plan mode in that chat's UI
+(the official `/plan` command is documented where supported). Do not send an
+agent-authored `/plan` and assume a toggle, alter saved settings/private app data,
+or silently plan in Default mode. See
+[official Plan mode guidance](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex).
 
-Remain waiting until the owner explicitly starts the planning conversation in
-that same Camel and the actual runtime establishes Plan mode. A mode toggle
-alone is not a planning-start instruction. Once started, discuss the assigned
-scope and prepare the plan; plan approval still does not start implementation.
-Implementation needs a separate owner instruction and a native mode that permits
-it. Keep questions/results local for manual owner relay to Cameleer. Quick mode
-cannot bypass these gates; it applies to implementation only when separately
-authorized. No polling or recurring reminder follows from waiting.
+Wait until the owner starts planning in that same chat and the actual runtime
+establishes Plan mode. A toggle alone starts no planning. Plan approval starts
+no implementation; require a separate implementation instruction and a native
+mode that permits it. Camel questions/results stay local for manual owner relay
+to Cameleer. Fast work changes none of these gates. No polling or recurring
+reminder follows from waiting.
 
-Recognition examples for later behavioral evaluation:
+## Fast work
 
-| Request/state | Expected behavior |
-|---|---|
-| Owner assigns X with `계획작업으로 진행해` | Cameleer assigns/reuses X's Camel with `plan-wait`; Camel asks for a Plan mode conversation and waits |
-| `계획작업으로 진행해` 지침을 추가해줘 | Maintain the guidance; do not create or message a Camel |
-| Owner enables Plan mode without starting discussion | Keep waiting; the toggle alone starts neither planning nor implementation |
-| Owner says to start planning in that Camel; runtime is Plan | Begin the planning conversation; implementation remains pending |
-| Owner approves the plan or requests Quick mode while waiting | Do not infer implementation start; retain the separate owner instruction requirement |
+`빠른 작업` / `fast work` is the named task pacing option. On
+`빠른 작업으로 진행해` or `fast work` requested for the current authorized work, apply it
+immediately without another confirmation. It ends with that task or the owner's
+changed instruction; it does not change project mode, role or authority. A
+definition, quotation or naming request does not invoke it. Generic requests to
+look quickly retain their actual review/implementation scope and do not alone
+select a named full-suite waiver.
 
-## Quick mode
+Inspect the responsible code, immediate contracts and inputs needed for the
+scope, then implement promptly in small complete changes. Keep review/checks
+brief and relevant. Defer broad research, architecture reconsideration, full
+suites and extra reviewers created only for coverage. Preserve a reproducible
+entry point, perform the shortest useful check when practical, and leave exact
+deferred commands/actions, inputs and resume steps. If no brief check is
+practical, record it as not run. Do not replace the saved time with a large new
+verification system.
 
-The owner selected `퀵 모드` (`Quick mode`) as the canonical name. When the owner
-says `퀵 모드로 진행해`, recognize and apply this pacing immediately to the current
-assigned, authorized work without another mode-selection question or confirmation.
-Also recognize `퀵모드로 진행해` and `퀵 모드로 X 구현해`. Equivalent requests such
-as `검토는 짧게, 빠르게 구현해`,
-`검증에 오래 쓰지 말고 구현부터`, and `빠르게 검증할 수 있게 만들어` select the
-same pacing when the implementation-first intent is clear. Mentioning the term,
-quoting an example or asking to document/name the mode does not activate it.
-Apply the mode to the current
-requested task/bundle; return to normal depth when it ends or the owner changes it.
+Report the implemented scope, performed check, failures and deferred coverage.
+Describe limited verification accurately; do not claim an unperformed check
+passed. Keep required identity/byte checks before an authorized external write,
+implementation permission, manual relay and user-setting protection. Pioneer's
+ordinary short checks and explicitly selected fast work are separate choices.
 
-Inspect only the responsible code, immediate contracts and inputs needed to
-implement the requested scope. Implement promptly in small, complete changes.
-Avoid broad research, architecture reconsideration, exhaustive reviews, long
-full-suite runs and extra reviewers created just for coverage. Do not spend the
-time saved designing a large new verification system.
-
-Keep the result easy to check immediately: preserve a runnable/reproducible entry
-point, prepare the shortest useful command or manual action, and perform only a
-brief directly relevant check when available. Leave exact remaining verification
-steps, necessary inputs and a clear resume point. If even a brief check is costly
-or unavailable, record that it was not run and finish in a verification-ready
-state. Existing full-suite instructions are the normal-depth path; while this mode
-is explicitly selected, defer them instead of blocking implementation on them.
-
-Report what was implemented, the quick check actually performed, and the deferred
-checks or observed failures. Mark the outcome as implementation complete with
-limited verification or ready for quick verification, not fully verified. Do not
-hide a known defect or claim an unperformed check passed. This pacing changes no
-role, plan-wait, implementation permission, manual relay, user-setting protection
-or external-effect authority. Keep required identity/byte checks before an
-authorized external write; private source sync does not establish release readiness.
-
-Recognition examples for later behavioral evaluation:
-
-| Request | Expected pacing |
-|---|---|
-| `퀵 모드로 진행해` | Immediately apply Quick mode to the current authorized task; no confirmation loop |
-| `퀵모드로 X를 구현하고 실행 명령을 남겨줘` | Implement X promptly; brief relevant check and exact remaining checks |
-| `퀵 모드 지침을 설명해줘` | Explain the definition; do not start implementation or switch pacing from a mention |
-| `이 부분 빨리 봐줘` | Use the assigned review scope; do not infer an implementation request or a full-suite waiver |
-
-### Fast verification mode
-
-`빠른 검증 모드` and `fast verification mode` remain compatibility names for
-[Quick mode](#quick-mode), with the same scope and behavior. This heading retains
-older guidance links; it does not define a second mode.
-
-Installed command guides are retained in `.oasis/manual`: [installation](.oasis/manual/installation.md),
-[sessions](.oasis/manual/sessions.md), [Doctor](.oasis/manual/doctor.md), [Git and backup](.oasis/manual/git-backup.md),
-[publication](.oasis/manual/publication.md), and [verification limits](.oasis/manual/validation.md).
-Invoke commands through `python -B -X utf8 tools/oasis.py`; these manuals remain
-available after the original distribution folder is no longer present.
+Installed command guides live in `.oasis/manual`: [installation](.oasis/manual/installation.md),
+[workflows](.oasis/manual/workflows.md), [sessions](.oasis/manual/sessions.md),
+[Doctor](.oasis/manual/doctor.md), [Git and backup](.oasis/manual/git-backup.md),
+[publication](.oasis/manual/publication.md) and [verification limits](.oasis/manual/validation.md).
+Invoke `python -B -X utf8 tools/oasis.py`; these manuals remain available without
+the original distribution folder.

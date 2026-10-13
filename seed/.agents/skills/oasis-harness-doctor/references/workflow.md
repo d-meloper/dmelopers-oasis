@@ -7,6 +7,9 @@ or the primary source checkout. A source clone, an arbitrary `.oasis` directory
 and an installed adopter are different states. Missing installation ownership
 does not authorize a fresh installation. Preserve the actual Git profile,
 branches/index, other writers, local evidence, project knowledge and user settings.
+Preserve `extensions.workflow.mode`, optional selections and local role bindings.
+Missing mode on an installed legacy target means Oasis fallback, not a fresh
+empty project. Doctor/update does not create roles or switch project mode.
 
 Read only the project-selected upstream and current owner instructions. If the
 repository/ref/account is unbound or ambiguous, prepare its exact identity and
@@ -44,7 +47,8 @@ python -B -X utf8 tools/oasis.py doctor plan --target <project> --package <stage
 When bootstrapping from a pre-Doctor installation, audit with its existing
 `install verify` and prepare `install upgrade` using a reviewed compatible
 package. Inspect that package before running its entry point. The added default
-Doctor is a skill-creation decision to show the owner. Do not interpret the lack
+Doctor is a skill-creation decision to show the owner, as is a newly introduced
+default Pioneer on an older installation. Do not interpret the lack
 of a Doctor command as permission to self-install or execute unreviewed code.
 
 The Doctor helper is local: it does not fetch, prove remote provenance, certify
