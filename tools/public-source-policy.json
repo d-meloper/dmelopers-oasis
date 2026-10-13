@@ -17,8 +17,8 @@
       "sha256": "e22130d25bb1fb4be7e1e74026b0556eead155e57244ede3ce8931beb7e194eb"
     },
     "tests/test_public_source.py": {
-      "reason": "Reviewed static SVG scanner literals and synthetic XML/CSS negative fixtures for the two owner-selected README vectors. Complete changed bytes contain no host settings, identifiers, credentials or private payload; exact artwork pins and all hard privacy checks remain mandatory.",
-      "sha256": "9a952398237974e9c5ffec59cf5b9cd8d6abe4af1cf1fc9c26870bc415cf949a"
+      "reason": "Reviewed exact owner-selected replacement SVG pin, closed static stroke attributes and synthetic negative SVG fixtures. No private payload; exact artwork pins, UTF-8/XML and hard privacy/external-content gates remain mandatory.",
+      "sha256": "603689bb53a0290eb01c8c00f13992e9eed40f7cceb0736d25d791e7dfb3719a"
     },
     "tests/test_sessions.py": {
       "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
@@ -29,8 +29,8 @@
       "sha256": "9d99bfa0db73b0c9155b144f229728dfed47b1a034dfaf6d19a193ae26e83083"
     },
     "tools/source_policy.py": {
-      "reason": "Reviewed static SVG scanner literals and synthetic XML/CSS negative fixtures for the two owner-selected README vectors. Complete changed bytes contain no host settings, identifiers, credentials or private payload; exact artwork pins and all hard privacy checks remain mandatory.",
-      "sha256": "2ba34b74c18abd21dcdbc096c7be149ba8c3f4cefc287396cc07c59c037deced"
+      "reason": "Reviewed exact owner-selected replacement SVG pin, closed static stroke attributes and synthetic negative SVG fixtures. No private payload; exact artwork pins, UTF-8/XML and hard privacy/external-content gates remain mandatory.",
+      "sha256": "39a5c81c9b116fc41476d3456c37cb578242ffa255a3fab6bf9f14fabf710461"
     }
   },
   "schema_version": 1

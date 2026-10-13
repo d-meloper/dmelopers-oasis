@@ -46,7 +46,7 @@ README_IMAGES = {
 # accompany, rather than replace, the XML/static-content checks below.
 README_SVGS = {
     "assets/readme-title.svg": "258c59854bd9eb32aaa1c05c5496888fc9579d021232d6fa1de85e26200510a7",
-    "assets/readme-hero.svg": "a3437ffe6371fdc8d0740f84d834175568018c2078c70ae08e5dd67da4a3ccb6",
+    "assets/readme-hero.svg": "16e65d08e57fa4c1c4774aff6c1d42f7a4877d709dcd3485a0eb8708f35f6966",
 }
 MAX_FILE_BYTES = 2 * 1024 * 1024
 MAX_TOTAL_BYTES = 64 * 1024 * 1024
@@ -196,7 +196,8 @@ def _static_svg(text):
         _fail("invalid SVG root namespace")
     tags = {"svg", "title", "desc", "defs", "clipPath", "path", "g", "style", "text"}
     attributes = {"width", "height", "viewBox", "role", "aria-labelledby", "id", "class", "x", "y",
-                  "text-anchor", "font-family", "font-size", "font-weight", "fill", "d", "clip-path"}
+                  "text-anchor", "font-family", "font-size", "font-weight", "fill", "d", "clip-path",
+                  "stroke", "stroke-width", "stroke-linejoin"}
     identifiers, references = set(), []
     identifier = re.compile(r"\A[A-Za-z_][A-Za-z0-9_.:-]*\Z")
     color = r"(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})"
@@ -226,6 +227,12 @@ def _static_svg(text):
                 references.append(match[1])
             elif re.search(r"(?i)url\s*\(", value):
                 _fail("unsupported SVG URL reference")
+            if name == "stroke" and not re.fullmatch(rf"#{color}", value, re.I):
+                _fail("unsupported SVG stroke color")
+            if name == "stroke-width" and not re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value):
+                _fail("unsupported SVG stroke width")
+            if name == "stroke-linejoin" and value not in {"miter", "round", "bevel"}:
+                _fail("unsupported SVG stroke join")
         if element.tag == namespace + "style":
             if len(element) or not css.fullmatch(element.text or ""):
                 _fail("unsupported SVG CSS; only static fills and color-preference media rules")
