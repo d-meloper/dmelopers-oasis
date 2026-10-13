@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "name": "",
+  "git": {
+    "profile": "unmanaged"
+  },
+  "capabilities": [],
+  "publication": {
+    "configured": false
+  },
+  "backup": {
+    "configured": false
+  },
+  "adapters": {},
+  "extensions": {}
+}

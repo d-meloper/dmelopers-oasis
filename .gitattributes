@@ -1,0 +1,3 @@
+# Keep the distributable package stable across Windows Git checkouts.
+* text eol=lf
+assets/readme-hero.png binary

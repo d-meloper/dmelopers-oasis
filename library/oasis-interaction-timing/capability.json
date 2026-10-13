@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-interaction-timing",
+  "execution": "tool-guided",
+  "prerequisites": "Actual collection/normalization/dispatch/animation path, time model and relevant deterministic fixtures. No raw input history is required.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Overlapping motion arrives before prior pulse ends",
+      "expected": "Preserve position/velocity continuity and discard expired state."
+    },
+    {
+      "kind": "negative",
+      "trigger": "Old epoch returns after asynchronous pointer normalization",
+      "expected": "Reject it at the final consumer."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Unit pose tests pass but native input was not observed",
+      "expected": "Report deterministic proof only, not installed feel."
+    }
+  ]
+}

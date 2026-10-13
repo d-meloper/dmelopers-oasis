@@ -1,0 +1,29 @@
+{
+  "reviewed": {
+    "oasis_harness/knowledge.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "c27d0810cb160cae91e730d53bff84d5dfa473fb4c6ca6ff62684962388f3334"
+    },
+    "oasis_harness/publication.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "9fea40429cbf5bf2110d8dce163de2b13aec37c4a342986b9dfe6b9c2f48528a"
+    },
+    "oasis_harness/sessions.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "24010246c75fcd4db2f07a3f9ac357b78b14bf4c34a7d7797e210cf24316dff6"
+    },
+    "tests/test_public_source.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "a1c77d744b0cf3a6068d303c72b755abb6250060c90e39f5f17a54165e7788ab"
+    },
+    "tests/test_sessions.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "ec3aca2842a0bd5949253512a3a0068a28ff90dbae3037e61c707c174ac2e99c"
+    },
+    "tools/source_policy.py": {
+      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "sha256": "6fd3b58008ef79270d3ac406961ca1e98f486921f32adf0a421ba6e505f6b14f"
+    }
+  },
+  "schema_version": 1
+}

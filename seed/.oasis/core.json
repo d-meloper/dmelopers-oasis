@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "core_version": "1.0.0",
+  "platform": {
+    "agent": "Codex",
+    "os": "Windows"
+  },
+  "roles": {
+    "Oasis": "requested environment maintenance",
+    "Cameleer": "priorities and one Camel per bundle",
+    "Camel": "one bundle with connected Calf workers",
+    "Calf": "investigation implementation and verification in one owner"
+  },
+  "routing": {
+    "descendant_to_cameleer": "forbidden including relays and fatal issues",
+    "owner_relay": "manual",
+    "calf_reports_to": "own Camel"
+  },
+  "authority": {
+    "plan_wait": "acknowledge only until owner starts planning; plan approval is not implementation start",
+    "external_effects": "exact existing human authorization required",
+    "subagents": "only directly authorized scope and count",
+    "new_roles": "owner approval required",
+    "model": "inherit actual verified caller unless owner selects override",
+    "permissions": "preserve actual supported caller policy; never widen or guess"
+  },
+  "learning": {
+    "local_refinement": "evidence-based existing skill and knowledge changes within responsibilities",
+    "structural_changes": "owner approval required",
+    "upstream": "explicit owner-requested sanitized local handoff; no automatic sending or importing"
+  },
+  "automation": {
+    "background_monitoring": false,
+    "automatic_publication": false,
+    "backup": "optional exact-target activation only"
+  }
+}

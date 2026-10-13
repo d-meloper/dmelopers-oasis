@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oasis Harness Doctor"
+  short_description: "Check harness health and preserve local knowledge"
+  default_prompt: "Use $oasis-harness-doctor to inspect the harness against its selected upstream and apply compatible updates, asking me about every material decision."

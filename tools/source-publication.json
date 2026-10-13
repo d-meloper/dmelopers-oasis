@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "repository": "d-meloper/dmelopers-oasis",
+  "repository_id": 1416350088,
+  "account_id": 277948700,
+  "base_branch": "main",
+  "operation": "source",
+  "channel": "stable",
+  "required_checks": ["oasis-source-checks"]
+}

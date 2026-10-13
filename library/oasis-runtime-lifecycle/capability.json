@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-runtime-lifecycle",
+  "execution": "tool-guided",
+  "prerequisites": "Actual effect owners, lifecycle states, asynchronous transport and startup/restart/save contracts; do not assume close means hide.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Listener finishes registering after owner unmounts",
+      "expected": "Dispose it and send no new work."
+    },
+    {
+      "kind": "negative",
+      "trigger": "Late initial query replaces a newer pushed state",
+      "expected": "Reject the stale update."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Native command issued but readback absent",
+      "expected": "Preserve uncertainty rather than claim cancellation or success."
+    }
+  ]
+}

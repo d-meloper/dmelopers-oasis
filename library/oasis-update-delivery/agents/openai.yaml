@@ -1,0 +1,4 @@
+interface:
+  display_name: "Oasis Update Delivery"
+  short_description: "Focused domain workflow and meaningful proof limits"
+  default_prompt: "Use $oasis-update-delivery for the requested project scope."

@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-asset-pipeline",
+  "execution": "tool-guided",
+  "prerequisites": "Available authoring tool, original asset, actual consumer rig/axis/texture contract and output ownership. Tool-guided execution is supported; no generic autorig executable is bundled.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Rounded disconnected patches tear under rigid weighting",
+      "expected": "Use topology-aware boundary blending and repeat the motion proof."
+    },
+    {
+      "kind": "negative",
+      "trigger": "T-pose asset has no armature or unweighted vertices",
+      "expected": "Do not claim rig readiness or conceal it with runtime filler."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Preview validates but installed app loads an older asset",
+      "expected": "Compare staged hash and producer step; keep live verification open."
+    }
+  ]
+}

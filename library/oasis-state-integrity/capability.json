@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "oasis-state-integrity",
+  "execution": "tool-guided",
+  "prerequisites": "Actual reader/writer implementations, persisted examples, supported compatibility boundaries and disposable test data.",
+  "external_authority": "request-specific; no inherited provider approval",
+  "scenarios": [
+    {
+      "kind": "positive",
+      "trigger": "Committed deletion followed by failed asset cleanup",
+      "expected": "Load the committed catalog and retry only owned unreferenced cleanup."
+    },
+    {
+      "kind": "negative",
+      "trigger": "Omitted field is treated as an explicit clear",
+      "expected": "Preserve the reader contract and reject stale overwrite."
+    },
+    {
+      "kind": "ambiguous",
+      "trigger": "Both recovery baseline and current collection changed",
+      "expected": "Stop rather than choose by timestamp or matching members."
+    }
+  ]
+}
