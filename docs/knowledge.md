@@ -9,6 +9,10 @@ Classify generic, Windows-specific or project-specific. Compare conditions,
 exceptions, authority and compatibility before consolidating. Keep one current
 rule in its nearest guide and preserve unique symptom, failed approach, observed
 consequence and verification limits in history. Similar wording is not equivalence.
+Pioneer and Oasis share the same relevant project/engineering knowledge while
+keeping their role routes. Retain reusable lessons in the closest existing guide;
+transient mode handover context and chat identities stay in private
+`.oasis/local/`, rather than growing a permanent status or approval ledger.
 
 Choose the smallest useful update: existing guidance, meaningful fixture, or
 existing-skill decision guidance. Structural/core changes need owner approval.

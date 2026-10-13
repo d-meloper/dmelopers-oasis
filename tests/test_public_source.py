@@ -29,7 +29,7 @@ def fixture():
         name: {"sha256": digest(files[name]),
                "reason": "Fixture review of bounded scanner patterns and metadata field names; no live host data."}
         for name in ("oasis_harness/knowledge.py", "oasis_harness/publication.py",
-                     "oasis_harness/sessions.py")
+                     "oasis_harness/sessions.py", "oasis_harness/workflows.py")
     }
     return files, reviewed
 
@@ -56,7 +56,7 @@ class PublicSourceContracts(unittest.TestCase):
         modes = {name: "100644" for name in files}
         modes["oasis.py"] = "100755"
         result = validate_harness_distribution(files, reviewed, expected_hashes=hashes, modes=modes)
-        self.assertEqual((result["default_skills"], result["optional_skills"]), (9, 15))
+        self.assertEqual((result["default_skills"], result["optional_skills"]), (10, 15))
         self.assertTrue(result["modes_verified"])
         self.assertFalse(result["authority_verified"])
         self.assertEqual(result["files"]["oasis.py"]["mode"], "100755")
@@ -163,7 +163,7 @@ class PublicSourceContracts(unittest.TestCase):
             with self.subTest(extra=extra), self.assertRaises(HarnessError):
                 validate_harness_distribution({**files, **extra}, reviewed)
 
-    def test_missing_or_renamed_skill_metadata_cannot_claim_24_definitions(self):
+    def test_missing_or_renamed_skill_metadata_cannot_claim_25_definitions(self):
         files, reviewed = fixture()
         for name in ("seed/.agents/skills/oasis-calf/agents/openai.yaml",
                      "library/oasis-review/capability.json"):

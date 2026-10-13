@@ -7,14 +7,12 @@ Read [README.md](README.md), [development guidance](docs/development.md), and
 [verification boundaries](docs/validation.md) before changing this package.
 Use the source entry point `python -B -X utf8 oasis.py` from this root.
 
-The confirmed name is `퀵 모드` (`Quick mode`). On `퀵 모드로 진행해`, apply it
-immediately to the current authorized task without asking to confirm the mode.
-Recognize `퀵모드` and the previous `빠른 검증 모드` as aliases, as well as clear
-implementation-first pacing requests. Use the shared
-[Quick mode rule](seed/ProjectGuide.md#quick-mode): implement
-promptly, keep checks brief, and leave exact quick-verification/resume steps.
-This request overrides normal verification depth for its task, not authority.
-Mentioning, defining or naming the mode is not an invocation.
+The task pacing name is `빠른 작업` (`fast work`). On `빠른 작업으로 진행해`,
+apply it immediately to the current authorized task without another confirmation.
+Use the shared [fast-work rule](seed/ProjectGuide.md#fast-work): implement
+promptly, keep checks brief, and leave exact verification/resume steps. It
+overrides normal verification depth for that task, preserving project mode and
+authority. Mentioning, defining or naming it is not an invocation.
 
 On `계획작업으로 진행해`, select the existing Camel `plan-wait` assignment
 flow without another mode-choice question. Follow the shared
@@ -29,6 +27,9 @@ Protected core remains v1.0.0 (original package baseline v1.0.0),
 for Windows/Codex and Python 3.11+. Keep distributed guidance product-neutral;
 adopting projects own domain knowledge. `seed/` and `library/` are distribution
 templates, not this root's active configuration or discovered skills.
+This source keeps the existing Oasis operating responsibilities. Adopters use
+[persistent project modes](docs/workflows.md); the default Pioneer is outside
+the unchanged eight protected core skills and does not self-install here.
 
 The default `oasis-harness-doctor` maintenance skill audits the selected upstream
 and applies compatible owned updates after concrete review. It is separate from
@@ -91,6 +92,6 @@ documented in [development guidance](docs/development.md#commit-version).
 Keep private operational evidence in `.oasis/local/`; it is not a permanent
 knowledge ledger or an approval source. Retain reusable knowledge in the closest
 existing guide with evidence and limits. Use impact-selected tests by default for this source; shared/unknown Python
-changes fall back to the full suite. Explicit Quick mode still applies to the
+changes fall back to the full suite. Explicit fast work still applies to the
 current task. Report deferred coverage accurately. Distinguish fixtures, catalog discovery and live
 behavior.

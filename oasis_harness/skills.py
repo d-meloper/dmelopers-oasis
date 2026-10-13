@@ -13,7 +13,7 @@ CORE_NAMES = (
     "oasis-maintenance", "oasis-cameleer", "oasis-camel", "oasis-calf",
     "oasis-skill-manager", "oasis-knowledge", "oasis-git-operations", "oasis-github-publication",
 )
-DEFAULT_NAMES = CORE_NAMES + ("oasis-harness-doctor",)
+DEFAULT_NAMES = CORE_NAMES + ("oasis-harness-doctor", "oasis-pioneer")
 OPTIONAL_NAMES = (
     "oasis-build-package", "oasis-dependency-security", "oasis-artifact-security",
     "oasis-distribution-reputation", "oasis-published-content", "oasis-update-delivery",
@@ -54,6 +54,10 @@ def validate_project(project):
         if not isinstance(project[name], dict):
             raise HarnessError(f"{name} must be an object")
         _extension_keys(project[name], name)
+    workflow = project["extensions"].get("workflow", {})
+    if not isinstance(workflow, dict) or ("mode" in workflow and
+            (not isinstance(workflow["mode"], str) or workflow["mode"] not in {"pioneer", "oasis"})):
+        raise HarnessError("extensions.workflow.mode must be pioneer or oasis; legacy missing mode means oasis")
     return project
 
 

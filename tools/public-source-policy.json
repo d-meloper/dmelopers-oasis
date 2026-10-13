@@ -9,20 +9,28 @@
       "sha256": "9fea40429cbf5bf2110d8dce163de2b13aec37c4a342986b9dfe6b9c2f48528a"
     },
     "oasis_harness/sessions.py": {
-      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "24010246c75fcd4db2f07a3f9ac357b78b14bf4c34a7d7797e210cf24316dff6"
+      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
+      "sha256": "4cbf795054653b5e064bf542b759f882c7bbff71cb052f4ed50863775ec381a3"
+    },
+    "oasis_harness/workflows.py": {
+      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
+      "sha256": "e22130d25bb1fb4be7e1e74026b0556eead155e57244ede3ce8931beb7e194eb"
     },
     "tests/test_public_source.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "a1c77d744b0cf3a6068d303c72b755abb6250060c90e39f5f17a54165e7788ab"
+      "sha256": "a7377876584bf8149f8651121645e3de06569786188505473a4b1ef0ab5b2088"
     },
     "tests/test_sessions.py": {
-      "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
+      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
       "sha256": "ec3aca2842a0bd5949253512a3a0068a28ff90dbae3037e61c707c174ac2e99c"
+    },
+    "tests/test_workflows.py": {
+      "reason": "Reviewed native protocol field names, role/authority audit pointers and synthetic workflow/session fixtures. The complete source has no actual host identifiers, settings, credentials or private payload; hard credential/path gates remain mandatory.",
+      "sha256": "9d99bfa0db73b0c9155b144f229728dfed47b1a034dfaf6d19a193ae26e83083"
     },
     "tools/source_policy.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "6fd3b58008ef79270d3ac406961ca1e98f486921f32adf0a421ba6e505f6b14f"
+      "sha256": "fbc925cfc23231bdf51e41833aac89a96458f3686042c90c456f3ff5730b7349"
     }
   },
   "schema_version": 1

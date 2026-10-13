@@ -13,6 +13,8 @@ Diagnose differences before calling them defects. Preserve project specializatio
 
 Use the existing transaction/recovery machinery for installed projects. Include the runtime, manuals, knowledge, default skills, inactive library and explicitly selected active skills; keep each skill's responsibility and local knowledge. For a source checkout use its selected Git workflow and preserve local commits; never self-install, reset or force-push it to make it match upstream.
 
+Preserve the selected project mode and role bindings. Missing legacy mode resolves to Oasis; an update neither initializes nor switches chats. A new Pioneer default in an older adopter needs that owner's skill/structure decision.
+
 Verify the exact applied bytes and required resources, then check native discovery at the authorized application boundary. Report fetched commit, real findings, applied changes, all pending owner decisions and unperformed checks. Keep raw evidence local. No automatic monitoring, upstream export, account switching or service activation follows from this skill.
 
 Use [protected identity](../../../.oasis/docs/identity.md) and [knowledge lifecycle](../../../BestPractice/KnowledgeLifecycle.md) as relevant. [Evaluation scenarios](references/scenarios.md) distinguish fixtures from real model adoption.

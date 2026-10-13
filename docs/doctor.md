@@ -1,7 +1,7 @@
 # Harness Doctor
 
 `oasis-harness-doctor` is a default maintenance skill beside the eight protected
-core skills, with fifteen optional families still selectable. It assigns no new
+core skills and Pioneer, with fifteen optional families still selectable. It assigns no new
 role and does not activate a service or upstream binding on installation.
 The skill's `references/workflow.md` owns the complete workflow and decision list.
 This package includes Doctor; protected core remains v1.0.0. Existing installations
@@ -17,6 +17,11 @@ and apply compatible owned updates. An audit-only request stops at inspection.
 Ask about all unresolved material conflicts, intentional deletions, baseline
 repairs, binding changes, new/removed skills, structural/authority changes and
 core migrations before application. Keep user settings and project knowledge.
+Preserve the selected project mode and initialized role bindings. Legacy
+configurations without `extensions.workflow.mode` keep Oasis fallback; Doctor
+does not initialize or switch role chats. A new Pioneer default in an older
+installation remains an adopting-owner skill/structure decision, distinct from
+compatible knowledge edits and this package source's own approval.
 
 The CLI is deliberately local and uses the existing installer, not a downloader:
 

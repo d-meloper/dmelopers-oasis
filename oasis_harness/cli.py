@@ -12,7 +12,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(prog="oasis", description="Oasis Harness: explicit project operations and evidence")
     parser.add_argument("--version", action="version", version=__version__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("installation", "gitops", "backup", "sessions", "packets", "publication", "build", "knowledge", "skills", "doctor"):
+    for name in ("installation", "gitops", "backup", "sessions", "workflows", "packets", "publication", "build", "knowledge", "skills", "doctor"):
         module = importlib.import_module("." + name, __package__)
         module.register(commands)
     args = parser.parse_args(argv)

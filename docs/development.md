@@ -2,9 +2,11 @@
 
 This root is the Oasis Harness source of record and primary development project.
 It maintains the package on Windows/Codex with Python 3.11+, eight protected
-core skills, one default Harness Doctor and fifteen optional skills. The original
+core skills, default Harness Doctor and Pioneer, and fifteen optional skills. The original
 baseline is v1.0.0. Protected core meaning, digest and version remain v1.0.0.
-The owner approved Doctor creation and the package minor-version increment.
+The owner approved Doctor and Pioneer creation and the mode runtime/manual,
+with this mode addition explicitly selecting package v1.1.0. Protected core
+meaning, digest and version remain v1.0.0; package and core versions are distinct.
 The `__version__` literal in `oasis_harness/__init__.py` is the package version's
 source of truth; inspect `oasis.py --version` for the current value. Static guide
 headings do not select a version.
@@ -12,7 +14,7 @@ headings do not select a version.
 `oasis_harness/` implements the runtime; `oasis.py` is the source CLI entry point.
 `tests/` contains disposable local fixtures. `docs/` holds neutral manuals,
 verification boundaries and migration knowledge. `seed/` supplies adopter
-defaults, eight protected core skills, the default Harness Doctor and protected
+defaults, eight protected core skills, default Harness Doctor/Pioneer and protected
 contracts. `library/` supplies fifteen
 inactive optional skill families. Keep adopter-specific tools, paths, accounts,
 credentials, chats and approval records outside these distribution inputs.
@@ -45,15 +47,19 @@ latest commit. Pin it and verify the complete source path/mode projection;
 producer/public squash SHAs differ, with a public-only release manifest.
 This choice does not pre-bind installing projects or select a release-tag channel.
 
-The confirmed pacing name is `퀵 모드` (`Quick mode`); its shared rule is in
-`seed/ProjectGuide.md`, under "Quick mode" (adopters use their installed
-`ProjectGuide.md`). `퀵 모드로 진행해` immediately selects it for the current
-authorized task without another confirmation. `퀵모드`, the previous
-`빠른 검증 모드` and clear equivalent implementation-first requests also select it.
-Implement promptly, keep inspection and
-checks brief, and leave a runnable quick-verification entry point and deferred
-checks. Full suites are the normal-depth path and are deferred in this mode.
-The task's implementation and external-write authority remain unchanged.
+The task pacing name is `빠른 작업` (`fast work`); its shared rule is in
+`seed/ProjectGuide.md`, under "Fast work" (adopters use installed ProjectGuide).
+`빠른 작업으로 진행해` immediately selects it for the current authorized task
+without another confirmation. Implement promptly, keep inspection/checks brief,
+and leave a runnable verification entry point and exact deferred checks. Full
+suites are the normal-depth path and are deferred when this task pacing is
+explicitly selected. Project mode, role and authority remain unchanged.
+
+The two persistent adopter modes are [Pioneer and Oasis](workflows.md). This
+primary source retains its existing Oasis responsibilities and never installs
+the mode runtime or Pioneer as active adopter configuration. Review distributed
+mode changes using disposable adopter fixtures and distinguish local/native
+evidence. Existing adopter upgrades preserve mode and do not initialize chats.
 
 `계획작업으로 진행해` selects the existing Camel `plan-wait` assignment flow.
 Use the shared "Planning work" rule in `seed/ProjectGuide.md`. Carry the actual

@@ -9,8 +9,10 @@ import argparse
 import ast
 import base64
 import difflib
+import json
 import os
 from pathlib import Path
+import re
 import tempfile
 import uuid
 
@@ -23,12 +25,12 @@ MANIFEST = ".oasis/install-manifest.json"
 ADOPTER_MANUALS = frozenset({
     "installation.md", "identity.md", "sessions.md", "doctor.md",
     "git-backup.md", "publication.md", "knowledge.md", "validation.md",
-    "adaptation-map.md", "adaptation-map.json", "migration-lessons.md", "license.md",
+    "adaptation-map.md", "adaptation-map.json", "migration-lessons.md", "license.md", "workflows.md",
 })
 ADOPTER_MODULES = frozenset({
     "__init__.py", "backup.py", "build.py", "cli.py", "common.py", "doctor.py",
     "gitops.py", "github.py", "installation.py", "knowledge.py", "packets.py",
-    "publication.py", "sessions.py", "skills.py",
+    "publication.py", "sessions.py", "skills.py", "workflows.py",
 })
 ENTRYPOINT = b'''#!/usr/bin/env python3
 from pathlib import Path
@@ -266,7 +268,96 @@ def _initial_resolutions(value, root, incoming, previous, *, upgrade, installed)
     return result
 
 
-def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, resolutions=None):
+def _setup_has_inline_program(path):
+    """A dependency manifest may itself contain executable application source."""
+    if path.name.casefold() != "package.json":
+        return False
+    try:
+        value = json.loads(path.read_text(encoding="utf-8-sig"))
+        scripts = value.get("scripts", {})
+        if not isinstance(scripts, dict) or any(not isinstance(command, str) for command in scripts.values()):
+            return True
+    except (ValueError, UnicodeError, AttributeError):
+        # Unknown/malformed setup is existing material, never evidence of empty.
+        return True
+    inline = re.compile(r"(?i)\b(?:node(?:\.exe)?|python(?:3(?:\.\d+)*)?(?:\.exe)?|py(?:\.exe)?|"
+                        r"ruby|perl|php|pwsh|powershell|bash|sh)\b[^\r\n;&|]*?\s"
+                        r"(?:--eval(?:[=\s]|$)|-[ecpr](?=[\s\"']|$)|-command(?=[\s\"']|$))")
+    return any(inline.search(command) for command in scripts.values())
+
+
+def classify_initial_workflow(root):
+    """Conservative fresh-project classification, never a mode switch.
+
+    Git, license, prose guidance and development setup alone can be empty. Any
+    other file is existing product material. Unknown or partial harness state
+    needs reconciliation before installing, even with an explicit mode choice.
+    """
+    root = target_root(root)
+    if (root / ".oasis").exists():
+        raise HarnessError("Partial .oasis installation: reconcile or recover it before fresh installation")
+    active = root / ".agents/skills"
+    if active.exists() and (active.is_symlink() or is_reparse(active) or
+                           any(path.name.startswith("oasis-") for path in active.iterdir())):
+        raise HarnessError("Partial Oasis skill installation: reconcile ownership before fresh installation")
+    setup_dirs = {".git", ".venv", "venv", "node_modules", ".vscode", ".idea"}
+    setup_files = {".gitignore", ".gitattributes", ".editorconfig", ".python-version",
+                   "pyproject.toml", "requirements.txt", "requirements-dev.txt",
+                   "poetry.lock", "uv.lock", "package.json", "package-lock.json",
+                   "pnpm-lock.yaml", "yarn.lock", "tsconfig.json", "jsconfig.json"}
+    prose_roots = {"readme", "agents", "projectguide", "license", "notice", "copying", "contributing", "security"}
+    evidence = []
+    def walk_error(exc):
+        raise HarnessError("Unreadable project material needs review before workflow classification") from exc
+    for directory, subdirs, filenames in os.walk(root, followlinks=False, onerror=walk_error):
+        parent = Path(directory)
+        if parent == root:
+            subdirs[:] = [name for name in subdirs if name.casefold() not in setup_dirs]
+        for name in subdirs + filenames:
+            path = parent / name
+            if path.is_symlink() or is_reparse(path):
+                raise HarnessError("Linked project material needs explicit review before workflow classification")
+        for name in filenames:
+            path = parent / name
+            relative = path.relative_to(root)
+            if len(relative.parts) == 1 and ((path.name.casefold() in setup_files and not _setup_has_inline_program(path)) or
+                    (path.stem.casefold() in prose_roots and path.suffix.casefold() in {"", ".md", ".txt", ".rst"})):
+                continue
+            if relative.parts[0].casefold() in {"docs", "bestpractice"} and path.suffix.casefold() in {".md", ".txt", ".rst"}:
+                continue
+            evidence.append(relative.as_posix())
+    return {"mode": "oasis" if evidence else "pioneer",
+            "classification_basis": "existing-program" if evidence else "empty-or-setup-only",
+            "product_material": sorted(evidence)}
+
+
+def _workflow_selection(root, incoming, *, installed, upgrade, mode):
+    relative = ".oasis/project.json"
+    if mode is not None and mode not in {"pioneer", "oasis"}:
+        raise HarnessError("Initial mode must be pioneer or oasis")
+    if mode is not None and (installed or upgrade):
+        raise HarnessError("Installation preserves the existing mode; use workflow for an explicit project transition")
+    if relative not in incoming:
+        if mode is not None:
+            raise HarnessError("This package has no project workflow configuration")
+        return None
+    if installed or upgrade:
+        from .skills import validate_project
+        project = validate_project(read_json(checked_path(root, relative)))
+        workflow = project["extensions"].get("workflow", {})
+        selected = workflow.get("mode", "oasis")
+        return {"mode": selected, "classification_basis": "preserved-installation" if "mode" in workflow else "legacy-oasis-fallback",
+                "initialization_required": False, "native_actions": "none"}
+    result = classify_initial_workflow(root)
+    if mode is not None:
+        result.update(mode=mode, classification_basis="owner-selected", detected_basis=result["classification_basis"])
+    result.update(initialization_required=True,
+                  required_roles=["Pioneer"] if result["mode"] == "pioneer" else ["Oasis", "Cameleer"],
+                  native_actions="agent-assisted-after-file-verification")
+    return result
+
+
+def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, resolutions=None, mode=None):
     root = target_root(target)
     package = Path(package) if package else Path(__file__).resolve().parents[1]
     manifest_path = checked_path(root, MANIFEST)
@@ -275,6 +366,7 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
         raise HarnessError("Unsupported installed manifest")
     incoming, active_owners = upgrade_files(package, previous, refresh_capabilities=refresh_capabilities)
     version = package_version(incoming)
+    workflow = _workflow_selection(root, incoming, installed=manifest_path.exists(), upgrade=upgrade, mode=mode)
     resolved = _initial_resolutions(resolutions, root, incoming, previous,
                                     upgrade=upgrade, installed=manifest_path.exists())
     refreshed_owners = set(active_owners.values())
@@ -314,6 +406,11 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
                     result = resolution[1]
                 else:
                     result = new
+            if relative == ".oasis/project.json" and workflow and workflow["initialization_required"]:
+                from .skills import validate_project
+                project = validate_project(json.loads(result.decode("utf-8")))
+                project["extensions"].setdefault("workflow", {})["mode"] = workflow["mode"]
+                result = canonical(project) + b"\n"
             if new is not None:
                 if result is None:
                     raise HarnessError(f"Managed file was locally deleted; resolve explicitly: {relative}")
@@ -344,6 +441,8 @@ def plan(target, package=None, *, upgrade=False, refresh_capabilities=False, res
         operations.append({"path": MANIFEST, "before": _encode(old_manifest), "after": _encode(manifest_bytes)})
     value = {"schema_version": 1, "target": str(root), "upgrade": upgrade,
              "operations": operations, "conflicts": sorted(set(conflicts)), "retained": retained}
+    if workflow is not None:
+        value["workflow"] = workflow
     value["plan_sha256"] = digest(value)
     return value
 
@@ -465,12 +564,15 @@ def register(subparsers):
         child.add_argument("--package", type=Path)
         child.add_argument("--output", type=Path)
         if name != "upgrade":
+            child.add_argument("--mode", choices=("pioneer", "oasis"),
+                               help="Explicit initial project mode; installed mode changes use workflow")
             child.add_argument("--resolutions", type=Path,
                                help="Exact reviewed initial collision bytes; not an overwrite or approval switch")
         def make(args, upgrade=name == "upgrade"):
             resolution_path = getattr(args, "resolutions", None)
             result = plan(args.target, args.package, upgrade=upgrade,
-                          resolutions=read_json(resolution_path) if resolution_path else None)
+                          resolutions=read_json(resolution_path) if resolution_path else None,
+                          mode=getattr(args, "mode", None))
             if args.output:
                 if args.output.exists():
                     raise HarnessError("Plan output already exists")

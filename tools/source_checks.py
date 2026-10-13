@@ -12,13 +12,13 @@ sys.path.insert(0, str(ROOT))
 
 SMOKE = {"tests.test_public_source", "tests.test_source_delivery", "tests.test_distribution"}
 DEPENDENTS = {
-    "installation": {"installation", "doctor", "distribution"},
-    "doctor": {"doctor"}, "skills": {"skills", "doctor", "public_source"},
+    "installation": {"installation", "workflow_installation", "doctor", "distribution"},
+    "doctor": {"doctor"}, "skills": {"skills", "workflow_installation", "doctor", "public_source"},
     "publication": {"publication", "build", "source_delivery", "public_source"},
     "github": {"github", "publication", "backup"},
     "build": {"build", "publication", "source_delivery"},
     "backup": {"backup", "gitops"}, "gitops": {"gitops", "backup"},
-    "sessions": {"sessions"}, "knowledge": {"knowledge"},
+    "sessions": {"sessions", "workflows"}, "knowledge": {"knowledge"},
     "common": {"common"}, "packets": {"common", "knowledge", "sessions"},
     "public_source": {"public_source", "source_delivery", "distribution"},  # Retire legacy source-only module.
 }

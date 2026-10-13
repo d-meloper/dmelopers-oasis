@@ -20,6 +20,9 @@ class DistributionBoundary(unittest.TestCase):
                     self.assertNotIn(marker, data)
         self.assertNotIn(".oasis/manual/development.md", payload)
         self.assertNotIn(".oasis/runtime/oasis_harness/public_source.py", payload)
+        self.assertIn(".oasis/runtime/oasis_harness/workflows.py", payload)
+        self.assertIn(".oasis/manual/workflows.md", payload)
+        self.assertIn(".agents/skills/oasis-pioneer/SKILL.md", payload)
         self.assertEqual(payload[".oasis/manual/adaptation-map.json"],
                          (PACKAGE / "docs/adaptation-map.json").read_bytes())
         self.assertFalse(any(name.startswith(".githooks/") for name in payload))
