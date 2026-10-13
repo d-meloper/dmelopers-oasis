@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Published Content"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Published Content for the requested project work"
   default_prompt: "Use $oasis-published-content for the requested project scope."

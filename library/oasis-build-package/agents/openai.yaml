@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Build Package"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Build Package for the requested project work"
   default_prompt: "Use $oasis-build-package for the requested project scope."

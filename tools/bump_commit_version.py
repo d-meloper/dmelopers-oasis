@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT))
 from oasis_harness.common import HarnessError, atomic_write, contained, operation_lock
 
 VERSION_PATH = "oasis_harness/__init__.py"
+HISTORY_PATH = "docs/upgrade-index.json"
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\Z")
 
 
@@ -44,6 +45,39 @@ def literal(data):
 def replace(data, version):
     _, start, end = literal(data)
     return data[:start] + json.dumps(version).encode("ascii") + data[end:]
+
+
+def version_delta(expected, previous):
+    staged = git("show", ":" + HISTORY_PATH, check=False)
+    if staged.returncode:
+        if git("show", "HEAD:" + HISTORY_PATH, check=False).returncode == 0:
+            raise HarnessError("Keep the tracked version delta index and stage the new entry")
+        return  # Compatibility for sources predating introduction of the index.
+    data = json.loads(staged.stdout.decode("utf-8"))
+    if not isinstance(data, dict) or data.get("schema_version") != 1 or not isinstance(data.get("releases"), list):
+        raise HarnessError("Stage a schema-1 version delta index")
+    for release in data["releases"]:
+        if not isinstance(release, dict) or not isinstance(release.get("version"), str) or not VERSION.fullmatch(release["version"]) or not isinstance(release.get("previous"), str) or not VERSION.fullmatch(release["previous"]):
+            raise HarnessError("Version deltas need chronological X.Y.Z versions and explicit predecessors")
+    prior = git("show", "HEAD:" + HISTORY_PATH, check=False)
+    if prior.returncode == 0:
+        old = json.loads(prior.stdout.decode("utf-8"))
+        old_rows = old.get("releases") if isinstance(old, dict) else None
+        if not isinstance(old_rows, list) or len(data["releases"]) != len(old_rows) + 1 or [(r.get("version"), r.get("previous")) for r in data["releases"][:-1]] != [(r.get("version"), r.get("previous")) for r in old_rows]:
+            raise HarnessError("Retain prior chronological version entries and append exactly one new delta")
+    rows = data["releases"][-1:]
+    if len(rows) != 1 or rows[0].get("version") != expected or rows[0].get("previous") != previous or not isinstance(rows[0].get("summary"), list) or not rows[0]["summary"] or any(not isinstance(s, str) or not s for s in rows[0]["summary"]) or not isinstance(rows[0].get("areas"), list) or not isinstance(rows[0].get("source_only"), list):
+        raise HarnessError("Each package bump needs one staged predecessor delta, summary and adopter application areas")
+    if not rows[0]["areas"] and not rows[0]["source_only"] or any(not isinstance(s, str) or not s for s in rows[0]["source_only"]):
+        raise HarnessError("Describe adopter application or explicitly source-only/no-adopter effects")
+    for area in rows[0]["areas"]:
+        if not isinstance(area, dict) or any(not isinstance(area.get(k), str) or not area[k] for k in ("name", "change", "apply")) or not isinstance(area.get("paths"), list) or not area["paths"] or any(not isinstance(p, str) or not p for p in area["paths"]) or not isinstance(area.get("checks"), list) or any(not isinstance(c, str) for c in area["checks"]):
+            raise HarnessError("Each adopter area needs paths, change, application instructions and checks")
+    files = rows[0].get("files")
+    changed = set(git("diff", "--cached", "--name-only", "-z").stdout.decode("utf-8").split("\0")) - {"", HISTORY_PATH, VERSION_PATH}
+    if not isinstance(files, list) or any(not isinstance(f, str) for f in files) or len(set(files)) != len(files) or set(files) != changed:
+        raise HarnessError("Version delta files must exactly cover the staged scope, excluding index and package literal")
+    return staged.stdout
 
 
 def bump():
@@ -84,6 +118,7 @@ def bump():
             allowed = {base, expected}
         if stage_version not in allowed:
             raise HarnessError("Version change needs the owner's explicit base or exact command-local target")
+        history = version_delta(expected, head_version)
         path = contained(ROOT, VERSION_PATH)
         before = path.read_bytes()
         if literal(before)[0] not in allowed:
@@ -99,7 +134,7 @@ def bump():
         if stage != "0" or indexed_path.decode("utf-8") != VERSION_PATH or mode not in ("100644", "100755"):
             raise HarnessError("Version file must be a regular stage-zero tracked file")
         new_blob = git("hash-object", "-w", "--stdin", data=candidate).stdout.decode("ascii").strip()
-        if git("show", ":" + VERSION_PATH).stdout != staged or path.read_bytes() != before:
+        if git("show", ":" + VERSION_PATH).stdout != staged or path.read_bytes() != before or (history is not None and git("show", ":" + HISTORY_PATH).stdout != history):
             raise HarnessError("Version bytes changed during preparation; no version is applied")
         if before != after:
             atomic_write(path, after)

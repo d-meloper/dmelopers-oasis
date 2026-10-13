@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Dependency Security"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Dependency Security for the requested project work"
   default_prompt: "Use $oasis-dependency-security for the requested project scope."

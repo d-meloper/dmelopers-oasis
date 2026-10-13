@@ -1,29 +1,25 @@
 # Harness Doctor
 
-`oasis-harness-doctor` is a default maintenance skill beside the eight protected
-core skills and Pioneer, with fifteen optional families still selectable. It assigns no new
-role and does not activate a service or upstream binding on installation.
-The skill's `references/workflow.md` owns the complete workflow and decision list.
-This package includes Doctor; protected core remains v1.0.0. Existing installations
-that lack this default skill gain it through an owner-approved upgrade rather than silent
-activation. Each adopter selects its own upstream repository/ref and pins its full
-commit/tree. Source checkouts follow their own authorized Git workflow; compare
-actual source bytes and modes, including separately generated public metadata.
-Never reset or self-install to force SHA equality.
+Harness Doctor checks the selected upstream and applies compatible owned
+updates while preserving project modifications. All 24 skills are active after
+installation. Consult the owning skill's `references/workflow.md` when the
+current operation needs it.
 
-On a normal Doctor maintenance request, obtain the complete project-selected
-upstream, pin its verified repository/ref/commit/tree, compare actual ownership
-and apply compatible owned updates. An audit-only request stops at inspection.
-Ask about all unresolved material conflicts, intentional deletions, baseline
-repairs, binding changes, new/removed skills, structural/authority changes and
-core migrations before application. Keep user settings and project knowledge.
-Preserve the selected project mode and initialized role bindings. Legacy
-configurations without `extensions.workflow.mode` keep Oasis fallback; Doctor
-does not initialize or switch role chats. A new Pioneer default in an older
-installation remains an adopting-owner skill/structure decision, distinct from
-compatible knowledge edits and this package source's own approval.
+## Version deltas and selective application
 
-The CLI is deliberately local and uses the existing installer, not a downloader:
+`docs/upgrade-index.json`, installed at `.oasis/manual/upgrade-index.json`,
+describes predecessor deltas and paths/checks. Doctor intersects advisory notes
+with actual incoming differences and local specializations. Skipped versions,
+missing/discontinuous history and repeated labels need actual byte review;
+notes and labels do not establish provenance or behavioral policy.
+
+Pin the complete project-selected source/ref/commit/tree, compare ownership,
+saved bases and incoming bytes, then use the three-way installer. Resolve actual
+conflicts, uncertain deletions, missing bases, bindings and material structural
+decisions. Preserve mode, settings, user skill edits, knowledge and
+task history.
+
+## Local audit and update
 
 ```powershell
 python -B -X utf8 tools/oasis.py doctor audit --target <adopter> --package <staged-source> --output <new-report>
@@ -31,33 +27,35 @@ python -B -X utf8 tools/oasis.py doctor plan --target <adopter> --package <stage
 python -B -X utf8 tools/oasis.py install apply --plan <reviewed-plan>
 ```
 
-Source operators invoke `oasis.py` from the trusted source; installed adopters use
-`tools/oasis.py`. Inspect `--help` first. The donor must be a complete, inspected
-source distribution, distinct from the target. These commands neither verify
-remote provenance nor grant semantic approval. Plan application needs the
-candidate identity and material decisions established by the skill's workflow.
+Source operators use `oasis.py`. These helpers inspect a complete donor distinct
+from the target; they do not fetch upstream or initialize chats. `current` means
+saved bases match the donor, with specializations shown separately. It does not
+claim remote freshness or model adoption.
 
-Audit compares incoming/installed versions and exact resource hashes, detects
-missing or specialized files, checks saved bases, core pin, selected capability
-consistency and all plan conflicts. `current` means the saved upstream bases
-match this donor; local specializations remain separately visible. It is not a
-claim of remote freshness, model adoption, identical local bytes or defect-free
-behavior. Same-version donor bytes can still be outdated locally.
+Doctor and ordinary upgrades refresh all bundled skills through saved bases,
+preserving local changes. File collisions, missing files and corrupt bases are
+recoverable conflicts. Runtime updates do not rebind an installed Git engine.
 
-Doctor plans update the entire owned distribution and selected active skills,
-including their resources and immutable bases, while merging independent local
-edits. Missing managed files and corrupt bases need explicit reconciliation;
-the plan never guesses whether deletion was intentional. Incoming core drift
-requires a supported, explicitly approved versioned migration. Keep existing
-external journals for interrupted apply/recovery. Ordinary installer upgrades
-retain their active-skill preservation behavior.
-After runtime updates, inspect an existing managed Git engine's actual binding.
-If it needs refresh, retain that as a pending decision and follow the separate
-reviewed commit/rebind procedure; file updates do not prove the old engine adopted
-them.
+## Core 2 migration
 
-A primary source checkout uses its selected source Git workflow. A missing
-manifest does not authorize installation, and source divergence does not justify
-resetting local commits. Native discovery and old-chat adoption need their own
-evidence. No real remote fetch/update or model adoption is established by the
-local helper tests.
+Core 2.0.0 removes Calf and moves implementation/checks to Camel. No hash seal
+or protected-key policy blocks this versioned migration. Actual file comparison,
+local-content resolution and transaction safeguards remain. Finish existing
+Camel/Calf work before transition, retain its historical links and migrate
+useful local Calf knowledge before retirement. See
+[migration](installation.md#core-2-migration).
+
+For a Core 1 installation, run audit, plan and apply from the inspected incoming
+source's `oasis.py`, not its old installed helper. The old helper still has the
+Core 1 seal and cannot provide the new unfinished-work wait or migration:
+
+```powershell
+python -B -X utf8 <incoming-source>/oasis.py doctor audit --target <adopter> --package <incoming-source> --output <new-report>
+python -B -X utf8 <incoming-source>/oasis.py doctor plan --target <adopter> --package <incoming-source> --output <new-plan>
+python -B -X utf8 <incoming-source>/oasis.py install apply --plan <reviewed-plan>
+```
+
+An update preserves mode and chats; it does not bulk archive or initialize
+replacements. Later assignments use direct completion and actual chat IDs.
+A source checkout uses source Git review, without self-installation or resetting
+local commits to public squash history.

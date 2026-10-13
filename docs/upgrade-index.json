@@ -1,0 +1,572 @@
+{
+  "releases": [
+    {
+      "areas": [
+        {
+          "apply": "Preserve local mode/capabilities/knowledge; review newly introduced default skills and explicit lifecycle decisions. Do not initialize or switch existing chats merely by upgrading.",
+          "change": "Fresh projects select Pioneer; legacy projects retain Oasis, existing roles and owned settings. Doctor prepares reviewed compatible upgrades.",
+          "checks": [
+            "Three-way installation and mode preservation",
+            "Affected selected skills and runtime contracts"
+          ],
+          "name": "Project modes and maintenance",
+          "paths": [
+            "AGENTS.md",
+            "ProjectGuide.md",
+            ".oasis/project.json",
+            ".agents/skills/",
+            ".oasis/runtime/oasis_harness/",
+            ".oasis/manual/"
+          ]
+        }
+      ],
+      "files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/adaptation-map.md",
+        "docs/development.md",
+        "docs/doctor.md",
+        "docs/identity.md",
+        "docs/installation.md",
+        "docs/knowledge.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "oasis_harness/cli.py",
+        "oasis_harness/installation.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/skills.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-calf/SKILL.md",
+        "seed/.agents/skills/oasis-camel/SKILL.md",
+        "seed/.agents/skills/oasis-harness-doctor/SKILL.md",
+        "seed/.agents/skills/oasis-harness-doctor/references/scenarios.md",
+        "seed/.agents/skills/oasis-harness-doctor/references/workflow.md",
+        "seed/.agents/skills/oasis-maintenance/SKILL.md",
+        "seed/.agents/skills/oasis-pioneer/SKILL.md",
+        "seed/.agents/skills/oasis-pioneer/agents/openai.yaml",
+        "seed/.agents/skills/oasis-pioneer/references/scenarios.md",
+        "seed/.oasis/docs/communication.md",
+        "seed/.oasis/docs/identity.md",
+        "seed/AGENTS.md",
+        "seed/ProjectGuide.md",
+        "tests/test_distribution.py",
+        "tests/test_doctor.py",
+        "tests/test_public_source.py",
+        "tests/test_skills.py",
+        "tests/test_workflow_installation.py",
+        "tests/test_workflows.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py",
+        "tools/source_policy.py"
+      ],
+      "previous": "1.0.0",
+      "source_only": [
+        "Primary source delivery and patch hook changes do not select an adopter's Git, backup or public target."
+      ],
+      "summary": [
+        "Added persistent Pioneer/Oasis project modes, their explicit lifecycle and default Pioneer, and refined existing Harness Doctor guidance; protected core remains 1.0.0."
+      ],
+      "version": "1.1.0"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Merge the root LocalGitWorkflow guide without replacing local work. Refer to its canonical contract at the next authorized task/handoff; preserve existing independent chats across mode switches.",
+          "change": "Owner-established independent specialties stay outside bundle lineage and retain existing message, ownership and authority boundaries.",
+          "checks": [
+            "Guide conflict/local edit preservation",
+            "Affected source and installed references"
+          ],
+          "name": "Independent Oasis sessions",
+          "paths": [
+            "LocalGitWorkflow.md",
+            "AGENTS.md",
+            "ProjectGuide.md",
+            ".agents/skills/oasis-maintenance/",
+            ".agents/skills/oasis-cameleer/",
+            ".oasis/docs/communication.md",
+            ".oasis/docs/identity.md",
+            ".oasis/manual/identity.md",
+            ".oasis/manual/sessions.md",
+            ".oasis/manual/workflows.md",
+            ".oasis/manual/validation.md"
+          ]
+        }
+      ],
+      "files": [
+        ".gitattributes",
+        "AGENTS.md",
+        "README.md",
+        "assets/readme-hero.svg",
+        "assets/readme-title.svg",
+        "docs/development.md",
+        "docs/identity.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-maintenance/SKILL.md",
+        "seed/.oasis/docs/communication.md",
+        "seed/.oasis/docs/identity.md",
+        "seed/AGENTS.md",
+        "seed/LocalGitWorkflow.md",
+        "seed/ProjectGuide.md",
+        "tests/test_distribution.py",
+        "tests/test_public_source.py",
+        "tools/public-source-policy.json",
+        "tools/source_policy.py"
+      ],
+      "previous": "1.1.0",
+      "source_only": [
+        "README title/subtitle and exact SVG source policy; artwork is outside adopter installation."
+      ],
+      "summary": [
+        "Established one canonical independent specialist session contract and updated source README artwork/layout; protected core remains 1.0.0."
+      ],
+      "version": "1.1.1"
+    },
+    {
+      "areas": [],
+      "files": [
+        "assets/readme-hero.svg",
+        "tests/test_public_source.py",
+        "tools/public-source-policy.json",
+        "tools/source_policy.py"
+      ],
+      "previous": "1.1.1",
+      "source_only": [
+        "Existing adopters need no role, configuration, runtime or chat change for this artwork patch."
+      ],
+      "summary": [
+        "Replaced the source README hero with corrected vector bytes and a narrow reviewed SVG pin."
+      ],
+      "version": "1.1.2"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Merge the canonical root guide and affected existing skills/runtime. Apply at the next authorized task/handoff; agree an application boundary for active work. Create no chats, monitoring, services or new settings from this update.",
+          "change": "Wait for required artifacts and an acknowledged scoped writer release, end unchanged turns, and inspect one authorized signal. Optional checkpoints reject stale/duplicate routes, source/input drift and false completion-based ownership.",
+          "checks": [
+            "Affected packet source/CLI and drift/failure/duplicate contracts",
+            "Canonical source/installed references",
+            "Final staged-candidate hooks and the project's required backup/verification"
+          ],
+          "name": "Dependency execution boundaries",
+          "paths": [
+            "AGENTS.md",
+            "LocalGitWorkflow.md",
+            ".oasis/docs/communication.md",
+            ".agents/skills/oasis-camel/",
+            ".agents/skills/oasis-calf/",
+            ".agents/skills/oasis-cameleer/",
+            ".agents/skills/oasis-git-operations/",
+            ".oasis/runtime/oasis_harness/packets.py",
+            ".oasis/manual/sessions.md",
+            ".oasis/manual/validation.md"
+          ]
+        },
+        {
+          "apply": "Read the incoming index as advisory data. Older Doctors use the reviewed staged entrypoint or complete existing audit; missing/cyclic/same-version history falls back to actual byte review. Preserve local settings, mode, capabilities and knowledge.",
+          "change": "Doctor intersects a predecessor chain with actual changed managed paths, preserving full three-way review and reporting unmapped/local paths.",
+          "checks": [
+            "Skipped-version and source-only guidance",
+            "Malformed/unmapped/same-version fallback",
+            "Local conflict and complete upgrade plan preservation"
+          ],
+          "name": "Version-aware Doctor review",
+          "paths": [
+            ".oasis/runtime/oasis_harness/doctor.py",
+            ".oasis/runtime/oasis_harness/installation.py",
+            ".agents/skills/oasis-harness-doctor/",
+            ".oasis/manual/doctor.md",
+            ".oasis/manual/upgrade-index.json"
+          ]
+        }
+      ],
+      "files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/development.md",
+        "docs/doctor.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "oasis_harness/doctor.py",
+        "oasis_harness/installation.py",
+        "oasis_harness/packets.py",
+        "seed/.agents/skills/oasis-calf/SKILL.md",
+        "seed/.agents/skills/oasis-camel/SKILL.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-git-operations/SKILL.md",
+        "seed/.agents/skills/oasis-harness-doctor/SKILL.md",
+        "seed/.agents/skills/oasis-harness-doctor/references/workflow.md",
+        "seed/.oasis/docs/communication.md",
+        "seed/AGENTS.md",
+        "seed/LocalGitWorkflow.md",
+        "tests/test_commit_version.py",
+        "tests/test_dependencies.py",
+        "tests/test_distribution.py",
+        "tests/test_doctor.py",
+        "tools/bump_commit_version.py",
+        "tools/public-source-policy.json",
+        "tools/source_policy.py"
+      ],
+      "previous": "1.1.2",
+      "source_only": [
+        "The development pre-commit hook requires a staged summary, predecessor and exact changed-file inventory for every future source patch. Adopter hooks are not changed.",
+        "The primary source used two explicitly approved diagnostic chats; fixture telemetry does not grant another project's messaging or test authority."
+      ],
+      "summary": [
+        "Added one-shot dependency waiting with optional actual-source checkpoint validation.",
+        "Added predecessor deltas and selective adopter guidance backed by complete Doctor differences and a staged-source version-note gate."
+      ],
+      "version": "1.1.3"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Finish ongoing legacy Camel/Calf work before Core 2 transition. Preserve historical links, mode, Git and settings. Use the inspected incoming source helper for legacy migration; do not execute the old sealed helper for this change.",
+          "change": "Cameleer assigns visible Camel implementation and receives direct terminal results. Native Plan starts immediately; actual chat IDs retain collection and reuse.",
+          "checks": [
+            "Direct assignment/completion and ID-based title changes",
+            "Plan supported setter/turn path and manual fallback once",
+            "Terminal dependencies, response loss, duplicate merge, archive/restore and retained tasks.md"
+          ],
+          "name": "Core 2 roles and task lifecycle",
+          "paths": [
+            "AGENTS.md",
+            "ProjectGuide.md",
+            "LocalGitWorkflow.md",
+            ".oasis/core.json",
+            ".oasis/docs/",
+            ".agents/skills/oasis-camel/",
+            ".agents/skills/oasis-cameleer/",
+            ".oasis/runtime/oasis_harness/sessions.py",
+            ".oasis/runtime/oasis_harness/workflows.py",
+            ".oasis/runtime/oasis_harness/packets.py"
+          ]
+        },
+        {
+          "apply": "Three-way refresh all bundled skills while preserving user skills, custom bytes and project settings. Archive exact customized Calf originals and move reviewed useful notes through --calf-migration before retirement; keep old procedures inactive.",
+          "change": "Nine role/operations skills and fifteen capability families are installed active together, with concise bodies and reusable references; Calf useful baseline moves to Camel.",
+          "checks": [
+            "Fresh 24-skill payload and native catalog paths",
+            "Legacy subset to all24 with preserved edits/bases",
+            "Custom Calf knowledge, conflict/drift checks and interrupted recovery",
+            "Installed guide/reference links"
+          ],
+          "name": "All skills active and reusable implementation experience",
+          "paths": [
+            ".agents/skills/",
+            ".oasis/project.json",
+            ".oasis/library/",
+            "BestPractice/",
+            ".oasis/manual/"
+          ]
+        },
+        {
+          "apply": "Review actual donor/local differences and conflicts with the incoming helper. Old chat records remain readable; new Calf creation returns a retirement notice. Runtime updates do not rebind Git engines or initialize chats.",
+          "change": "Core metadata is descriptive; ordinary JSON notes no longer carry a mandatory evidence/behavior schema. Installer and Doctor keep actual file comparison and recoverable migration.",
+          "checks": [
+            "Preserved modes, Git/settings/user skill state",
+            "No packet/activation-choice interface or core hash seal",
+            "Actual input validity, concurrent writes, native errors and existing Git/backup/publication suites"
+          ],
+          "name": "Runtime and Doctor compatibility",
+          "paths": [
+            ".oasis/runtime/oasis_harness/",
+            ".oasis/manual/doctor.md",
+            ".oasis/manual/installation.md",
+            ".oasis/manual/upgrade-index.json"
+          ]
+        }
+      ],
+      "files": [
+        "AGENTS.md",
+        "README.md",
+        "docs/adaptation-map.json",
+        "docs/adaptation-map.md",
+        "docs/development.md",
+        "docs/doctor.md",
+        "docs/identity.md",
+        "docs/installation.md",
+        "docs/knowledge.md",
+        "docs/migration-lessons.md",
+        "docs/official-openai-adoption.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "library/oasis-artifact-security/SKILL.md",
+        "library/oasis-artifact-security/agents/openai.yaml",
+        "library/oasis-artifact-security/references/best-practices.md",
+        "library/oasis-asset-pipeline/SKILL.md",
+        "library/oasis-asset-pipeline/agents/openai.yaml",
+        "library/oasis-asset-pipeline/references/best-practices.md",
+        "library/oasis-build-package/SKILL.md",
+        "library/oasis-build-package/agents/openai.yaml",
+        "library/oasis-build-package/references/best-practices.md",
+        "library/oasis-dependency-security/SKILL.md",
+        "library/oasis-dependency-security/agents/openai.yaml",
+        "library/oasis-dependency-security/references/best-practices.md",
+        "library/oasis-distribution-reputation/SKILL.md",
+        "library/oasis-distribution-reputation/agents/openai.yaml",
+        "library/oasis-distribution-reputation/references/best-practices.md",
+        "library/oasis-interaction-timing/SKILL.md",
+        "library/oasis-interaction-timing/agents/openai.yaml",
+        "library/oasis-interaction-timing/references/best-practices.md",
+        "library/oasis-interface-design/SKILL.md",
+        "library/oasis-interface-design/agents/openai.yaml",
+        "library/oasis-interface-design/references/best-practices.md",
+        "library/oasis-published-content/SKILL.md",
+        "library/oasis-published-content/agents/openai.yaml",
+        "library/oasis-published-content/references/best-practices.md",
+        "library/oasis-rendering-performance/SKILL.md",
+        "library/oasis-rendering-performance/agents/openai.yaml",
+        "library/oasis-rendering-performance/references/best-practices.md",
+        "library/oasis-review/SKILL.md",
+        "library/oasis-review/agents/openai.yaml",
+        "library/oasis-review/references/best-practices.md",
+        "library/oasis-runtime-lifecycle/SKILL.md",
+        "library/oasis-runtime-lifecycle/agents/openai.yaml",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "library/oasis-state-integrity/SKILL.md",
+        "library/oasis-state-integrity/agents/openai.yaml",
+        "library/oasis-state-integrity/references/best-practices.md",
+        "library/oasis-support-automation/SKILL.md",
+        "library/oasis-support-automation/agents/openai.yaml",
+        "library/oasis-support-automation/references/best-practices.md",
+        "library/oasis-support-knowledge/SKILL.md",
+        "library/oasis-support-knowledge/agents/openai.yaml",
+        "library/oasis-support-knowledge/references/best-practices.md",
+        "library/oasis-update-delivery/SKILL.md",
+        "library/oasis-update-delivery/agents/openai.yaml",
+        "library/oasis-update-delivery/references/best-practices.md",
+        "oasis_harness/cli.py",
+        "oasis_harness/doctor.py",
+        "oasis_harness/installation.py",
+        "oasis_harness/knowledge.py",
+        "oasis_harness/packets.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/skills.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-calf/SKILL.md",
+        "seed/.agents/skills/oasis-calf/agents/openai.yaml",
+        "seed/.agents/skills/oasis-camel/SKILL.md",
+        "seed/.agents/skills/oasis-camel/agents/openai.yaml",
+        "seed/.agents/skills/oasis-camel/references/best-practices.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-cameleer/agents/openai.yaml",
+        "seed/.agents/skills/oasis-cameleer/references/best-practices.md",
+        "seed/.agents/skills/oasis-git-operations/SKILL.md",
+        "seed/.agents/skills/oasis-git-operations/agents/openai.yaml",
+        "seed/.agents/skills/oasis-git-operations/references/best-practices.md",
+        "seed/.agents/skills/oasis-github-publication/SKILL.md",
+        "seed/.agents/skills/oasis-github-publication/agents/openai.yaml",
+        "seed/.agents/skills/oasis-github-publication/references/best-practices.md",
+        "seed/.agents/skills/oasis-harness-doctor/SKILL.md",
+        "seed/.agents/skills/oasis-harness-doctor/agents/openai.yaml",
+        "seed/.agents/skills/oasis-harness-doctor/references/best-practices.md",
+        "seed/.agents/skills/oasis-harness-doctor/references/scenarios.md",
+        "seed/.agents/skills/oasis-harness-doctor/references/workflow.md",
+        "seed/.agents/skills/oasis-knowledge/SKILL.md",
+        "seed/.agents/skills/oasis-knowledge/agents/openai.yaml",
+        "seed/.agents/skills/oasis-knowledge/references/best-practices.md",
+        "seed/.agents/skills/oasis-maintenance/SKILL.md",
+        "seed/.agents/skills/oasis-maintenance/agents/openai.yaml",
+        "seed/.agents/skills/oasis-maintenance/references/best-practices.md",
+        "seed/.agents/skills/oasis-pioneer/SKILL.md",
+        "seed/.agents/skills/oasis-pioneer/agents/openai.yaml",
+        "seed/.agents/skills/oasis-pioneer/references/best-practices.md",
+        "seed/.agents/skills/oasis-pioneer/references/scenarios.md",
+        "seed/.agents/skills/oasis-skill-manager/SKILL.md",
+        "seed/.agents/skills/oasis-skill-manager/agents/openai.yaml",
+        "seed/.agents/skills/oasis-skill-manager/references/best-practices.md",
+        "seed/.oasis/core.json",
+        "seed/.oasis/docs/communication.md",
+        "seed/.oasis/docs/identity.md",
+        "seed/.oasis/project.json",
+        "seed/AGENTS.md",
+        "seed/BestPractice/KnowledgeLifecycle.md",
+        "seed/BestPractice/README.md",
+        "seed/LocalGitWorkflow.md",
+        "seed/ProjectGuide.md",
+        "tests/test_common.py",
+        "tests/test_dependencies.py",
+        "tests/test_distribution.py",
+        "tests/test_doctor.py",
+        "tests/test_installation.py",
+        "tests/test_knowledge.py",
+        "tests/test_public_source.py",
+        "tests/test_sessions.py",
+        "tests/test_skills.py",
+        "tests/test_workflow_installation.py",
+        "tests/test_workflows.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py",
+        "tools/source_policy.py"
+      ],
+      "previous": "1.1.3",
+      "source_only": [
+        "The exact owner-requested package target 1.2.0 uses command-local oasis.versionTarget; Core 2.0.0 is independently explicit.",
+        "Source guidance and bounded export checks are simplified without copying source repository/account bindings into adopters; existing artwork pins and PR/squash/privacy checks remain.",
+        "The official OpenAI adoption report distinguishes implemented mechanisms, installed-version schema evidence, local fixtures and unperformed live effects."
+      ],
+      "summary": [
+        "Core 2.0.0 replaces Calf with implementing Camels and direct Cameleer completion, native planning and ID-based collection/archive/resume.",
+        "All 24 skill families are active after installation; short English skill bodies load relevant experience, preserving existing project edits.",
+        "Behavior packets, core seals, protected keys and normal title/approval/ACK/readiness gates are removed; byte/conflict/concurrency/native error safeguards remain."
+      ],
+      "version": "1.2.0"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Review and merge the adapter/manual/reference bytes through the ordinary three-way upgrade. Preserve local settings and knowledge. Supply an existing transport explicitly when needed; upgrade neither activates a service nor changes existing chats.",
+          "change": "Correct fresh Plan and cold-resume settings handling; retain native message identity, direct completion and same-ID archive/restore. Default proxy still needs an existing control socket; explicit loopback WebSocket is experimental upstream.",
+          "checks": [
+            "Fresh first-turn Plan and inherited settings",
+            "Cold-recipient settings preservation and ambiguous delivery recovery",
+            "Real loopback framing, saturated send buffers and idle reader preservation",
+            "Direct completion, automatic collection/archive, same-ID restore and duplicate completion/collection"
+          ],
+          "name": "Native session settings, transport and lifecycle",
+          "paths": [
+            ".oasis/runtime/oasis_harness/sessions.py",
+            ".oasis/manual/sessions.md",
+            ".oasis/manual/validation.md",
+            ".oasis/manual/official-openai-adoption.md",
+            ".agents/skills/oasis-cameleer/references/best-practices.md"
+          ]
+        }
+      ],
+      "files": [
+        "docs/official-openai-adoption.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "oasis_harness/sessions.py",
+        "seed/.agents/skills/oasis-cameleer/references/best-practices.md",
+        "tests/test_session_transport.py",
+        "tests/test_sessions.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py"
+      ],
+      "previous": "1.2.0",
+      "source_only": [
+        "Owner-requested isolated Windows native model trials verify backend Plan, direct completion and collection/archive/restore; visual toolbar state, active-turn steering and descendant archives remain separate.",
+        "Impact selection includes transport regressions; two exact scanner-literal review hashes are refreshed without weakening hard privacy checks. Private native receipts remain ignored local evidence.",
+        "This local patch does not authorize remote backup, publication or monitoring; Core stays 2.0.0 and all 24 skills remain active."
+      ],
+      "summary": [
+        "First-turn Plan uses matching verified creation settings only when native saved settings are genuinely absent; cold recipients explicitly preserve current model, effort and permission selections.",
+        "An explicitly selected caller-owned loopback App Server transport adds bounded WebSocket sends and close without changing global settings or starting a server."
+      ],
+      "version": "1.2.1"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Review actual incoming bytes and the ordinary three-way plan. Reused version labels do not certify byte equality or replace local conflict review.",
+          "change": "The package label returns from local 1.2.1 to 1.2.0; runtime behavior and core version are unchanged.",
+          "checks": [
+            "Package version reports 1.2.0",
+            "Core remains 2.0.0",
+            "Chronological version history and actual-difference review remain available"
+          ],
+          "name": "Package version metadata",
+          "paths": [
+            ".oasis/runtime/oasis_harness/__init__.py",
+            ".oasis/manual/upgrade-index.json"
+          ]
+        }
+      ],
+      "files": [],
+      "previous": "1.2.1",
+      "source_only": [
+        "The reset uses command-local oasis.versionTarget=1.2.0 through the configured hook. The retained 1.2.1 entry describes unreleased local source history.",
+        "No implementation is reverted and no remote backup or publication is performed. Previous live receipts keep their original tested commit identity."
+      ],
+      "summary": [
+        "Restore the explicitly selected unreleased Package 1.2.0 label while retaining Core 2.0.0, all 24 active skills and the verified native session fixes."
+      ],
+      "version": "1.2.0"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Merge the short guidance with existing project knowledge. Keep actual input and result evidence; preserve honest failed or deferred coverage and verify final deliverable bytes.",
+          "change": "Reuse passing checks with matching affected inputs; handoffs and version labels alone do not invalidate functional checks.",
+          "checks": [
+            "Guidance resource links and neutral installation payload",
+            "Affected tests when their consumed inputs change"
+          ],
+          "name": "Verification reuse guidance",
+          "paths": [
+            "ProjectGuide.md",
+            ".oasis/manual/validation.md"
+          ]
+        }
+      ],
+      "files": [
+        "docs/development.md",
+        "docs/validation.md",
+        "seed/ProjectGuide.md",
+        "tests/test_source_delivery.py",
+        "tools/source_delivery.py"
+      ],
+      "previous": "1.2.0",
+      "source_only": [
+        "Primary-source preparation validates retained successful commands, logs and Git byte/mode inventories before reusing unaffected modules. Its repository-specific tool is not installed into adopters.",
+        "Attestation rechecks the same verification plan and original receipt; final export/privacy, selected repository identity, required status and anonymous readback are unchanged.",
+        "The owner-selected final package remains 1.2.0 through a separate exact-version reset; no new full suite is requested."
+      ],
+      "summary": [
+        "Reuse retained verified source checks at delivery instead of repeatedly selecting the historical full public diff. Fresh candidate/privacy checks and checks invalidated since that run still execute."
+      ],
+      "version": "1.2.1"
+    },
+    {
+      "areas": [],
+      "files": [],
+      "previous": "1.2.1",
+      "source_only": [
+        "Command-local oasis.versionTarget=1.2.0 preserves the requested final label without rewriting source history. Only package metadata changes; all implementation and test evidence retain their actual identities."
+      ],
+      "summary": [
+        "Keep the exact owner-selected unreleased Package 1.2.0 label with the source verification-reuse correction included; Core remains 2.0.0."
+      ],
+      "version": "1.2.0"
+    },
+    {
+      "areas": [],
+      "files": [
+        "tests/test_distribution.py",
+        "tests/test_source_delivery.py",
+        "tools/source_delivery.py"
+      ],
+      "previous": "1.2.0",
+      "source_only": [
+        "Development-only coverage invalidates earlier results for changed shared runner, package setup and consumed test fixtures; metadata-only version changes still reuse unaffected results.",
+        "Historical changed-file inventories remain exact. Neutral advisory text and the narrowly scoped history-field check preserve the adopter payload boundary.",
+        "Only affected verification runs again; retained successful earlier evidence remains available, and the final package will retain the explicitly selected 1.2.0 label."
+      ],
+      "summary": [
+        "Invalidate reused verification when common test inputs or imported fixtures change, and preserve neutral historical file inventories."
+      ],
+      "version": "1.2.1"
+    },
+    {
+      "areas": [],
+      "files": [],
+      "previous": "1.2.1",
+      "source_only": [
+        "Command-local exact-version selection preserves chronological source history and all actual implementation evidence. This reset changes package metadata only."
+      ],
+      "summary": [
+        "Retain the owner-selected unreleased Package 1.2.0 label with the corrected verification reuse boundaries; Core remains 2.0.0."
+      ],
+      "version": "1.2.0"
+    }
+  ],
+  "schema_version": 1
+}

@@ -101,7 +101,7 @@ class WorkflowInstallationTests(unittest.TestCase):
         self.assertEqual(explicit["workflow"]["detected_basis"], "existing-program")
         self.assertEqual((self.root / "main.py").read_text(encoding="utf-8"), "pass\n")
 
-    def test_upgrade_preserves_selection_capabilities_settings_and_legacy_absence(self):
+    def test_upgrade_preserves_mode_settings_and_legacy_absence_with_all_capabilities(self):
         self.install()
         path = self.root / ".oasis/project.json"
         project = read_json(path)
@@ -110,6 +110,7 @@ class WorkflowInstallationTests(unittest.TestCase):
         project["capabilities"] = ["oasis-review"]
         write_json(path, project)
         self.install(upgrade=True)
+        project["capabilities"] = list(skills.OPTIONAL_NAMES)
         self.assertEqual(read_json(path), project)
         project["extensions"].pop("workflow")
         write_json(path, project)
@@ -140,7 +141,7 @@ class WorkflowInstallationTests(unittest.TestCase):
         self.assertEqual(plan["workflow"]["mode"], "oasis")
         self.assertFalse((self.root / ".oasis").exists())
 
-    def test_project_schema_rejects_invalid_mode_without_changing_protected_core(self):
+    def test_project_schema_rejects_invalid_mode_without_sealing_core_text(self):
         neutral = read_json(PACKAGE / "seed/.oasis/project.json")
         for mode in ("pioneer", "oasis"):
             project = json.loads(json.dumps(neutral))
@@ -151,7 +152,7 @@ class WorkflowInstallationTests(unittest.TestCase):
             project["extensions"] = {"workflow": value}
             with self.assertRaises(HarnessError):
                 skills.validate_project(project)
-        self.assertEqual(digest(read_json(PACKAGE / "seed/.oasis/core.json")), skills.EXPECTED_CORE_DIGEST)
+        self.assertEqual(read_json(PACKAGE / "seed/.oasis/core.json")["core_version"], "2.0.0")
 
 
 if __name__ == "__main__":

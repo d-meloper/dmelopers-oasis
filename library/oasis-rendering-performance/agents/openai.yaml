@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Rendering Performance"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Rendering Performance for the requested project work"
   default_prompt: "Use $oasis-rendering-performance for the requested project scope."

@@ -5,7 +5,6 @@ import unittest
 from unittest.mock import patch
 
 from oasis_harness.common import HarnessError, atomic_write, operation_lock, read_json, clean_environment, contained, safe_relative, run
-from oasis_harness.packets import validate, validate_source
 
 
 class PrimitiveContracts(unittest.TestCase):
@@ -123,18 +122,6 @@ class PrimitiveContracts(unittest.TestCase):
                 safe_relative(path)
         with tempfile.TemporaryDirectory() as tmp:
             self.assertTrue(contained(tmp, "Unicode-한글/file.txt").is_relative_to(Path(tmp).resolve()))
-
-    def test_empty_project_needs_no_invented_sha(self):
-        validate_source({"state": "absent"})
-        validate_source({"state": "unborn"})
-        with self.assertRaises(HarnessError):
-            validate_source({"state": "committed", "object_format": "sha1", "commit": "0" * 40})
-
-    def test_forbidden_route_and_plan_wait(self):
-        packet = {"kind": "handoff", "goal": "Inspect", "authority": "Owner request", "scope": "One bundle", "done": "Evidence", "mode": "plan-wait", "source": {"state": "absent"}, "route": "Local owner", "recipient": "opaque", "sender_role": "Camel", "recipient_role": "Cameleer", "trigger": "completion", "need": "Read"}
-        self.assertTrue(validate(packet)["rendered"].startswith("PLAN-WAIT:"))
-        with self.assertRaises(HarnessError):
-            validate(packet, send=True)
 
 
 if __name__ == "__main__":

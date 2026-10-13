@@ -7,8 +7,8 @@
     {
       "source_skill_id": "S01",
       "source_workflow": "calf",
-      "target_skill": "oasis-calf",
-      "disposition": "generalized",
+      "target_skill": "oasis-camel",
+      "disposition": "merged",
       "files": [
         {
           "source_file_id": "S01-F01",
@@ -16,7 +16,7 @@
           "kind": "ui-metadata",
           "disposition": "generalized",
           "destinations": [
-            "seed/.agents/skills/oasis-calf/agents/openai.yaml"
+            "seed/.agents/skills/oasis-camel/agents/openai.yaml"
           ]
         },
         {
@@ -25,7 +25,7 @@
           "kind": "entrypoint",
           "disposition": "generalized",
           "destinations": [
-            "seed/.agents/skills/oasis-calf/SKILL.md"
+            "seed/.agents/skills/oasis-camel/references/best-practices.md"
           ]
         }
       ]
@@ -592,30 +592,27 @@
           "source_file_id": "S18-F02",
           "sha256": "c1e2bfe4ac0dc34ad3c1833d9eddbfb63c48b40169985f4e3cb0d8eeced8d27f",
           "kind": "supporting-contract",
-          "disposition": "generalized",
+          "disposition": "simplified-core-2",
           "destinations": [
-            "seed/.oasis/docs/communication.md",
-            "oasis_harness/packets.py"
+            "seed/.oasis/docs/communication.md"
           ]
         },
         {
           "source_file_id": "S18-F03",
           "sha256": "5cffc73436ab5575297593621fa4c24992415b80c3d4af04a9d84944c1744a38",
           "kind": "supporting-contract",
-          "disposition": "generalized",
+          "disposition": "simplified-core-2",
           "destinations": [
-            "seed/.oasis/docs/communication.md",
-            "oasis_harness/packets.py"
+            "seed/.oasis/docs/communication.md"
           ]
         },
         {
           "source_file_id": "S18-F04",
           "sha256": "c5d6a5279852962103f4ef7d32ce9a6a927a1d02c0fb4912e0aa5ee584cc8d6a",
           "kind": "executable-helper",
-          "disposition": "reimplemented-and-tested",
-          "destinations": [
-            "oasis_harness/packets.py"
-          ]
+          "disposition": "retired-core-2",
+          "destinations": [],
+          "note": "The behavior-policy validator was deleted in Core 2; its source identity and digest remain historical, without an active or optional executable."
         },
         {
           "source_file_id": "S18-F05",

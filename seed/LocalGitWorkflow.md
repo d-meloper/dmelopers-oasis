@@ -1,110 +1,47 @@
 # Local Git workflow
 
-Use the project's selected Git profile, closest domain guidance and installed
-Git/publication manuals for commands and completion requirements. This guide
-owns the independent specialist session contract; it introduces no Git profile,
-role registry, new skill or protected core role.
+Use the project's selected unmanaged, single-main or main-test workflow, and the
+[Git skill](.agents/skills/oasis-git-operations/SKILL.md) for relevant commands.
+Keep existing branch, worktree and backup choices. Worktrees are useful when
+isolation helps; shared work can use the current checkout.
+
+Agree a simple scope split when edits overlap. Serialize shared stage, hooks,
+commit and checkout operations, preserving other writers' staged, dirty,
+untracked and ignored bytes. A whole-checkout build or export can consume files
+outside its author's edit scope; coordinate that operation's input boundary.
+See [implementation experience](.agents/skills/oasis-camel/references/best-practices.md)
+for check-input reuse and encoding cases.
+
+## Dependency waiting and resumption
+
+When another Camel's result or overlapping edit blocks work, name the precise
+portion and the terminal result needed to resume. Agree who sends that result.
+Finish independently possible work, leave the dependency reference and end the
+turn while it is unchanged.
+
+The other Camel sends one notice when that portion completes, fails or is
+cancelled. Include the outcome and the result/reference needed for resumption.
+Do not exchange intermediate progress or receipt ACKs, repeat status/timeouts,
+keep waiting turns alive, or add background monitoring. The consumer resumes
+from the relevant result and current affected files. A duplicate terminal notice
+does not repeat the same work or integration.
+
+If delivery fails or is uncertain, retain that operation and reconcile its
+actual result before retrying. Recover the affected handoff without resending
+unrelated messages. Native service errors and unavailable messaging remain
+visible with the exact resume step.
 
 ## Independent specialist sessions
 
-This contract applies in Oasis mode when the human owner establishes an
-independent specialty using the naming pattern `독립 - … 담당` in an actual
-assignment.
-The assignment's purpose and scope establish the session; a title or discovered
-skill does not. These chats work outside the Cameleer → Camel → Calf hierarchy.
-Pioneer introduces no independent specialist role; preserve previously assigned
-independent chats and their requests across a mode switch as described below.
+An owner-established independent specialty works on its requested scope in its
+existing chat. It can coordinate overlapping files or resources with the relevant
+Camel under the same simple dependency boundary. Oasis maintains the environment;
+Cameleer manages coordinated work. The assignment's goal decides the work, and
+the actual chat ID identifies it.
 
-### Assignment and the next task
-
-An independent assignment creates no automatic bundle, bundle letter, lineage,
-manager or reporting route. Opening a chat, assigning a standing specialty or retaining an
-unfinished-work note grants no implementation, resumption, external-action or
-monitoring authority. On the next actual requested task, read the relevant domain
-guidance and verify current evidence, scope and ownership before acting. Resume
-unfinished work only when the human's instruction authorizes that work.
-
-### Environment and priorities
-
-Oasis owns the requested environment, skills, tools and their application timing.
-It does not become a product supervisor or a mandatory approval gate for
-independent work. Cameleer keeps priorities, urgent transitions and coordinated
-checkout responsibility; neither role absorbs independent requests merely by
-existing. Ordinary sessions may make scoped environment edits within their
-actual authorization and the shared ownership boundary.
-
-### Actual resource ownership
-
-Identify the actual owner of the affected file, connected logic and external
-resource, including Pages, Gems, Apps Script, triggers and vendor submissions
-when applicable. Agree an acknowledged handoff or divide the affected scope,
-then reread current state before mutation. A title, idle chat, completed task,
-delivered result or silence is not an ownership release. A standing specialty
-does not confer a domain monopoly. Pause only the disputed scope while resolving
-ownership; continue independent authorized work elsewhere.
-
-### Shared checkout and Git
-
-Use the same shared checkout rules as other sessions. Obtain acknowledged writer
-boundaries and serialize stage, hooks, commit and verification that depend on
-shared mutable state. Preserve foreign dirty, staged, untracked and ignored
-bytes; stage only the assigned scope. Do not independently switch branches or
-dispatch another owner's work. A shared commit grants no publication,
-submission, deployment or upload authority. Follow the selected profile's
-actual readiness and recovery rules rather than creating a branch convention
-for the specialty.
-
-### Messages and evidence
-
-Apply the existing [internal handoff and message gate](.oasis/docs/communication.md),
-including compact English and actual human authorization for the recipient and
-action. Keep the human's conversation language unchanged. Within that gate,
-restrict sends to authorized actual requests, conflicts, material decisions and
-required handoffs. Alongside its authority/scope fields, retain ownership,
-actual branch/full SHA, evidence, uncertainty and performed versus unperformed
-checks when relevant.
-Keep routine progress local. No polling, reminders, ACK loops or monitoring
-follow from the assignment. An independent relay cannot bypass the prohibition
-on Camel or descendant messages to Cameleer.
-
-### Applying revised guidance
-
-Carry revised instructions into the next authorized handoff. A change affecting
-an active task needs an acknowledged application boundary with its owner.
-Shared live hooks, validators and tools need agreement with affected writers
-before application. Repeat only checks invalidated by the change. A commit,
-delivery or successful file update does not prove an active chat reloaded or
-adopted the instructions.
-
-### Results and domain portability
-
-Leave results and unresolved decisions with the human in the local chat.
-Completion or a standing role initiates no next operation, collection, archive,
-cleanup, publication, upload, schedule or backup. Each needs its actual scope
-and authorization. Port domain entry points into the target's relevant domain
-skills, preserving ownership, compatibility, release and approval requirements.
-Source accounts, bindings and external authorization do not transfer with this
-guide.
-
-### Planning in the same chat
-
-When the human requests `계획작업으로 진행해` in an owner-established independent
-Oasis chat, stay in that chat and give only the supplied
-[planning-work waiting acknowledgement](ProjectGuide.md#planning-work).
-Perform no reads, tools, research, questions, planning, implementation or worker
-creation while waiting for actual Codex Plan mode and the human's planning start
-there. Create no Camel. A native mode toggle or plan approval does not start
-implementation; require a separate implementation request. This exception does
-not reroute ordinary Cameleer-managed bundles. Quoting or documenting the phrase
-does not invoke it.
-
-### Project mode transitions
-
-A mode switch preserves independent chats, their concrete requests and unfinished
-work. It performs no automatic collection, archival or reassignment of them.
-Review actual scope when distinguishing the mode's managed primary roles and
-workers from independent sessions; a shared Oasis label cannot make an
-independent chat an archival target. If native parent archival would cascade to
-a preserved independent chat, resolve that conflict before the affected archive.
-Preservation does not authorize resumption or create an independent specialist
-role in Pioneer.
+Keep independent requests, useful context and unfinished work through project
+mode switches. Preserve unrelated chats when archiving managed roles. Follow-up
+continues in the existing chat; planning uses
+[the shared native Plan path](ProjectGuide.md#planning-work). Domain experience
+belongs in the relevant project skill/reference. Source accounts and service
+bindings remain with their owning project.

@@ -4,7 +4,23 @@
   "git": {
     "profile": "unmanaged"
   },
-  "capabilities": [],
+  "capabilities": [
+    "oasis-build-package",
+    "oasis-dependency-security",
+    "oasis-artifact-security",
+    "oasis-distribution-reputation",
+    "oasis-published-content",
+    "oasis-update-delivery",
+    "oasis-review",
+    "oasis-support-automation",
+    "oasis-support-knowledge",
+    "oasis-interface-design",
+    "oasis-state-integrity",
+    "oasis-runtime-lifecycle",
+    "oasis-interaction-timing",
+    "oasis-rendering-performance",
+    "oasis-asset-pipeline"
+  ],
   "publication": {
     "configured": false
   },

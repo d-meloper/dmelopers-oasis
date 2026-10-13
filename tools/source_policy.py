@@ -14,12 +14,12 @@ import re
 import xml.etree.ElementTree as ET
 
 from oasis_harness.common import HarnessError, digest, is_reparse, safe_relative
-from oasis_harness.skills import DEFAULT_NAMES, EXPECTED_CORE_DIGEST, OPTIONAL_NAMES
+from oasis_harness.skills import DEFAULT_NAMES, OPTIONAL_NAMES
 
 
 NEUTRAL_PROJECT = {
     "schema_version": 1, "name": "", "git": {"profile": "unmanaged"},
-    "capabilities": [], "publication": {"configured": False},
+    "capabilities": list(OPTIONAL_NAMES), "publication": {"configured": False},
     "backup": {"configured": False}, "adapters": {}, "extensions": {},
 }
 SEED_FILES = {
@@ -267,8 +267,10 @@ def scan_harness_file(name, data, reviewed=None):
     _hard_scan(text)
     if classification == "readme-svg":
         _static_svg(text)
-    if name == "seed/.oasis/core.json" and digest(_json(data, "invalid protected core JSON")) != EXPECTED_CORE_DIGEST:
-        _fail("protected core template drift")
+    if name == "seed/.oasis/core.json":
+        core = _json(data, "invalid core metadata JSON")
+        if not isinstance(core, dict) or not isinstance(core.get("core_version"), str):
+            _fail("invalid core metadata version")
     if name == "seed/.oasis/project.json" and digest(_json(data, "invalid neutral project JSON")) != digest(NEUTRAL_PROJECT):
         _fail("project template contains selected or bound state")
     if name == "oasis-release.json":
@@ -326,7 +328,7 @@ def _skill(files, prefix, name, optional):
         _fail("missing required skill entry or metadata")
     text = files[required[0]].decode("utf-8")
     match = re.match(r"\A---\nname: ([a-z0-9-]+)\ndescription: ([^\n]+)\n---\n", text)
-    if not match or match[1] != name or len(match[2]) < 30:
+    if not match or match[1] != name or not match[2].strip():
         _fail("invalid skill identity or description")
     metadata = files[required[1]].decode("utf-8")
     if (not metadata.startswith("interface:\n") or any(key not in metadata for key in
@@ -378,13 +380,13 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
         _fail("non-byte or oversized source distribution")
     scanned = [scan_harness_file(name, data, policy) for name, data in sorted(files.items())]
     mandatory = {
-        "README.md", "AGENTS.md", "oasis.py", "oasis_harness/__init__.py",
+        "README.md", "AGENTS.md", "oasis.py", "oasis_harness/__init__.py", "docs/upgrade-index.json",
         "docs/installation.md", "docs/workflows.md",
         "docs/identity.md", "docs/publication.md", "docs/doctor.md", "docs/validation.md",
     } | SEED_FILES | NEUTRAL_OASIS | set(README_IMAGES) | set(README_SVGS)
     mandatory |= {"oasis_harness/" + module + ".py" for module in (
         "backup", "build", "cli", "common", "doctor", "gitops", "github",
-        "installation", "knowledge", "packets", "publication", "sessions", "skills", "workflows",
+        "installation", "knowledge", "publication", "sessions", "skills", "workflows",
     )}
     if mandatory - set(files):
         _fail("missing source entry, manual or neutral template")
@@ -403,8 +405,10 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
     inventory = {name: {"sha256": digest(data), **({"mode": modes[name]} if modes is not None else {})}
                  for name, data in sorted(files.items())}
     return {"status": "bounded_source_check_pass", "package_version": versions[0],
-            "core_digest": EXPECTED_CORE_DIGEST, "default_skills": len(DEFAULT_NAMES),
-            "optional_skills": len(OPTIONAL_NAMES), "files": inventory,
+            "core_version": _json(files["seed/.oasis/core.json"], "invalid core metadata JSON")["core_version"],
+            "default_skills": len(DEFAULT_NAMES),
+            "optional_skills": len(OPTIONAL_NAMES),
+            "active_skills": len(DEFAULT_NAMES) + len(OPTIONAL_NAMES), "files": inventory,
             "inventory_sha256": digest(inventory), "reviewed_policy_sha256": digest(policy),
             "reviewed_exceptions": [row["path"] for row in scanned if row["reviewed_exception"]],
             "modes_verified": modes is not None, "authority_verified": False,

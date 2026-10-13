@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Asset Pipeline"
-  short_description: "Focused domain workflow and meaningful proof limits"
+  short_description: "Asset Pipeline for the requested project work"
   default_prompt: "Use $oasis-asset-pipeline for the requested project scope."

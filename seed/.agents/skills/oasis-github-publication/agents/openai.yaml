@@ -1,4 +1,4 @@
 interface:
-  display_name: "Oasis Github Publication"
-  short_description: "Scoped workflow with explicit evidence boundaries"
-  default_prompt: "Use $oasis-github-publication for the requested project scope."
+  display_name: "Oasis GitHub Publication"
+  short_description: "Deliver requested source and release candidates"
+  default_prompt: "Use $oasis-github-publication for the requested project work."

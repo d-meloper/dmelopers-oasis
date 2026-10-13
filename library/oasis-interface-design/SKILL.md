@@ -1,22 +1,12 @@
 ---
 name: oasis-interface-design
-description: Design and implement requested settings and application interfaces using existing semantics, accessible controls and scoped visual iteration.
+description: Design and implement application interfaces using existing semantics, components and focused visual iteration.
 ---
 
 # Interface Design
 
-## Prerequisites and scope
-
-The actual UI framework, shared components/theme, supported layouts/locales and existing preview path. Inspect before importing visual patterns.
-
-Read the selected project contract and actual tool capabilities. Installation or discovery grants no external authority. Existing human authorization applies only to its exact scope; obtain missing concrete authority before the effect. Preserve core roles and manual owner relay.
-
-## Workflow and recovery
-
-Choose hierarchy from content purpose: identity, explanation, settings, catalog and related operations are different. Reuse semantic tokens and controls rather than making every row a bordered panel or icon. Carry useful spacing/hierarchy across screens without imposing one hero/grid. Preserve accessible names, keyboard focus and meaningful text.
-
-A visual request preserves action ownership, confirmations, loading/error/disabled states, persistence and native acknowledgements. Resolve localization reactively and retain actual labels and destination identity. Pair with state/lifecycle guidance only when those behaviors change. Do not copy a donor palette, brand, framework or fixed language pair.
-
-Default to one inspectable candidate, keep approved regions stable and iterate promptly within scope. Small cosmetic changes need no new behavioral tests; structural changes need focused syntax/lint and affected action checks. Verify wrapping, scrolling, themes, supported sizes and keyboard/IME behavior where relevant. Restore only owned candidate paths or hunks; never reset unrelated checkout work. Record reusable decisions, not session logs.
-
-Use [acceptance scenarios](references/acceptance.md) for changed decision boundaries. Source/fixture checks, installed behavior and live reflection are distinct. Retain failed, unknown and not-run outcomes. Improve existing project-local guidance from evidence; structural/core changes need approval. No automatic upstream propagation or monitoring.
+Implement the requested interface using its existing framework, semantic controls,
+theme and localized content. Iterate an inspectable candidate while preserving
+action behavior, accessible names and keyboard focus.
+Use [interface experience](references/best-practices.md) for hierarchy, narrow
+visual checks and persistence/native action boundaries.

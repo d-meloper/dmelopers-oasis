@@ -1,3 +1,3 @@
-"""Portable project policy, knowledge and execution tools for Codex on Windows."""
+"""Project roles, reusable experience and execution tools for Codex on Windows."""
 
-__version__ = "1.1.2"
+__version__ = "1.2.0"

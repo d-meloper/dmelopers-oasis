@@ -1,39 +1,38 @@
-# Internal handoffs and evidence
-Use compact English packets containing goal, actual human authority, scope,
-completion criterion, expected source/lane, owned files, dependencies, model,
-recipient and reporting restriction. JSON labels do not authenticate authority.
-Carry the owner's conversation language when internal English would otherwise
-hide it from a fresh chat; internal packet language does not change that choice.
-Preserve exact literals separately when needed. Before sending, check recipient,
-side effects and human authorization; a valid packet is not permission.
+# Work connections
 
-For coordinated Oasis bundle work, `계획작업으로 진행해` makes Cameleer supply `mode: plan-wait` and a self-contained
-initial waiting instruction. In `need`, use compact English such as: "Only
-acknowledge waiting and ask the owner to enable actual Codex Plan mode and start
-the planning conversation in this Camel. No tools, reads, research, questions,
-plans, implementation or workers. Keep waiting until the owner starts planning
-here in actual Plan mode; implementation needs a separate owner instruction."
-Carry the trigger and exact localized acknowledgement under `literals`, and the
-owner's conversation language as explicit data. Do not deliver `execute` or a
-planning-start prompt from this trigger. The packet validator does not toggle
-native mode or send; use only a supported, owner-authorized dispatch. The existing
-PLAN-WAIT prefix and this acknowledgement both mean tool-free initial waiting.
-Pioneer and an owner-established independent Oasis chat use the same initial
-waiting boundary in their current chat, without a Camel handoff. Independent
-scope and messaging follow the single [session contract](../../LocalGitWorkflow.md#independent-specialist-sessions).
-Project selection `extensions.workflow.mode` and native Plan mode
-are separate from the packet's execute/plan-wait field. New-role context/first
-prompts and their waiting acknowledgements use the owner's language; existing
-technical packet controls remain English. Workflow context must not relay a
-Camel/Calf question or result to Cameleer automatically.
+Cameleer assigns a short goal and the context needed to act to a visible Camel.
+Use the actual chat ID for links and follow-up; `camel_A_goal` is an optional title
+convention. There is no required packet, message wording or receipt schema.
 
-Select relevant errors, exact path/line, outcome, command/receipt identity and
-remaining uncertainty from large output. Retain material originals locally.
-A bounded search cannot prove global absence. Do not send full transcripts,
-private identifiers or user data when a narrow evidence reference suffices.
-For authority checks, retrieve the smallest available turn range and select the
-exact human message before emitting tool output. If a provider returns a broad
-response, filter it in memory and retain only the relevant authority, scope and
-message reference. Do not print a full conversation to locate one approval.
-Record an overbroad retrieval as a procedural deviation; later filtering does
-not erase the original exposure or prove that a narrower future read occurred.
+Keep `.oasis/state/tasks.md` concise: chat ID/link, goal, stage and dependency,
+work location/result reference, and final result/check summary. Cameleer updates
+it while assigning, collecting or resuming. Read active work and the relevant
+entry rather than repeatedly collecting every chat's status.
+
+Camel sends a short completion message directly to Cameleer, for example:
+
+> Completed. Main change: … / Related checks: …
+> Result: …
+> Please review, integrate and archive this work.
+
+Cameleer checks the request, diff and reported checks, integrates completed work,
+and adds checks only for effects introduced by integration or doubtful evidence.
+After collection it retains the result link and archives Camel automatically.
+Later corrections restore the same chat. Unfinished work stays available there.
+Repeated completion delivery must not cause repeated integration.
+
+Intermediate messages to Cameleer are useful for a material goal/scope change or
+a problem Camel cannot resolve. Keep routine progress local. For Camel-to-Camel
+dependencies, use the [one terminal notice](../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
+after the named portion completes, fails or is cancelled; no progress exchange,
+ACK loop or polling is needed.
+
+Planning uses [actual native Plan mode](../../ProjectGuide.md#planning-work) and
+starts from the supplied request. Unsupported mode-setting paths give one manual
+mode-and-start instruction. Existing model, reasoning, permissions and project
+settings carry into role chats through supported native interfaces.
+
+Use compact English for internal work context, preserve exact localized literals,
+and speak to the user in their language. A narrow result/reference usually gives
+the next worker enough context without a transcript. Reconcile uncertain create,
+send, integration or archive operations before repeating that operation.

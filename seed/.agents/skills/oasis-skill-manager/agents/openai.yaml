@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Skill Manager"
-  short_description: "Scoped workflow with explicit evidence boundaries"
-  default_prompt: "Use $oasis-skill-manager for the requested project scope."
+  short_description: "Maintain skills, resources and discovery"
+  default_prompt: "Use $oasis-skill-manager for the requested project work."
