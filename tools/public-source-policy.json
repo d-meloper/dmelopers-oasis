@@ -9,12 +9,12 @@
       "sha256": "9fea40429cbf5bf2110d8dce163de2b13aec37c4a342986b9dfe6b9c2f48528a"
     },
     "oasis_harness/sessions.py": {
-      "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "bb997bf9a0992b529477374726a9e91ab005c14741caa826a57060f2adeb4b52"
+      "sha256": "0dd88531234ae635fb5e9cdabb6055586c17036ad1992f8120a0adb151ed56b4",
+      "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
     },
     "oasis_harness/workflows.py": {
-      "reason": "Reviewed complete native protocol field names and synthetic session/task fixtures for Core 2. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain.",
-      "sha256": "fbdd0cfba631194fe4cc8bf6b390db84a2cd81ecc266897aa52a4841b26e8f4e"
+      "sha256": "68a60ad114f1b9d621da7e0300ab5e194d69dd67273e050e716a7fcde79e6642",
+      "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tests/test_public_source.py": {
       "reason": "Reviewed complete synthetic privacy/XML negatives and 24-skill distribution fixtures. No live private payload; exact artwork and hard secret/path checks remain.",
@@ -25,12 +25,12 @@
       "sha256": "0e52fb0ebaccce1db9ba93cb8ce02a1ef7d3a0222f05a0a6e0ebe29a03ac80e6"
     },
     "tests/test_workflows.py": {
-      "reason": "Reviewed complete native protocol field names and synthetic session/task fixtures for Core 2. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain.",
-      "sha256": "84bc2616058a5231f93234a36030a2e41677731cf102e55e66536f221b190c83"
+      "sha256": "993bd3bdabf4c3eb6fb6d6727c754c7350029b033e64e18b9e3965b992473863",
+      "reason": "Reviewed synthetic session/task fixtures, new-input reminders and legacy retry recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tools/source_policy.py": {
-      "reason": "Reviewed complete scanner literals and neutral distribution checks. Core behavior seals are removed; all 24 skill resources, exact asset pins and hard privacy/XML checks remain. No private payload.",
-      "sha256": "b3cc11bcf94f01bb96bd5d4df70343bedc0699d998dc2d68fee6a197b09a8866"
+      "sha256": "5bdf11a527ba533834dfe4e4b8229a0745d2ecfa6a86d9b1ee17e5ef9ed750fd",
+      "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload."
     }
   },
   "schema_version": 1

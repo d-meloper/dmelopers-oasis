@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from oasis_harness import sessions, workflows
-from oasis_harness.common import HarnessError, read_json, write_json
+from oasis_harness.common import HarnessError, digest, read_json, write_json
 from tests.test_sessions import NativeFixture
 
 
@@ -27,6 +27,58 @@ class WorkflowContracts(unittest.TestCase):
     def complete(self, row, **kwargs):
         return workflows.complete(self.root, row["id"], "Done. Parser and focused checks pass.",
                                   result="fixture-result", checks="parser checks pass", factory=self.native, **kwargs)
+
+    def test_new_role_task_and_followup_prompts_remind_once_without_changing_request_keys(self):
+        reminder = workflows.COMPLETION_REMINDER
+        for role in ("Pioneer", "Oasis", "Cameleer"):
+            self.assertEqual(workflows._prompt(role, "Preserve context", "ko").count(reminder), 1)
+        operation = workflows.plan(self.root, "pioneer", "caller", task="Read the requested module", factory=self.native)
+        self.assertEqual(operation["follow_on_task"], "Read the requested module\n\n" + reminder)
+        row = self.assign(context="Parser context")
+        self.assertEqual(row["request_key"], digest(["caller", "Implement the scoped parser", "Parser context", None, False, None]))
+        self.assertTrue(row["prompt"].startswith("Apply $oasis-camel to this assigned task. Implement the scoped parser\n\nParser context"))
+        self.assertEqual(row["prompt"].count(reminder), 1)
+        followup = "Check the remaining whitespace case"
+        follow = workflows.resume_task(self.root, row["id"], followup, factory=self.native)
+        self.assertEqual(follow["followup_key"], digest([followup, False, False]))
+        self.assertEqual(follow["prompt"], followup + "\n\n" + reminder)
+        before = self.native.sent
+        repeated = workflows.resume_task(self.root, row["id"], followup, factory=self.native)
+        self.assertEqual(repeated["cycle"], follow["cycle"])
+        self.assertEqual(repeated["prompt"], follow["prompt"])
+        self.assertEqual(self.native.sent, before)
+
+    def test_legacy_saved_prompts_and_lost_followup_responses_are_not_rewritten_or_replayed(self):
+        row = self.assign()
+        state_path = self.root / ".oasis/local/tasks/state.json"
+        state = read_json(state_path)
+        saved = state["tasks"][0]
+        legacy = "The original saved assignment input"
+        saved["prompt"] = legacy
+        delivery_path = workflows._delivery_path(self.root, saved, "assign")
+        delivery = read_json(delivery_path)
+        delivery["text"] = legacy
+        write_json(delivery_path, delivery)
+        write_json(state_path, state)
+        before = self.native.sent
+        repeated = self.assign()
+        self.assertEqual(repeated["prompt"], legacy)
+        self.assertEqual(self.native.sent, before)
+        original = workflows.COMPLETION_REMINDER
+        self.native.lose["turn/start"] = 1
+        with self.assertRaises(HarnessError):
+            workflows.resume_task(self.root, row["id"], "Follow this request", request_id="fixed-followup", factory=self.native)
+        pending = workflows.task_status(self.root, row["id"])
+        sent = self.native.sent
+        workflows.COMPLETION_REMINDER = "A future version of the reminder"
+        try:
+            recovered = workflows.resume_task(self.root, row["id"], "Follow this request", request_id="fixed-followup", factory=self.native)
+        finally:
+            workflows.COMPLETION_REMINDER = original
+        self.assertEqual(recovered["prompt"], pending["prompt"])
+        self.assertEqual(recovered["cycle"], pending["cycle"])
+        self.assertEqual(self.native.sent, sent)
+        self.assertEqual(recovered["assignment_delivery"]["state"], "accepted")
 
     def test_assign_uses_real_ids_native_skill_input_and_no_calf(self):
         def implementation(row, turn):

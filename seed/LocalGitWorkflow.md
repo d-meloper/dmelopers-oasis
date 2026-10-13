@@ -10,7 +10,7 @@ commit and checkout operations, preserving other writers' staged, dirty,
 untracked and ignored bytes. A whole-checkout build or export can consume files
 outside its author's edit scope; coordinate that operation's input boundary.
 See [implementation experience](.agents/skills/oasis-camel/references/best-practices.md)
-for check-input reuse and encoding cases.
+for check-input reuse and encoding conditions.
 
 ## Dependency waiting and resumption
 
@@ -21,8 +21,8 @@ turn while it is unchanged.
 
 The other Camel sends one notice when that portion completes, fails or is
 cancelled. Include the outcome and the result/reference needed for resumption.
-Do not exchange intermediate progress or receipt ACKs, repeat status/timeouts,
-keep waiting turns alive, or add background monitoring. The consumer resumes
+Keep routine progress local and end the turn after independent work. Resume
+from the named terminal result. The consumer resumes
 from the relevant result and current affected files. A duplicate terminal notice
 does not repeat the same work or integration.
 

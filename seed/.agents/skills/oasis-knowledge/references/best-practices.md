@@ -1,19 +1,16 @@
 # Knowledge experience
 
-Cases K03 and K30 in the
-[migration reference](../../../../.oasis/manual/migration-lessons.md) distinguish
-portable mechanisms from product assumptions and written scenarios from actual
-model outcomes. Preserve the observed condition and evidence limit when
-generalizing a local lesson.
+Generalize a local mechanism only with its applicable conditions and evidence
+limit. Preserve failed/deferred outcomes when a later correction succeeds.
+Distinguish source-byte checks, installed behavior and performed model answers.
 
-K13/K14 retain a failed distribution comparison alongside a later byte correction
-without converting either into installed visual acceptance. Updating advice can
-link its replacement while retaining the earlier observation. Consolidate shared
-lessons around one source instead of repeating a slightly different rule in each
-role.
+Keep one source for shared lessons. Merge redundant advice while preserving
+distinct conditions. Replace only advice invalidated under its actual
+applicability; preserve unique observations in history. Put the next useful
+action near the relevant section's beginning.
 
-Use [the lifecycle](../../../../BestPractice/KnowledgeLifecycle.md) for ordinary
-reference edits. Structured case commands remain useful for a requested local
-capture/export, but their input schema is not a required form for role experience.
-Raw receipts and live identities stay local; sanitized evidence can travel only
-as part of the requested handoff.
+Use the project's existing knowledge owner and its actual file/heading.
+The [knowledge policy](../../../../.oasis/manual/knowledge.md) defines a single
+scoped closing consolidation. Structured capture/export is optional for a
+requested local case or sanitized handoff. Raw identities and receipts stay local.
+[Version history](../../../../.oasis/manual/CHANGELOG.md) retains historical evidence.

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
 import hashlib
 import ipaddress
 import json
@@ -283,27 +284,231 @@ class _LoopbackWebSocket:
         self._close_frame(struct.pack("!H", 1000))
 
 
+class _ProxyTransport:
+    """Own only a stdio proxy client, never the server behind its socket."""
+    MAX_MESSAGE = _LoopbackWebSocket.MAX_MESSAGE
+    STDERR_LIMIT = 64 * 1024
+
+    def __init__(self, executable, socket_path=None):
+        command = [executable, "app-server", "proxy"]
+        if socket_path:
+            command += ["--sock", socket_path]
+        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE, bufsize=0, env=clean_environment(),
+                                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        self.buffer = bytearray()
+        self.closed = False
+        self.write_lock = threading.Lock()
+        self.close_lock = threading.Lock()
+        self.stderr_lock = threading.Lock()
+        self.stderr_buffer = bytearray()
+        self.stderr_bytes = 0
+        self.stderr_reader = threading.Thread(target=self._stderr, daemon=True)
+        self.stderr_reader.start()
+
+    def _stderr(self):
+        try:
+            while chunk := self.process.stderr.read(4096):
+                with self.stderr_lock:
+                    self.stderr_bytes += len(chunk)
+                    self.stderr_buffer.extend(chunk)
+                    del self.stderr_buffer[:-self.STDERR_LIMIT]
+        except (OSError, ValueError):
+            pass
+
+    def stderr_tail(self):
+        with self.stderr_lock:
+            return self.stderr_buffer.decode("utf-8", errors="replace"), self.stderr_bytes > self.STDERR_LIMIT
+
+    def receive(self):
+        while True:
+            end = self.buffer.find(b"\n")
+            if end >= 0:
+                payload = bytes(self.buffer[:end]).removesuffix(b"\r")
+                del self.buffer[:end + 1]
+                break
+            if len(self.buffer) > self.MAX_MESSAGE + 1:
+                raise HarnessError("Native stdio message exceeds the supported size")
+            chunk = self.process.stdout.read(65536)
+            if not chunk:
+                if not self.buffer:
+                    return None
+                payload = bytes(self.buffer)
+                self.buffer.clear()
+                break
+            self.buffer.extend(chunk)
+        if len(payload) > self.MAX_MESSAGE:
+            raise HarnessError("Native stdio message exceeds the supported size")
+        try:
+            return payload.decode("utf-8")
+        except UnicodeError:
+            raise HarnessError("Native stdio message is not valid UTF-8") from None
+
+    def send(self, text, *, timeout=30):
+        payload = text.encode("utf-8")
+        if len(payload) > self.MAX_MESSAGE:
+            raise HarnessError("Native stdio outgoing message exceeds the supported size")
+        deadline = time.monotonic() + timeout
+        finished, errors = threading.Event(), []
+
+        def write():
+            acquired = False
+            try:
+                acquired = self.write_lock.acquire(timeout=max(0, deadline - time.monotonic()))
+                if not acquired:
+                    raise TimeoutError("Native stdio write deadline expired")
+                if self.closed:
+                    raise OSError("Native stdio connection is closed")
+                data, offset = payload + b"\n", 0
+                while offset < len(data):
+                    count = self.process.stdin.write(data[offset:])
+                    if not count:
+                        raise OSError("Native stdio write ended")
+                    offset += count
+                self.process.stdin.flush()
+            except Exception as exc:
+                errors.append(exc)
+            finally:
+                if acquired:
+                    self.write_lock.release()
+                finished.set()
+
+        threading.Thread(target=write, daemon=True).start()
+        if not finished.wait(max(0, deadline - time.monotonic())):
+            self.close()
+            raise TimeoutError("Native stdio write deadline expired")
+        if errors:
+            self.close()
+            raise OSError("Native stdio send failed") from None
+
+    def close(self):
+        with self.close_lock:
+            if self.closed:
+                return
+            self.closed = True
+        # Closing a buffered stdin during another thread's flush can hang.
+        # This proxy uses unbuffered pipes; serialize a graceful EOF, otherwise
+        # terminate only our own proxy to release a blocked write.
+        acquired = self.write_lock.acquire(timeout=0.1)
+        try:
+            if acquired:
+                self.process.stdin.close()
+            elif self.process.poll() is None:
+                self.process.terminate()
+        except (OSError, ValueError):
+            pass
+        finally:
+            if acquired:
+                self.write_lock.release()
+        try:
+            self.process.wait(timeout=0.25)
+        except subprocess.TimeoutExpired:
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=0.5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                try:
+                    self.process.wait(timeout=0.5)
+                except subprocess.TimeoutExpired:
+                    pass
+            except OSError:
+                pass
+        except OSError:
+            pass
+        if self.stderr_reader is not threading.current_thread():
+            self.stderr_reader.join(timeout=0.2)
+        for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
+            try:
+                stream.close()
+            except (OSError, ValueError):
+                pass
+
+
+class _RpcInbox:
+    """Connection-local response waiters and a bounded, separate event buffer."""
+    EVENT_LIMIT = 256
+    EVENT_BYTES = _LoopbackWebSocket.MAX_MESSAGE
+
+    def __init__(self):
+        self.lock = threading.RLock()
+        self.sequence = 0
+        self.pending = {}
+        self.events = deque()
+        self.event_bytes = 0
+        self.state = "connected"
+        self.error = None
+        self.event_error = None
+        self.event_error_reported = False
+        self.unsupported = deque(maxlen=64)
+        self.unmatched_responses = 0
+
+    def register(self, method):
+        with self.lock:
+            if self.state != "connected":
+                raise HarnessError(f"{method}: {self.error or 'connection ended'}; outcome uncertain")
+            self.sequence += 1
+            waiter = queue.Queue(maxsize=1)
+            self.pending[self.sequence] = waiter
+            return self.sequence, waiter
+
+    def response(self, value):
+        with self.lock:
+            waiter = self.pending.get(value["id"])
+            if waiter is None or waiter.full():
+                self.unmatched_responses += 1
+            else:
+                waiter.put_nowait(value)
+
+    def notification(self, value, size):
+        with self.lock:
+            if len(self.events) >= self.EVENT_LIMIT or self.event_bytes + size > self.EVENT_BYTES:
+                raise HarnessError("Native App Server event buffer overflow")
+            self.events.append(value)
+            self.event_bytes += size
+
+    def end(self, reason, *, failed=False, event_error=False):
+        with self.lock:
+            if self.state != "connected":
+                return
+            self.state = "failed" if failed else "closed"
+            self.error = reason
+            if event_error:
+                self.event_error = reason
+            for waiter in self.pending.values():
+                if not waiter.full():
+                    waiter.put_nowait(HarnessError(reason))
+
+    def drain(self):
+        with self.lock:
+            if self.event_error is not None and not self.event_error_reported:
+                self.event_error_reported = True
+                raise HarnessError(self.event_error)
+            values = list(self.events)
+            self.events.clear()
+            self.event_bytes = 0
+            return values
+
+
 class AppServer:
     def __init__(self, originator):
         self.process = None
         self.transport = None
         self.closing = False
-        self.incoming = queue.Queue()
+        self._rpc = _RpcInbox()
+        self._close_lock = threading.Lock()
         self.sequence = 0
         endpoint = os.environ.get("OASIS_APP_SERVER_URL")
         if endpoint is not None:
             self.transport = _LoopbackWebSocket(endpoint)
+            self.backend = "websocket"
         else:
             executable = shutil.which("codex")
             if not executable:
                 raise HarnessError("Codex CLI is unavailable; install or select the supported host explicitly")
-            command = [executable, "app-server", "proxy"]
-            if os.environ.get("OASIS_APP_SERVER_SOCKET"):
-                command += ["--sock", os.environ["OASIS_APP_SERVER_SOCKET"]]
-            self.process = subprocess.Popen(command, stdin=subprocess.PIPE,
-                                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
-                                            encoding="utf-8", env=clean_environment(),
-                                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            self.transport = _ProxyTransport(executable, os.environ.get("OASIS_APP_SERVER_SOCKET"))
+            self.process = self.transport.process
+            self.backend = "proxy"
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
         try:
@@ -311,42 +516,75 @@ class AppServer:
             self._send({"method": "initialized"})
         except Exception as exc:
             self.close()
-            if self.process is not None and isinstance(exc, HarnessError) and not isinstance(exc, NativeError):
+            if (self.process is not None and isinstance(exc, HarnessError) and not isinstance(exc, NativeError)
+                    and self._rpc.event_error is None):
                 raise HarnessError("Native App Server proxy is unavailable; this path requires an already running daemon/control socket. Select its OASIS_APP_SERVER_SOCKET, or explicitly supply a caller-managed experimental loopback OASIS_APP_SERVER_URL. No server was started.") from None
             raise
 
     def _read(self):
         try:
-            if self.transport is not None:
-                while (message := self.transport.receive()) is not None:
-                    try:
-                        value = json.loads(message)
-                    except ValueError:
-                        raise HarnessError("Native WebSocket returned invalid JSON") from None
-                    if not isinstance(value, dict):
-                        raise HarnessError("Native WebSocket returned a non-object protocol message")
-                    self.incoming.put(value)
-            else:
-                for line in self.process.stdout:
-                    try:
-                        self.incoming.put(json.loads(line))
-                    except ValueError:
-                        continue
+            while (message := self.transport.receive()) is not None:
+                value = self._decode(message)
+                if "method" not in value:
+                    self._rpc.response(value)
+                elif "id" not in value:
+                    self._rpc.notification(value, len(message.encode("utf-8")))
+                else:
+                    with self._rpc.lock:
+                        self._rpc.unsupported.append(value["method"][:256])
+                    self._send({"id": value["id"], "error": {"code": -32601, "message": "Unsupported server request"}},
+                               deadline=time.monotonic() + 1)
         except (OSError, ValueError, HarnessError) as exc:
             if not self.closing:
-                self.incoming.put(exc if isinstance(exc, HarnessError) else HarnessError("Native App Server transport connection ended"))
+                reason = str(exc) if isinstance(exc, HarnessError) else "Native App Server transport connection ended"
+                self._rpc.end(reason, failed=True, event_error=isinstance(exc, HarnessError))
+                self.transport.close()
         finally:
-            self.incoming.put(None)
+            self._rpc.end("Native App Server connection ended")
+
+    @staticmethod
+    def _decode(message):
+        if len(message.encode("utf-8")) > _LoopbackWebSocket.MAX_MESSAGE:
+            raise HarnessError("Native App Server message exceeds the supported size")
+        def invalid_constant(value):
+            raise ValueError("Non-JSON numeric constant")
+        def object_fields(pairs):
+            value = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("Duplicate protocol object field")
+                value[key] = item
+            return value
+        try:
+            value = json.loads(message, parse_constant=invalid_constant, object_pairs_hook=object_fields)
+        except (ValueError, RecursionError):
+            raise HarnessError("Native App Server returned invalid JSON") from None
+        if not isinstance(value, dict):
+            raise HarnessError("Native App Server returned a non-object protocol message")
+        if "jsonrpc" in value and value["jsonrpc"] != "2.0":
+            raise HarnessError("Native App Server returned an unsupported protocol version")
+        if "id" in value and (isinstance(value["id"], bool) or not isinstance(value["id"], (int, str))):
+            raise HarnessError("Native App Server returned an invalid protocol ID")
+        if "method" in value:
+            if (not isinstance(value["method"], str) or not value["method"] or "\0" in value["method"]
+                    or "result" in value or "error" in value
+                    or ("params" in value and value["params"] is not None and not isinstance(value["params"], (dict, list)))):
+                raise HarnessError("Native App Server returned an invalid request/notification envelope")
+        else:
+            if "id" not in value or ("result" in value) == ("error" in value):
+                raise HarnessError("Native App Server returned an invalid response envelope")
+            if "error" in value:
+                error = value["error"]
+                if (not isinstance(error, dict) or isinstance(error.get("code"), bool)
+                        or not isinstance(error.get("code"), int) or not isinstance(error.get("message"), str)):
+                    raise HarnessError("Native App Server returned an invalid error envelope")
+        return value
 
     def _send(self, value, *, deadline=None):
         text = json.dumps(value, ensure_ascii=False)
         try:
-            if self.transport is not None:
-                timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
-                self.transport.send(text, timeout=timeout)
-            else:
-                self.process.stdin.write(text + "\n")
-                self.process.stdin.flush()
+            timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
+            self.transport.send(text, timeout=timeout)
         except TimeoutError:
             raise HarnessError("Native App Server send timed out; outcome uncertain") from None
         except OSError:
@@ -354,24 +592,52 @@ class AppServer:
 
     def call(self, method, params, timeout=30):
         deadline = time.monotonic() + timeout
-        self.sequence += 1
-        sequence = self.sequence
-        self._send({"id": sequence, "method": method, "params": params}, deadline=deadline)
-        while True:
+        sequence, waiter = self._rpc.register(method)
+        self.sequence = self._rpc.sequence
+        try:
             try:
-                reply = self.incoming.get(timeout=max(0, deadline - time.monotonic()))
-            except queue.Empty:
-                raise HarnessError(f"{method}: outcome uncertain; reconcile before another mutation") from None
-            if reply is None:
-                raise HarnessError(f"{method}: connection ended; outcome uncertain")
+                self._send({"id": sequence, "method": method, "params": params}, deadline=deadline)
+            except HarnessError as exc:
+                self._rpc.end(str(exc), failed=True)
+                self.transport.close()
+                try:
+                    reply = waiter.get_nowait()
+                except queue.Empty:
+                    raise exc
+                if isinstance(reply, HarnessError):
+                    raise exc
+            else:
+                try:
+                    reply = waiter.get(timeout=max(0, deadline - time.monotonic()))
+                except queue.Empty:
+                    raise HarnessError(f"{method}: outcome uncertain; reconcile before another mutation") from None
             if isinstance(reply, HarnessError):
                 raise HarnessError(f"{method}: {reply}; outcome uncertain") from None
-            if reply.get("id") == sequence and "method" not in reply:
-                if "error" in reply:
-                    raise NativeError(method, reply["error"])
-                return reply["result"]
-            if "id" in reply and "method" in reply:
-                self._send({"id": reply["id"], "error": {"code": -32601, "message": "Use the native host for interactive requests"}}, deadline=deadline)
+            if "error" in reply:
+                raise NativeError(method, reply["error"])
+            return reply["result"]
+        finally:
+            with self._rpc.lock:
+                self._rpc.pending.pop(sequence, None)
+
+    def drain_events(self):
+        """Return buffered native notifications in order, without waiting.
+
+        A protocol/overflow error is raised once before draining the preserved
+        buffer. It remains visible in diagnostics after that first report.
+        """
+        return self._rpc.drain()
+
+    def diagnostics(self):
+        """Connection information including a PRIVATE bounded stderr tail."""
+        with self._rpc.lock:
+            value = {"backend": self.backend, "state": self._rpc.state,
+                     "error": self._rpc.error, "event_error": self._rpc.event_error,
+                     "pending_calls": len(self._rpc.pending), "buffered_events": len(self._rpc.events),
+                     "buffered_event_bytes": self._rpc.event_bytes,
+                     "unsupported_methods": list(self._rpc.unsupported), "unmatched_responses": self._rpc.unmatched_responses}
+        value["stderr_tail"], value["stderr_truncated"] = self.transport.stderr_tail() if self.process is not None else ("", False)
+        return value
 
     def pages(self, method, params):
         seen = set()
@@ -387,22 +653,14 @@ class AppServer:
             params = {**params, "cursor": cursor}
 
     def close(self):
-        self.closing = True
-        if self.transport is not None:
-            self.transport.close()
-            self.reader.join(timeout=1)
-            return
-        if not self.process.stdin.closed:
-            try:
-                self.process.stdin.close()
-            except BrokenPipeError:
-                pass
-        try:
-            self.process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            self.process.terminate()
-            self.process.wait(timeout=10)
-        self.process.stdout.close()
+        with self._close_lock:
+            if self.closing:
+                return
+            self.closing = True
+        self._rpc.end("Native App Server client connection closed")
+        self.transport.close()
+        if self.reader is not threading.current_thread():
+            self.reader.join(timeout=0.5)
 
     def __enter__(self):
         return self

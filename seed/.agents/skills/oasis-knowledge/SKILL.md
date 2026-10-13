@@ -5,9 +5,13 @@ description: Consolidate reusable project experience and update duplicate or sta
 
 # Knowledge
 
-Retain useful verified experience in the relevant skill's references or a suitable
-existing guide while working. Explain its applicability and evidence, consolidate
-duplicates around one source and update stale advice. Use the
-[knowledge lifecycle](../../../BestPractice/KnowledgeLifecycle.md) and
-[knowledge experience](references/best-practices.md) for local evidence, historical
-cases and requested sanitized handoffs.
+Read the applicable [knowledge experience](references/best-practices.md) before choosing an approach.
+
+Consolidate reusable experience within the requested scope. Preserve its
+applicability and evidence, combine duplicates around one source and remove
+advice invalidated under its actual conditions. Use existing project knowledge
+owners and relevant experience references; structured capture/export is
+available when it serves the request.
+
+Before the final completion report, consolidate useful lessons from this work
+once in the owning experience reference.

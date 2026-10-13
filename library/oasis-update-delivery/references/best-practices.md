@@ -1,9 +1,5 @@
 # Update Delivery experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 Actual active updater/native registration, supported channel identities, trust roots, persisted-state owners and available focused tests.
@@ -15,3 +11,6 @@ Trace the active consumer rather than restoring historical recovery code because
 Define cancellation before the explicit commit/handoff boundary and serialize concurrent restart/update operations. Drain current edits through their owning save barrier, verify durable readback and revalidate staged bytes at final handoff. A previously checked pathname is not authority for its later contents. Reuse compatible frozen helpers only under their real input/protocol contract.
 
 A failed launch keeps the old running state where the project contract permits; a lost reply remains uncertain. Preserve rollback/repair evidence and avoid inventing automatic restoration of user state. Test source and native transitions with disposable fixtures. Actual installed upgrade, downgrade, cancellation, restart and publication are separately claimed and authorized boundaries.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.

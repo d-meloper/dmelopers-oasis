@@ -1,20 +1,14 @@
 # Pioneer experience
 
-Pioneer uses the same
-[implementation experience](../../oasis-camel/references/best-practices.md) as
-Camel for investigation, interfaces, encodings and scoped checks. A larger project
-does not by itself require a different mode; preserve its selected mode until
-the user requests a switch.
+Use [shared implementation experience](../../oasis-camel/references/best-practices.md)
+for investigation, interfaces, encodings and scoped checks. Keep mode and
+coordination lessons here. Project growth alone does not change the selected mode.
 
-When switching, carry the concrete goal, unfinished work and result references
-to the new primary roles and preserve unrelated independent chats. Cases K04-K06
-and K39 in the [migration reference](../../../../.oasis/manual/migration-lessons.md)
-distinguish the requested native object, actual identity and settings from a
-successful create acknowledgement. Reconcile an uncertain role operation rather
-than discarding the prior working chat.
+During a requested switch, carry the concrete goal, unfinished work and result
+references. Preserve unrelated independent chats. Reconcile uncertain native
+operations by actual identity and preserve the working chat.
 
-Planning in Pioneer stays in this chat and follows
-[native planning](../../../../ProjectGuide.md#planning-work); fast work uses the
-[shared pacing](../../../../ProjectGuide.md#fast-work). The
-[scenario reference](scenarios.md) contains evaluation inputs, not performed
-model outcomes.
+Planning stays in this chat under [native planning](../../../../ProjectGuide.md#planning-work).
+[Fast work](../../../../ProjectGuide.md#fast-work) changes pacing for its task.
+The [scenario reference](scenarios.md) supplies evaluation inputs, not model
+outcomes. [Version history](../../../../.oasis/manual/CHANGELOG.md) retains source evidence.

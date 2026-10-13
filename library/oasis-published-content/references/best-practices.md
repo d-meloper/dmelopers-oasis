@@ -1,9 +1,5 @@
 # Published Content experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 Available content connector, exact page/parent or document target, configured release identity, managed content shape and requested language set.
@@ -15,3 +11,6 @@ Resolve the requested published release using actual metadata, not local version
 Fetch the exact target and parent before composing the narrow update. Preserve unrelated blocks, child objects, properties and manual edits. Ambiguous managed regions or proposed unrelated loss require the owner's concrete decision. Existing authorization remains valid for unchanged scope; a release publication does not automatically authorize this content write.
 
 Re-resolve release/body/assets before mutation. Drift invalidates the prepared payload; download counters alone do not. Update only the matched region, then read back its actual nesting, facts and links. Already matching content is NOOP. Reconcile uncertain writes by reading before retrying. Retain a non-sensitive local receipt; no scheduled posting or upstream follow-up is implied.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.

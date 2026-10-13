@@ -5,8 +5,13 @@ description: Maintain requested support collection and notification pipelines wi
 
 # Support Automation
 
+Read the applicable [automation experience](references/best-practices.md) before choosing an approach.
+Use it for pagination,
+deduplication, preview and uncertain delivery recovery.
+
 Operate or design the requested collection and notification pipeline using its
 existing source, recipient and provider bindings. Keep collection checkpoints,
 durable send intent and accepted delivery outcomes distinct.
-Use [automation experience](references/best-practices.md) for pagination,
-deduplication, preview and uncertain delivery recovery.
+
+Before the final completion report, consolidate useful lessons from this work
+once in the owning experience reference.

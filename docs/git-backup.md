@@ -57,11 +57,10 @@ Retain the exported binding separately. It contains identity and local path meta
 
 On Windows, choose short physical relay and restore paths and inspect their
 resolved locations. Packaged desktop apps may redirect AppData into a longer
-per-app directory. A real source trial hit `Filename too long` while creating a
-ref lock, before remote transfer; preserving the unfinished binding and explicitly
-relocating that empty setup to a shorter external path allowed exact backup and
-remote-only restore. This verifies that path-specific recovery, not unrestricted
-long-path support. Existing completed bindings need a reviewed migration.
+per-app directory. If an empty setup fails on a ref-lock path, preserve the
+unfinished binding and use an explicitly reviewed shorter external path.
+Existing completed bindings need a reviewed migration. This is path-specific
+recovery; validate the actual destination instead of assuming long-path support.
 
 Catalog commits append exact source refs, main tree identity, reflog commit coverage, and the actual triggering commit when automatic backup runs. Remote identity and refs are reread before and after transfer. A lock contender cannot release another operation's lock. An uncertain push retains its intent receipt; inspect status and rerun only after reconciling the observed remote state. A push whose acknowledgement was lost is not repeated when the remote already contains the complete expected snapshot.
 

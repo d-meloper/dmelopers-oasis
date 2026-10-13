@@ -169,6 +169,89 @@ class InstallationTests(unittest.TestCase):
         self.assertEqual(self.hashes(), snapshot)
         self.assertFalse((self.target / install.MANIFEST).exists())
 
+    def legacy_owned_knowledge(self):
+        originals = {}
+        for relative in sorted(install.PROJECT_KNOWLEDGE_PATHS):
+            content = ("Original project knowledge: " + relative + "\n").encode("utf-8")
+            path = self.package / "seed" / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+            originals[relative] = content
+        # Reproduce the earlier template ownership in a disposable installation.
+        with mock.patch.object(install, "PROJECT_KNOWLEDGE_PATHS", frozenset()):
+            self.apply()
+        return originals
+
+    def test_initial_project_knowledge_and_user_skills_are_not_adopted_or_replaced(self):
+        originals = {}
+        for relative in sorted(install.PROJECT_KNOWLEDGE_PATHS):
+            existing = ("# Project policy\r\nOwner guidance: " + relative + "\r\n").encode("utf-8")
+            path = self.target / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(existing)
+            originals[relative] = existing
+            donor = self.package / "seed" / relative
+            donor.parent.mkdir(parents=True, exist_ok=True)
+            donor.write_bytes(b"Incoming harness knowledge policy\n")
+        own_skill = ".agents/skills/project-knowledge/SKILL.md"
+        path = self.target / own_skill
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"Keep the project's existing knowledge workflow.\n")
+        originals[own_skill] = path.read_bytes()
+        canonical = "BestPractice/Encoding.md"
+        (self.target / canonical).write_bytes(b"# Encoding\nProject's canonical advice.\n")
+        originals[canonical] = (self.target / canonical).read_bytes()
+        value = install.plan(self.target, self.package)
+        self.assertEqual(value["conflicts"], [])
+        self.assertFalse(any(op["path"] in originals for op in value["operations"]))
+        install.apply(value, state_root=self.state)
+        manifest = read_json(self.target / install.MANIFEST)
+        self.assertTrue(set(originals).isdisjoint(manifest["managed"]))
+        for relative, expected in originals.items():
+            self.assertEqual((self.target / relative).read_bytes(), expected)
+
+    def test_release_preserves_unchanged_modified_and_absent_project_knowledge(self):
+        originals = self.legacy_owned_knowledge()
+        unchanged, modified, missing = sorted(originals)
+        modified_bytes = b"Project's current canonical knowledge policy.\n"
+        (self.target / modified).write_bytes(modified_bytes)
+        (self.target / missing).unlink()
+        value = install.plan(self.target, self.package, upgrade=True)
+        self.assertEqual(value["conflicts"], [])
+        self.assertEqual(set(value["retained"]), set(originals))
+        self.assertFalse(any(op["path"] in originals for op in value["operations"]))
+        install.apply(value, state_root=self.state)
+        self.assertEqual((self.target / unchanged).read_bytes(), originals[unchanged])
+        self.assertEqual((self.target / modified).read_bytes(), modified_bytes)
+        self.assertFalse((self.target / missing).exists())
+        manifest = read_json(self.target / install.MANIFEST)
+        self.assertTrue(set(originals).isdisjoint(manifest["managed"]))
+        for content in originals.values():
+            self.assertEqual((self.target / ".oasis/base" / digest(content)).read_bytes(), content)
+        for relative in originals:
+            (self.package / "seed" / relative).write_bytes(b"Later incoming policy\n")
+        self.assertEqual(self.apply(upgrade=True)["status"], "unchanged")
+        self.assertTrue(set(originals).isdisjoint(read_json(self.target / install.MANIFEST)["managed"]))
+        self.assertEqual((self.target / modified).read_bytes(), modified_bytes)
+
+    def test_release_recovery_preserves_new_canonical_edits_outside_owned_operations(self):
+        originals = self.legacy_owned_knowledge()
+        (self.package / "seed/AGENTS.md").write_bytes(b"new\ntwo\nthree\n")
+        value = install.plan(self.target, self.package, upgrade=True)
+        self.assertFalse(any(op["path"] in originals for op in value["operations"]))
+        with self.assertRaisesRegex(HarnessError, "Injected interruption"):
+            install.apply(value, state_root=self.state, interrupt_after=1)
+        changed = sorted(originals)[0]
+        new_canonical = b"A newer canonical edit by the project owner.\n"
+        (self.target / changed).write_bytes(new_canonical)
+        pending = next(path for path in self.state.glob("*/journal.json")
+                       if read_json(path)["state"] == "applying")
+        self.assertEqual(install.recover(pending)["status"], "complete")
+        for relative, content in originals.items():
+            self.assertEqual((self.target / relative).read_bytes(), new_canonical if relative == changed else content)
+        self.assertEqual((self.target / "AGENTS.md").read_bytes(), b"new\ntwo\nthree\n")
+        self.assertTrue(set(originals).isdisjoint(read_json(self.target / install.MANIFEST)["managed"]))
+
     def test_initial_resolution_cli_plan_and_audit_read_the_exact_payload(self):
         before = b"project knowledge\n"
         after = (self.package / "seed/AGENTS.md").read_bytes() + before

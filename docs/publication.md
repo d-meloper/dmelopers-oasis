@@ -120,15 +120,14 @@ post-merge parent/tree verification and blocks later publication; preserve the
 unexpected merge and reconcile it explicitly rather than undoing history.
 
 Merged-PR resume uses the retained exact merge commit when available and rejects
-a conflicting legacy REST `merge_commit_sha`. Without retained identity, use
-that legacy field or read this exact repository/PR's GraphQL `mergeCommit.oid`.
+a conflicting REST `merge_commit_sha`. Without retained identity, use
+that REST field or read this exact repository/PR's GraphQL `mergeCommit.oid`.
 Verify repository ID, PR number and merged state, then the complete public tree
 and approved parent for the resolved commit. An unavailable/null/error identity
 or wrong commit stops without replaying the merge; the current main tip is never
-a substitute. A live merged-PR read using REST version `2026-03-10` omitted the
-legacy field after successful publication, exposing the previous resume failure.
-GitHub documents the removal in its [REST breaking changes](https://docs.github.com/en/rest/about-the-rest-api/breaking-changes)
-and the replacement in its [GraphQL PullRequest reference](https://docs.github.com/en/graphql/reference/pulls#pullrequest).
+a substitute. GitHub documents supported merged identity fields in its
+[REST breaking changes](https://docs.github.com/en/rest/about-the-rest-api/breaking-changes)
+and [GraphQL PullRequest reference](https://docs.github.com/en/graphql/reference/pulls#pullrequest).
 Injected tests cover retained-state and response-loss recovery and conflicting
 or incomplete identities. The adapter still supports only SHA-1 GitHub objects;
 these checks do not grant approval or establish other providers' behavior.

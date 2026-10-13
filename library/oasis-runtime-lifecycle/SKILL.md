@@ -5,8 +5,13 @@ description: Diagnose native window, process and listener lifetime behavior acro
 
 # Runtime Lifecycle
 
+Read the applicable [lifecycle experience](references/best-practices.md) before choosing an approach.
+Use it for immediate replies,
+late registration, superseded effects and restart durability.
+
 Trace the owning native effect through its requested, applied and acknowledged
 state. Keep listeners, generations, save barriers and teardown connected to the
 current lifecycle owner.
-Use [lifecycle experience](references/best-practices.md) for immediate replies,
-late registration, superseded effects and restart durability.
+
+Before the final completion report, consolidate useful lessons from this work
+once in the owning experience reference.

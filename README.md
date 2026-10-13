@@ -33,8 +33,8 @@ Installation retains the project's Git choice and does not select service target
 | Pioneer / 개척 모드 | One visible chat performs requested work directly. |
 | Oasis / 오아시스 모드 | Cameleer coordinates visible Camels; Oasis maintains the harness. |
 
-Fresh empty projects default to Pioneer; existing programs and legacy
-installations default to Oasis. The selection persists until the owner changes
+Fresh empty projects default to Pioneer; existing programs and installations
+without a mode default to Oasis. The selection persists until the owner changes
 it. See [workflows](docs/workflows.md).
 
 Cameleer records chat IDs, goals, useful context and results in
@@ -56,7 +56,7 @@ See [ProjectGuide](seed/ProjectGuide.md).
 | Operation | Reference |
 |---|---|
 | Source development/delivery | [Development](docs/development.md) |
-| Install, upgrade or Core 2 migration | [Installation](docs/installation.md) |
+| Install or upgrade | [Installation](docs/installation.md) |
 | Assign, communicate, collect or resume | [Identity](docs/identity.md), [sessions](docs/sessions.md) |
 | Modes and transitions | [Workflows](docs/workflows.md) |
 | Harness health/updates | [Doctor](docs/doctor.md) |
@@ -64,7 +64,7 @@ See [ProjectGuide](seed/ProjectGuide.md).
 | Requested publication | [Publication](docs/publication.md) |
 | Reusable experience | [Knowledge](docs/knowledge.md) |
 | Checks and limits | [Validation](docs/validation.md) |
-| Historical provenance | [Adaptation map](docs/adaptation-map.md), [migration lessons](docs/migration-lessons.md) |
+| Version history and transition procedures | [CHANGELOG](docs/CHANGELOG.md) |
 
 Run source commands from this root; adopters use installed `tools/oasis.py`:
 
@@ -74,10 +74,16 @@ python -B -X utf8 oasis.py skills list
 python -B -X utf8 -m unittest discover -s tests -t . -v
 ```
 
+Read the applicable skill experience before choosing an approach. Once before
+final completion, consolidate useful lessons in the existing owner, combining
+duplicates and replacing advice disproved under its own conditions. With nothing
+useful to change, finish without a reference edit or routine report. Existing
+project knowledge stays in its actual file; see [knowledge policy](docs/knowledge.md).
+
 The [upgrade index](docs/upgrade-index.json) describes predecessor deltas;
-actual bytes and local conflicts determine application. Core metadata is
-descriptive, without behavioral hash seals. Calf is retired; historical records
-remain readable and existing work finishes before migration.
+actual bytes and local conflicts determine application. Core metadata describes
+roles and versions. [CHANGELOG](docs/CHANGELOG.md) retains historical procedures
+and evidence.
 
 Source delivery targets `d-meloper/dmelopers-oasis` on `main`, with private
 recovery at `d-meloper/dmelopers-oasis-harness-backup`. These bindings and source

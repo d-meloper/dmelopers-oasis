@@ -153,6 +153,31 @@ class DoctorTests(unittest.TestCase):
         self.assertEqual(record["base_sha256"], file_hash(self.package / "library/oasis-review/rule.txt"))
         self.assertEqual(doctor.audit(self.root, self.package)["status"], "current")
 
+    def test_doctor_releases_project_knowledge_and_never_readopts_later_templates(self):
+        from unittest.mock import patch
+        for relative in installation.PROJECT_KNOWLEDGE_PATHS:
+            source = self.package / "seed" / relative
+            source.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(b"Original template knowledge\n")
+        with patch.object(installation, "PROJECT_KNOWLEDGE_PATHS", frozenset()):
+            installation.apply(installation.plan(self.root, self.package, upgrade=True), state_root=self.state)
+        canonical = self.root / "BestPractice/README.md"
+        canonical.write_bytes(b"Project's canonical policy, including its own skill system.\n")
+        before = canonical.read_bytes()
+        report = doctor.audit(self.root, self.package)
+        self.assertEqual(report["status"], "outdated")
+        value = doctor.plan(self.root, self.package)
+        self.assertEqual(set(value["retained"]), set(installation.PROJECT_KNOWLEDGE_PATHS))
+        self.assertFalse(any(op["path"] in installation.PROJECT_KNOWLEDGE_PATHS for op in value["operations"]))
+        installation.apply(value, state_root=self.state)
+        for relative in installation.PROJECT_KNOWLEDGE_PATHS:
+            (self.package / "seed" / relative).write_bytes(b"Later donor policy\n")
+        self.assertEqual(doctor.audit(self.root, self.package)["status"], "current")
+        self.assertEqual(doctor.plan(self.root, self.package)["operations"], [])
+        self.assertEqual(canonical.read_bytes(), before)
+        self.assertTrue(installation.PROJECT_KNOWLEDGE_PATHS.isdisjoint(
+            read_json(self.root / installation.MANIFEST)["managed"]))
+
     def test_reports_role_and_capability_conflicts_together_without_apply(self):
         self.select_review()
         (self.root / "AGENTS.md").write_text("local\ntwo\nthree\n", encoding="utf-8")

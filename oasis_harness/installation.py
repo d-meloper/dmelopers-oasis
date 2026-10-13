@@ -25,7 +25,11 @@ MANIFEST = ".oasis/install-manifest.json"
 ADOPTER_MANUALS = frozenset({
     "installation.md", "identity.md", "sessions.md", "doctor.md",
     "git-backup.md", "publication.md", "knowledge.md", "validation.md",
-    "adaptation-map.md", "adaptation-map.json", "migration-lessons.md", "license.md", "workflows.md", "upgrade-index.json",
+    "CHANGELOG.md", "license.md", "workflows.md", "upgrade-index.json",
+})
+PROJECT_KNOWLEDGE_PATHS = frozenset({
+    "BestPractice/README.md", "BestPractice/KnowledgeLifecycle.md",
+    "BestPractice/history/README.md",
 })
 ADOPTER_MODULES = frozenset({
     "__init__.py", "backup.py", "build.py", "cli.py", "common.py", "doctor.py",
@@ -101,6 +105,8 @@ def package_files(package):
                 continue
             member = item.relative_to(source).as_posix()
             relative = managed_path(prefix + member)
+            if folder == "seed" and relative in PROJECT_KNOWLEDGE_PATHS:
+                continue
             if folder == "docs" and member not in ADOPTER_MANUALS:
                 continue
             if folder == "oasis_harness" and member not in ADOPTER_MODULES:
@@ -539,6 +545,11 @@ def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, ca
             new = incoming.get(relative)
             prior = previous["managed"].get(relative)
             resolution = resolved.get(relative)
+            if relative in PROJECT_KNOWLEDGE_PATHS:
+                # Release old template ownership, including unchanged or absent
+                # files. Project knowledge is never a deletion or write operation.
+                retained.append(relative)
+                continue
             if resolution is not None and (prior or current is None or current == new or digest(current) != resolution[0]):
                 raise HarnessError(f"Initial collision destination changed: {relative}")
             if prior and prior.get("owner", "").startswith("capability:") and relative not in incoming and prior["owner"] not in refreshed_owners:

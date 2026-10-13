@@ -1,9 +1,5 @@
 # Support Knowledge experience
 
-These are retained domain methods from the existing skill, selected only when
-applicable to the actual project. The [acceptance scenarios](acceptance.md) are
-evaluation inputs, not performed outcomes.
-
 ## Available inputs and tools
 
 Actual product/source/UI/public facts, supported locales, topic source map and an available explicitly selected knowledge destination for live registration.
@@ -15,3 +11,6 @@ Topic documents own facts; answering instructions own grounding, language and un
 Review content before updating source hashes, review date and material revision. Evidence metadata is provenance, not another product authority. Do not infer a model's internal failure cause from missing text alone. Correct false premises and prohibit invented citations, policies or guarantees. Rights, third-party conditions, technical limitations and update trust must not collapse into unsupported blanket restrictions.
 
 Use semantic acceptance questions with expected answers kept outside uploaded material and withheld from the evaluated model. Local assertions and editorial coverage do not prove actual refreshed answers. Live registration requires the exact requested account/destination and only selected user-facing files; exclude validators, receipts, internal sources, logs and personal data. Read saved material back and exercise actual questions before claiming adoption.
+
+Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
+their expected results are inputs, not performed evidence.
