@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import base64
 from collections import deque
+from contextlib import contextmanager
+from contextvars import ContextVar
 import hashlib
 import ipaddress
 import json
@@ -28,6 +30,64 @@ ROLES = ("Oasis", "Cameleer", "Camel", "Pioneer", "Developer")
 COMMAND_DELTAS = ("item/agentMessage/delta", "item/reasoning/summaryTextDelta", "item/reasoning/textDelta",
                   "item/commandExecution/outputDelta", "item/fileChange/outputDelta")
 CREATION_RETRYABLE = ("prepared", "creation_rejected")
+_operation_deadline = ContextVar("oasis_native_operation_deadline", default=None)
+
+
+class DeadlineExceeded(HarnessError):
+    """An operation's shared absolute deadline expired, including its cleanup."""
+
+
+def _valid_seconds(value, label):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
+        raise HarnessError(f"{label} must be finite and nonnegative")
+    return value
+
+
+def _earliest_deadline(deadline=None):
+    values = [value for value in (_operation_deadline.get(), deadline) if value is not None]
+    if any(isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) for value in values):
+        raise HarnessError("Native absolute deadline must be finite")
+    return min(values) if values else None
+
+
+def remaining_timeout(default=30, *, deadline=None):
+    """Cap an I/O budget to the enclosing operation without renewing its clock."""
+    _valid_seconds(default, "Native timeout")
+    deadline = _earliest_deadline(deadline)
+    if deadline is None:
+        return default
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise DeadlineExceeded("Native operation deadline expired; resume from the saved state")
+    return min(default, remaining)
+
+
+@contextmanager
+def deadline_scope(timeout=None, *, deadline=None):
+    """Share one monotonic budget across creation, calls, I/O and cleanup.
+
+    Factories keep their existing signature. Nested scopes may shorten, never
+    extend, an outer budget; independent threads do not inherit a caller's scope.
+    """
+    deadline = _earliest_deadline(deadline)
+    if timeout is not None:
+        _valid_seconds(timeout, "Native operation timeout")
+        candidate = time.monotonic() + timeout
+        deadline = candidate if deadline is None else min(candidate, deadline)
+    token = _operation_deadline.set(deadline)
+    try:
+        remaining_timeout(deadline=deadline)
+        yield deadline
+    finally:
+        _operation_deadline.reset(token)
+
+
+def _cleanup_timeout(default, deadline=None):
+    """Cleanup must still release owned resources after the operation expires."""
+    try:
+        return remaining_timeout(default, deadline=deadline)
+    except DeadlineExceeded:
+        return 0
 
 
 class NativeError(HarnessError):
@@ -64,6 +124,7 @@ class _LoopbackWebSocket:
     """
     MAX_MESSAGE = 64 * 1024 * 1024
     GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+    supports_close_deadline = True
 
     @staticmethod
     def endpoint(value):
@@ -92,21 +153,25 @@ class _LoopbackWebSocket:
             raise HarnessError(error) from None
         return address, port, target, authority
 
-    def __init__(self, url):
+    def __init__(self, url, *, deadline=None):
         address, port, target, authority = self.endpoint(url)
         self.socket = None
         self.buffer = bytearray()
         self.write_lock = threading.RLock()
         self.closed = False
         self.sent_close = False
+        # One handshake budget also covers a peer dripping headers slowly.
+        handshake_deadline = time.monotonic() + remaining_timeout(10, deadline=deadline)
         try:
-            self.socket = socket.create_connection((address, port), timeout=10)
+            self.socket = socket.create_connection((address, port), timeout=remaining_timeout(10, deadline=handshake_deadline))
             key = base64.b64encode(os.urandom(16)).decode("ascii")
             request = (f"GET {target} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\n"
                        f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
+            self.socket.settimeout(remaining_timeout(10, deadline=handshake_deadline))
             self.socket.sendall(request.encode("ascii"))
             header = bytearray()
             while b"\r\n\r\n" not in header:
+                self.socket.settimeout(remaining_timeout(10, deadline=handshake_deadline))
                 chunk = self.socket.recv(4096)
                 if not chunk:
                     raise HarnessError("Native WebSocket handshake ended before an upgrade response")
@@ -134,6 +199,9 @@ class _LoopbackWebSocket:
                 raise HarnessError("Native WebSocket handshake acceptance or negotiation is invalid")
             self.buffer.extend(remainder)
             self.socket.settimeout(None)
+        except TimeoutError:
+            self._drop()
+            raise DeadlineExceeded("Native WebSocket connection deadline expired") from None
         except OSError:
             self._drop()
             raise HarnessError("Native loopback WebSocket is unavailable; supply the address of an already running caller-managed App Server") from None
@@ -221,10 +289,11 @@ class _LoopbackWebSocket:
             raise TimeoutError("Native WebSocket write deadline expired")
         self._frame(1, payload, timeout=max(0, deadline - time.monotonic()))
 
-    def _close_frame(self, payload):
+    def _close_frame(self, payload, *, deadline=None):
         try:
-            if not self.sent_close:
-                self._frame(8, payload, timeout=0.2)
+            timeout = _cleanup_timeout(0.2, deadline)
+            if not self.sent_close and timeout > 0:
+                self._frame(8, payload, timeout=timeout)
         except OSError:
             pass
         finally:
@@ -297,24 +366,85 @@ class _LoopbackWebSocket:
             self._drop()
             return None
 
-    def close(self):
+    def close(self, *, deadline=None):
         if self.closed:
             return
-        self._close_frame(struct.pack("!H", 1000))
+        self._close_frame(struct.pack("!H", 1000), deadline=deadline)
 
 
 class _ProxyTransport:
     """Own only a stdio proxy client, never the server behind its socket."""
     MAX_MESSAGE = _LoopbackWebSocket.MAX_MESSAGE
     STDERR_LIMIT = 64 * 1024
+    supports_close_deadline = True
 
-    def __init__(self, executable, socket_path=None):
+    def __init__(self, executable, socket_path=None, *, deadline=None):
         command = [executable, "app-server", "proxy"]
         if socket_path:
             command += ["--sock", socket_path]
-        self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, bufsize=0, env=clean_environment(),
-                                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        deadline = _earliest_deadline(deadline)
+        remaining_timeout(deadline=deadline)
+
+        def launch():
+            return subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE, bufsize=0, env=clean_environment(),
+                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+        if deadline is None:
+            self.process = launch()
+        else:
+            # Process creation itself cannot be interrupted on every platform.
+            # Return on time and release any late result; it is only our proxy.
+            result, abandoned = queue.Queue(maxsize=1), threading.Event()
+
+            def discard(process):
+                try:
+                    process.terminate()
+                    process.wait(timeout=0.2)
+                except (OSError, subprocess.TimeoutExpired):
+                    try:
+                        process.kill()
+                    except OSError:
+                        pass
+                for stream in (process.stdin, process.stdout, process.stderr):
+                    try:
+                        stream.close()
+                    except (OSError, ValueError):
+                        pass
+
+            def start():
+                try:
+                    value = launch()
+                except Exception as exc:
+                    value = exc
+                if abandoned.is_set():
+                    if not isinstance(value, Exception):
+                        discard(value)
+                    return
+                result.put_nowait(value)
+                if abandoned.is_set():
+                    try:
+                        value = result.get_nowait()
+                    except queue.Empty:
+                        return
+                    if not isinstance(value, Exception):
+                        discard(value)
+
+            threading.Thread(target=start, daemon=True).start()
+            try:
+                self.process = result.get(timeout=remaining_timeout(30, deadline=deadline))
+            except (queue.Empty, DeadlineExceeded):
+                abandoned.set()
+                try:
+                    late = result.get_nowait()
+                except queue.Empty:
+                    pass
+                else:
+                    if not isinstance(late, Exception):
+                        threading.Thread(target=discard, args=(late,), daemon=True).start()
+                raise DeadlineExceeded("Native proxy connection deadline expired") from None
+            if isinstance(self.process, Exception):
+                raise self.process
         self.buffer = bytearray()
         self.closed = False
         self.write_lock = threading.Lock()
@@ -398,13 +528,13 @@ class _ProxyTransport:
 
         threading.Thread(target=write, daemon=True).start()
         if not finished.wait(max(0, deadline - time.monotonic())):
-            self.close()
+            self.close(deadline=deadline)
             raise TimeoutError("Native stdio write deadline expired")
         if errors:
-            self.close()
+            self.close(deadline=deadline)
             raise OSError("Native stdio send failed") from None
 
-    def close(self):
+    def close(self, *, deadline=None):
         with self.close_lock:
             if self.closed:
                 return
@@ -412,7 +542,7 @@ class _ProxyTransport:
         # Closing a buffered stdin during another thread's flush can hang.
         # This proxy uses unbuffered pipes; serialize a graceful EOF, otherwise
         # terminate only our own proxy to release a blocked write.
-        acquired = self.write_lock.acquire(timeout=0.1)
+        acquired = self.write_lock.acquire(timeout=_cleanup_timeout(0.1, deadline))
         try:
             if acquired:
                 self.process.stdin.close()
@@ -424,15 +554,15 @@ class _ProxyTransport:
             if acquired:
                 self.write_lock.release()
         try:
-            self.process.wait(timeout=0.25)
+            self.process.wait(timeout=_cleanup_timeout(0.25, deadline))
         except subprocess.TimeoutExpired:
             try:
                 self.process.terminate()
-                self.process.wait(timeout=0.5)
+                self.process.wait(timeout=_cleanup_timeout(0.5, deadline))
             except subprocess.TimeoutExpired:
                 self.process.kill()
                 try:
-                    self.process.wait(timeout=0.5)
+                    self.process.wait(timeout=_cleanup_timeout(0.5, deadline))
                 except subprocess.TimeoutExpired:
                     pass
             except OSError:
@@ -440,7 +570,7 @@ class _ProxyTransport:
         except OSError:
             pass
         if self.stderr_reader is not threading.current_thread():
-            self.stderr_reader.join(timeout=0.2)
+            self.stderr_reader.join(timeout=_cleanup_timeout(0.2, deadline))
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             try:
                 stream.close()
@@ -523,7 +653,7 @@ class _RpcInbox:
 
 
 class AppServer:
-    def __init__(self, originator, *, notification_profile="all"):
+    def __init__(self, originator, *, notification_profile="all", deadline=None):
         if notification_profile not in ("all", "command"):
             raise HarnessError("Unknown native notification profile")
         self.process = None
@@ -531,16 +661,18 @@ class AppServer:
         self.closing = False
         self._rpc = _RpcInbox()
         self._close_lock = threading.Lock()
+        self._deadline = _earliest_deadline(deadline)
+        remaining_timeout(deadline=self._deadline)
         self.sequence = 0
         endpoint = os.environ.get("OASIS_APP_SERVER_URL")
         if endpoint is not None:
-            self.transport = _LoopbackWebSocket(endpoint)
+            self.transport = _LoopbackWebSocket(endpoint, deadline=self._deadline)
             self.backend = "websocket"
         else:
             executable = shutil.which("codex")
             if not executable:
                 raise HarnessError("Codex CLI is unavailable; install or select the supported host explicitly")
-            self.transport = _ProxyTransport(executable, os.environ.get("OASIS_APP_SERVER_SOCKET"))
+            self.transport = _ProxyTransport(executable, os.environ.get("OASIS_APP_SERVER_SOCKET"), deadline=self._deadline)
             self.process = self.transport.process
             self.backend = "proxy"
         self.reader = threading.Thread(target=self._read, daemon=True)
@@ -559,8 +691,11 @@ class AppServer:
                 self.call("initialize", {**parameters, "capabilities": {"experimentalApi": True}})
             self._send({"method": "initialized"})
         except Exception as exc:
-            self.close()
-            if (self.process is not None and isinstance(exc, HarnessError) and not isinstance(exc, NativeError)
+            try:
+                self.close()
+            except Exception as cleanup:
+                exc.add_note(f"Native connection cleanup failed: {type(cleanup).__name__}")
+            if (self.process is not None and isinstance(exc, HarnessError) and not isinstance(exc, (NativeError, DeadlineExceeded))
                     and self._rpc.event_error is None):
                 raise HarnessError("Native App Server proxy is unavailable; this path requires an already running daemon/control socket. Select its OASIS_APP_SERVER_SOCKET, or explicitly supply a caller-managed experimental loopback OASIS_APP_SERVER_URL. No server was started.") from None
             raise
@@ -582,7 +717,7 @@ class AppServer:
             if not self.closing:
                 reason = str(exc) if isinstance(exc, HarnessError) else "Native App Server transport connection ended"
                 self._rpc.end(reason, failed=True, event_error=isinstance(exc, HarnessError))
-                self.transport.close()
+                self._close_transport(getattr(self, "_deadline", None))
         finally:
             self._rpc.end("Native App Server connection ended")
 
@@ -627,6 +762,11 @@ class AppServer:
     def _send(self, value, *, deadline=None):
         text = json.dumps(value, ensure_ascii=False)
         try:
+            # Serialization is part of the same budget, never a fresh timeout.
+            own_deadline = getattr(self, "_deadline", None)
+            if own_deadline is not None:
+                deadline = own_deadline if deadline is None else min(deadline, own_deadline)
+            deadline = _earliest_deadline(deadline)
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError
             timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
@@ -639,6 +779,7 @@ class AppServer:
     def call(self, method, params, timeout=30):
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
             raise HarnessError("Native RPC timeout must be finite and nonnegative")
+        timeout = remaining_timeout(timeout, deadline=getattr(self, "_deadline", None))
         deadline = time.monotonic() + timeout
         sequence, waiter = self._rpc.register(method)
         self.sequence = self._rpc.sequence
@@ -647,7 +788,7 @@ class AppServer:
                 self._send({"id": sequence, "method": method, "params": params}, deadline=deadline)
             except HarnessError as exc:
                 self._rpc.end(str(exc), failed=True)
-                self.transport.close()
+                self._close_transport(deadline)
                 try:
                     reply = waiter.get_nowait()
                 except queue.Empty:
@@ -658,6 +799,9 @@ class AppServer:
                 try:
                     reply = waiter.get(timeout=max(0, deadline - time.monotonic()))
                 except queue.Empty:
+                    # A timed-out read or mutation keeps its uncertain-delivery
+                    # contract; callers can also distinguish an outer expiry.
+                    remaining_timeout(deadline=getattr(self, "_deadline", None))
                     raise HarnessError(f"{method}: outcome uncertain; reconcile before another mutation") from None
             if isinstance(reply, HarnessError):
                 raise HarnessError(f"{method}: {reply}; outcome uncertain") from None
@@ -680,7 +824,7 @@ class AppServer:
         """Bounded I/O wait on this connection's notifications, without model requests."""
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
             raise HarnessError("Native event wait timeout must be finite and nonnegative")
-        return self._rpc.wait(timeout)
+        return self._rpc.wait(remaining_timeout(timeout, deadline=getattr(self, "_deadline", None)))
 
     def diagnostics(self):
         """Connection information including a PRIVATE bounded stderr tail."""
@@ -693,10 +837,12 @@ class AppServer:
         value["stderr_tail"], value["stderr_truncated"] = self.transport.stderr_tail() if self.process is not None else ("", False)
         return value
 
-    def pages(self, method, params):
+    def pages(self, method, params, *, timeout=30):
+        # A page boundary must not renew this query's timeout.
+        deadline = time.monotonic() + remaining_timeout(timeout, deadline=getattr(self, "_deadline", None))
         seen = set()
         while True:
-            page = self.call(method, params)
+            page = self.call(method, params, timeout=remaining_timeout(timeout, deadline=deadline))
             _history_page(page, method)
             yield from page["data"]
             cursor = page.get("nextCursor")
@@ -707,21 +853,35 @@ class AppServer:
             seen.add(cursor)
             params = {**params, "cursor": cursor}
 
+    def _close_transport(self, deadline=None):
+        if getattr(self.transport, "supports_close_deadline", False) is True:
+            self.transport.close(deadline=deadline)
+        else:
+            # Preserve the established injected transport/factory interface.
+            self.transport.close()
+
     def close(self):
         with self._close_lock:
             if self.closing:
                 return
             self.closing = True
         self._rpc.end("Native App Server client connection closed")
-        self.transport.close()
-        if self.reader is not threading.current_thread():
-            self.reader.join(timeout=0.5)
+        try:
+            self._close_transport(getattr(self, "_deadline", None))
+        finally:
+            if self.reader is not threading.current_thread():
+                self.reader.join(timeout=_cleanup_timeout(0.5, getattr(self, "_deadline", None)))
 
     def __enter__(self):
         return self
 
-    def __exit__(self, *_):
-        self.close()
+    def __exit__(self, kind, error, traceback):
+        try:
+            self.close()
+        except Exception as cleanup:
+            if error is None:
+                raise
+            error.add_note(f"Native connection cleanup failed: {type(cleanup).__name__}")
 
 
 def command_server(originator):

@@ -49,6 +49,7 @@ class DistributionBoundary(unittest.TestCase):
         self.assertNotIn(".oasis/manual/development.md", payload)
         self.assertNotIn(".oasis/runtime/oasis_harness/public_source.py", payload)
         self.assertIn(".oasis/runtime/oasis_harness/workflows.py", payload)
+        self.assertIn(".oasis/runtime/oasis_harness/notifications.py", payload)
         self.assertIn(".oasis/manual/upgrade-index.json", payload)
         self.assertIn(".oasis/manual/workflows.md", payload)
         self.assertIn(".agents/skills/oasis-pioneer/SKILL.md", payload)

@@ -14,15 +14,21 @@ Cameleer and Camel use visible Codex chats and actual IDs. The title
 `camel_A_goal` is a convention. Cameleer may handle simple work directly and
 keeps concise goals, locations, dependencies and results in `.oasis/state/tasks.md`.
 
-Camel consolidates useful experience before sending its final result directly
-to Cameleer. Cameleer checks fulfillment, the diff and performed checks,
+Camel consolidates useful experience before submitting its final result for
+Cameleer. Runtime sends the whole-assignment notice after the assigned native
+turn is terminal-ready. Cameleer checks fulfillment, the diff and performed checks,
 integrates the result, retains its link and archives the finished Camel.
 Corrections restore that same chat; unfinished work stays available.
-Additional checks follow changed integration inputs or specific doubts.
+Reuse matching checks and reads; additional checks follow changed integration
+inputs or specific doubts, with the reason in the existing result. Independent
+review still examines relevant original inputs.
 
-A blocked worker names the dependent portion, finishes independent work and
-ends its turn. The producer sends one terminal notice with the result/reference
-when that portion completes, fails or is cancelled. Resume from that notice.
+All roles, including Developer and independent specialists, use the shared
+[dependency rule](workflows.md#waiting-and-resumption):
+register the blocked portion, finish independent work and end the turn. Resume
+from one meaningful result, failure or cancellation notice. A named partial
+result/resource release need not wait for the producer's whole turn. Ending a
+waiting turn is not task completion or a closing experience pass.
 
 Planning uses actual native Plan mode and starts the supplied request.
 Unsupported mode-setting gives one manual mode/start instruction. Implementation

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import functools
 import json
 import math
 import os
@@ -24,6 +25,26 @@ COMPLETION_REMINDER = ("Before reporting completion, review this task's reusable
 
 def _completion_prompt(text):
     return text + "\n\n" + COMPLETION_REMINDER
+
+
+def _arm_notifications(function):
+    """Production commands leave observation to I/O, never a waiting model."""
+    @functools.wraps(function)
+    def command(*args, **kwargs):
+        with sessions.deadline_scope(timeout=30):
+            value = function(*args, **kwargs)
+        if kwargs.get("factory", sessions.command_server) is sessions.command_server:
+            from . import notifications
+            try:
+                root = Path(args[0] if args else kwargs["target"]).resolve()
+                runtime = notifications.ensure_running(root) if _notification_pending(root, _tasks(root)) else notifications.status(root)
+            except (HarnessError, OSError, ValueError) as exc:
+                runtime = {"state": "needs_resume", "error": str(exc),
+                           "instruction": "Preserve the accepted operation; use its existing resume command."}
+            if isinstance(value, dict):
+                value["notification_runtime"] = runtime
+        return value
+    return command
 
 
 def effective_mode(project):
@@ -406,6 +427,23 @@ def _tasks(root):
                 raise HarnessError("Task completion must be an object")
             if row.get("native_turn") is not None and not isinstance(row["native_turn"], dict):
                 raise HarnessError("Task native turn evidence must be an object")
+            for key in ("delivery", "unsubmitted_notice"):
+                if row.get(key) is not None and not isinstance(row[key], dict):
+                    raise HarnessError(f"Task/dependency {key} must be an object")
+            missing = row.get("unsubmitted_notice") or {}
+            if not isinstance(missing.get("delivery", {}), dict):
+                raise HarnessError("Task unsubmitted_notice.delivery must be an object")
+            if row.get("producer_turn_id") is not None:
+                sessions.require_text(row["producer_turn_id"], "Dependency producer_turn_id")
+            binding = row.get("consumer_binding")
+            if binding is not None and (not isinstance(binding, dict) or not isinstance(binding.get("task_id"), str)
+                    or isinstance(binding.get("cycle"), bool) or not isinstance(binding.get("cycle"), int) or binding["cycle"] < 0):
+                raise HarnessError("Dependency consumer_binding requires task_id and nonnegative cycle")
+            continuations = row.get("dependency_continuations", [])
+            if not isinstance(continuations, list) or any(not isinstance(item, dict)
+                    or not isinstance(item.get("dependency_id"), str) or not isinstance(item.get("delivery"), dict)
+                    or not isinstance(item["delivery"].get("turn_id"), str) for item in continuations):
+                raise HarnessError("Task dependency_continuations require identified native delivery turns")
             if row.get("completion"):
                 completion = row["completion"]
                 if completion.get("outcome") not in ("completed", "failed", "cancelled"):
@@ -479,13 +517,15 @@ def _render_tasks(root, state):
     for row in state["tasks"]:
         identity = row.get("camel_thread_id")
         chat = f"[{identity}](codex://threads/{identity})" if identity else f"Creation pending ({row.get('id', 'unresolved')})"
-        waits = [d["condition"] for d in state["dependencies"] if d.get("consumer_thread_id") == identity and d.get("phase") == "waiting"]
+        waits = [d["condition"] for d in state["dependencies"] if d.get("consumer_thread_id") == identity
+                 and d.get("phase") == "waiting" and _dependency_current(state, d)]
         phase = row.get("phase", "unknown") + ("; waiting for " + ", ".join(waits) if waits else "")
         notice = _notice(root, row) if row.get("completion") else None
         if notice and notice["state"] != "accepted":
             phase += "; completion notice " + notice["state"]
         for dependency in state["dependencies"]:
-            if dependency.get("consumer_thread_id") == identity and dependency.get("phase") in ("completed", "failed", "cancelled"):
+            if (_dependency_current(state, dependency) and dependency.get("consumer_thread_id") == identity
+                    and dependency.get("phase") in ("completed", "failed", "cancelled")):
                 notice = _notice(root, dependency, dependency=True)
                 if notice["state"] != "accepted":
                     phase += "; dependency notice " + notice["state"]
@@ -584,6 +624,10 @@ def task_status(target, task_id=None, *, include_complete=False, summary=False):
             tasks.append(entry)
         dependencies = []
         for row in state["dependencies"]:
+            if not _dependency_current(state, row):
+                if include_complete:
+                    dependencies.append({"id": row["id"], "phase": "superseded", "condition": row["condition"]})
+                continue
             notice = _notice(root, row, dependency=True) if row.get("phase") in ("completed", "failed", "cancelled") else None
             if include_complete or row.get("phase") == "waiting" or notice and notice["state"] != "accepted":
                 entry = {key: copy.deepcopy(row.get(key)) for key in
@@ -591,7 +635,10 @@ def task_status(target, task_id=None, *, include_complete=False, summary=False):
                 if notice:
                     entry["terminal_notice"] = notice
                 dependencies.append(entry)
-        return {"tasks": tasks, "dependencies": dependencies, "warnings": _cycles(state["dependencies"])}
+        from . import notifications
+        return {"tasks": tasks, "dependencies": dependencies,
+                "warnings": _cycles([row for row in state["dependencies"] if _dependency_current(state, row)]),
+                "notification_runtime": notifications.status(root)}
     if task_id:
         return copy.deepcopy(_task(state, task_id))
     return {"tasks": [row for row in state["tasks"] if include_complete or row.get("phase") not in TERMINAL]}
@@ -629,6 +676,7 @@ def _request_match(row, sha, fields, *, hash_field="input_sha256"):
         raise HarnessError("Legacy request ID has different recorded inputs; preserve the original action")
 
 
+@_arm_notifications
 def assign(target, cameleer_id, goal, *, context=None, location=None, planning=False, title=None,
            request_id=None, factory=sessions.command_server):
     root, _ = _root(target)
@@ -772,7 +820,8 @@ def register(subparsers):
     p.add_argument("--result")
     p.add_argument("--checks")
     p.add_argument("--merged-reference")
-    p.set_defaults(func=lambda args: collect(args.target, args.task_id, result=args.result, checks=args.checks, merged_reference=args.merged_reference))
+    p.add_argument("--timeout", type=float, default=30, help="Total connection, RPC, wait and cleanup budget in seconds")
+    p.set_defaults(func=lambda args: collect(args.target, args.task_id, result=args.result, checks=args.checks, merged_reference=args.merged_reference, timeout=args.timeout))
     p = commands.add_parser("task-resume")
     p.add_argument("--target", required=True)
     p.add_argument("--task-id", required=True)
@@ -801,6 +850,7 @@ def register(subparsers):
         message=Path(args.message_file).read_text(encoding="utf-8") if args.message_file else None))
 
 
+@_arm_notifications
 def complete(target, task_id, message=None, *, result=None, checks=None, outcome="completed", factory=sessions.command_server):
     if outcome not in ("completed", "failed", "cancelled"):
         raise HarnessError("Task outcome must be completed, failed or cancelled")
@@ -813,21 +863,60 @@ def complete(target, task_id, message=None, *, result=None, checks=None, outcome
         if not row.get("completion"):
             text = message or f"Task {outcome}: {row['goal']}. Checks: {checks or 'see Camel result'}. Result: {result or row['camel_thread_id']}. Please review, collect, merge and archive the completed work."
             sessions.require_text(text, "Completion message")
-            row.update(phase=outcome, result=result, checks=checks, summary=message,
+            row.update(phase="awaiting_terminal", result=result, checks=checks, summary=message,
                        completion={"outcome": outcome, "text": text, "result_key": digest([row["id"], row.get("cycle", 0), outcome, result, checks, text])})
             write_json(_task_path(root), state)
-        text = row["completion"]["text"]
         try:
             with factory("oasis_complete_" + row["id"]) as server:
-                delivery = sessions.send_once(_delivery_path(root, row, "complete"), row["cameleer_thread_id"], text, server,
-                                              expected_binding=_binding(root, _task_project(row)))
+                _thread(server, row["cameleer_thread_id"], root, _task_project(row))
+                snapshot, _ = _terminal_snapshot(root, row, server)
+                row["native_turn"] = snapshot
+                _deliver_completion(root, row, snapshot, server, explicit=True)
         except Exception as exc:
+            write_json(_task_path(root), state)
             _render_after_failure(root, state, exc)
             raise
-        row["completion"]["delivery"] = delivery
         write_json(_task_path(root), state)
         _render_tasks(root, state)
         return copy.deepcopy(row)
+
+
+def _deliver_notice(root, row, recipient, text, path, server, *, explicit=False):
+    retained = read_json(path) if path.exists() else {}
+    if retained.get("state") == "accepted":
+        return retained
+    native = _thread(server, recipient, root, row.get("project_id") or _task_project(row))
+    # An uncertain send may already have started a recipient turn. Reconcile it
+    # even while active, but never inject a second message or steer that turn.
+    if retained.get("state") in ("started", "uncertain"):
+        return sessions.send_once(path, recipient, text, server,
+                                  expected_binding=_binding(root, row.get("project_id") or _task_project(row)))
+    if retained.get("state") == "rejected" and not explicit:
+        return retained
+    if (native.get("status") or {}).get("type") not in ("idle", "notLoaded"):
+        return {"state": "pending_recipient", "thread_id": recipient}
+    return sessions.send_once(path, recipient, text, server,
+                              expected_binding=_binding(root, row.get("project_id") or _task_project(row)))
+
+
+def _deliver_completion(root, row, snapshot, server, *, explicit=False):
+    completion = row["completion"]
+    path = _delivery_path(root, row, "complete")
+    if snapshot["state"] not in ("ready", "failed", "cancelled"):
+        if _notice(root, row)["state"] != "accepted":
+            completion["delivery"] = {"state": "pending_terminal"}
+            row["phase"] = "terminal_unverified" if snapshot["state"] == "unverified" else "awaiting_terminal"
+        return
+    actual = snapshot["state"] if snapshot["state"] in ("failed", "cancelled") else completion["outcome"]
+    if not row.get("archived"):
+        row["phase"] = actual
+    # The submission is immutable. A native failure overrides its claimed success
+    # only in the notice/outcome used for collection, not in the original text.
+    text = completion["text"] if actual == completion["outcome"] else (
+        f"Task {actual}: {row.get('current_goal', row['goal'])}. "
+        f"Submitted result: {row.get('result') or row['camel_thread_id']}. Resume this same task for corrections.")
+    completion["native_outcome"] = actual
+    completion["delivery"] = _deliver_notice(root, row, row["cameleer_thread_id"], text, path, server, explicit=explicit)
 
 
 def _terminal_snapshot(root, row, server):
@@ -840,7 +929,8 @@ def _terminal_snapshot(root, row, server):
         if exc.code != -32601:
             raise
         turns = sessions._full_turns(server, row["camel_thread_id"])[-1:]
-    delivery = row.get("assignment_delivery", {})
+    continuation = row.get("dependency_continuations") or []
+    delivery = continuation[-1]["delivery"] if continuation else row.get("assignment_delivery", {})
     if not isinstance(delivery, dict):
         raise HarnessError("Assignment delivery must be an object")
     if not delivery.get("turn_id"):
@@ -885,6 +975,7 @@ def _terminal_snapshot(root, row, server):
 
 
 def _await_terminal(root, row, server, timeout):
+    deadline = time.monotonic() + timeout
     snapshot, native = _terminal_snapshot(root, row, server)
     if snapshot["state"] != "pending" or timeout == 0 or not callable(getattr(server, "wait_events", None)):
         return snapshot
@@ -892,7 +983,6 @@ def _await_terminal(root, row, server, timeout):
     if not Path(path).is_absolute():
         raise HarnessError("Native rollout watch requires an absolute path")
     watch_id, watching, failure = "oasis_collect_" + uuid.uuid4().hex, False, None
-    deadline = time.monotonic() + timeout
     try:
         try:
             response = server.call("fs/watch", {"watchId": watch_id, "path": path})
@@ -905,13 +995,28 @@ def _await_terminal(root, row, server, timeout):
             raise HarnessError("Native filesystem watch returned another rollout path")
         # Close the registration race before waiting for filesystem changes.
         snapshot, _ = _terminal_snapshot(root, row, server)
+        last_read, first_dirty, last_dirty = time.monotonic(), None, None
         while snapshot["state"] == "pending" and time.monotonic() < deadline:
-            events = server.wait_events(max(0, deadline - time.monotonic()))
+            now = time.monotonic()
+            due = min(last_dirty + .25, first_dirty + 1) if first_dirty is not None else deadline
+            due = max(due, last_read + 1) if first_dirty is not None else due
+            events = server.wait_events(max(0, min(deadline, due) - now))
             changed = any(event.get("method") == "fs/changed" and isinstance(event.get("params"), dict)
                           and event["params"].get("watchId") == watch_id for event in events)
+            changed = changed or any(event.get("method") == "turn/completed"
+                and isinstance(event.get("params"), dict)
+                and event["params"].get("threadId") == row["camel_thread_id"]
+                and isinstance(event["params"].get("turn"), dict)
+                and event["params"]["turn"].get("id") == snapshot.get("id") for event in events)
             if changed:
+                now = time.monotonic()
+                first_dirty = first_dirty if first_dirty is not None else now
+                last_dirty = now
+            now = time.monotonic()
+            if first_dirty is not None and now >= max(min(last_dirty + .25, first_dirty + 1), last_read + 1):
                 snapshot, _ = _terminal_snapshot(root, row, server)
-            elif not events:
+                last_read, first_dirty, last_dirty = time.monotonic(), None, None
+            elif not events and first_dirty is None:
                 break
         # Persistence may have completed at the wait boundary without a delivered event.
         if snapshot["state"] == "pending":
@@ -943,12 +1048,26 @@ def _collection_boundary(root, state, row, snapshot):
 
 def _collection_identity(root, row):
     assignment = _delivery_path(root, row, "assign")
-    return digest([{key: row.get(key) for key in ("id", "cycle", "camel_thread_id", "cameleer_thread_id", "prompt", "assignment_delivery")},
+    return digest([{key: row.get(key) for key in ("id", "cycle", "camel_thread_id", "cameleer_thread_id", "prompt", "assignment_delivery", "dependency_continuations")},
                    (row.get("completion") or {}).get("result_key"), _task_project(row),
                    read_json(assignment) if assignment.exists() else None])
 
 
-def collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None, factory=sessions.command_server, wait_timeout=30):
+def collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None,
+            factory=sessions.command_server, wait_timeout=30, timeout=30):
+    try:
+        with sessions.deadline_scope(timeout=timeout):
+            return _collect(target, task_id, result=result, checks=checks, merge=merge,
+                            merged_reference=merged_reference, factory=factory, wait_timeout=wait_timeout)
+    except sessions.DeadlineExceeded:
+        # No new native action after expiry. Durable merge/archive receipts remain
+        # authoritative; reading status does not retry any uncertain mutation.
+        row = task_status(target, task_id)
+        return {**row, "collection_timeout": True,
+                "instruction": "Native operation deadline expired. Preserve this task and resume the same collection from its retained receipts."}
+
+
+def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None, factory=sessions.command_server, wait_timeout=30):
     """Collect a reviewed result; merge callbacks and native archives run once."""
     root, _ = _root(target)
     if isinstance(wait_timeout, bool) or not isinstance(wait_timeout, (int, float)) or not math.isfinite(wait_timeout) or wait_timeout < 0:
@@ -977,13 +1096,14 @@ def collect(target, task_id, *, result=None, checks=None, merge=None, merged_ref
     # Native final output may arrive later. Independent task notices must retain
     # access to the project state throughout this connection-scoped I/O wait.
     with factory("oasis_collect_" + captured["id"]) as server:
-        snapshot = _await_terminal(root, captured, server, wait_timeout)
+        snapshot = _await_terminal(root, captured, server, min(wait_timeout, max(0, sessions.remaining_timeout() - 1)))
         with operation_lock(lock):
             state = _tasks(root)
             row = _task(state, task_id)
             if _collection_identity(root, row) != identity:
                 return {**copy.deepcopy(row), "collection": "collection_changed",
                         "instruction": "The assignment or result changed during the native wait. Review the current task before collecting it; prior merge inputs were not applied."}
+            sessions.remaining_timeout()
             completion = row["completion"]
             if row.get("collected_result_key") == completion["result_key"]:
                 return copy.deepcopy(row)
@@ -1004,6 +1124,7 @@ def collect(target, task_id, *, result=None, checks=None, merge=None, merged_ref
                 row.update(merge_state="merged", result=merged_reference)
                 write_json(_task_path(root), state)
             elif merge is not None and row.get("merge_state") != "merged":
+                sessions.remaining_timeout()
                 row["merge_state"] = "started"
                 write_json(_task_path(root), state)
                 try:
@@ -1032,6 +1153,7 @@ def collect(target, task_id, *, result=None, checks=None, merge=None, merged_ref
             return copy.deepcopy(row)
 
 
+@_arm_notifications
 def resume_task(target, task_id, message=None, *, planning=False, implementation=False, request_id=None, factory=sessions.command_server):
     root, _ = _root(target)
     if not isinstance(planning, bool) or not isinstance(implementation, bool) or planning and implementation:
@@ -1092,11 +1214,11 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
         else:
             if row.get("followup_key") != request_key:
                 row["history"].append({name: copy.deepcopy(row.get(name)) for name in
-                    ("cycle", "phase", "completion", "result", "checks", "current_goal", "followup_key", "followup_input_sha256", "native_turn")})
+                    ("cycle", "phase", "completion", "result", "checks", "current_goal", "followup_key", "followup_input_sha256", "native_turn", "unsubmitted_notice", "dependency_continuations")})
                 row["cycle"] = row.get("cycle", 0) + 1
                 row.update(followup_key=request_key, followup_input_sha256=sha, prompt=_completion_prompt(message),
                            current_goal=message.strip().splitlines()[0], planning=planning, execution=implementation, phase="resuming")
-                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn"):
+                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn", "unsubmitted_notice", "dependency_continuations"):
                     row.pop(name, None)
                 write_json(_task_path(root), state)
             with factory("oasis_resume_" + row["id"]) as server:
@@ -1118,7 +1240,8 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
         return copy.deepcopy(row)
 
 
-def dependency_wait(target, producer_id, consumer_id, condition, *, request_id=None):
+@_arm_notifications
+def dependency_wait(target, producer_id, consumer_id, condition, *, request_id=None, factory=sessions.command_server):
     root, _ = _root(target)
     if request_id is not None:
         sessions.require_text(request_id, "Dependency request ID")
@@ -1127,21 +1250,39 @@ def dependency_wait(target, producer_id, consumer_id, condition, *, request_id=N
     if producer_id == consumer_id:
         raise HarnessError("A dependency needs different producer and consumer chat IDs")
     sha = digest([producer_id, consumer_id, condition])
-    key = request_id or sha
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _tasks(root)
+        consumer = next((task for task in state["tasks"] if task.get("camel_thread_id") == consumer_id), None)
+        binding = {"task_id": consumer["id"], "cycle": consumer.get("cycle", 0)} if consumer else None
+        key = request_id or (digest([sha, binding]) if binding else sha)
         row = next((row for row in state["dependencies"] if row.get("request_key") == key), None)
         if row is not None:
             _request_match(row, sha, {"producer_thread_id": producer_id, "consumer_thread_id": consumer_id, "condition": condition})
+            if "consumer_binding" in row and row["consumer_binding"] != binding:
+                raise HarnessError("Dependency request belongs to another task cycle; preserve its original action")
         if row is None:
+            with factory("oasis_dependency_register") as server:
+                project_id = sessions.project_id(server, root)
+                producer = _thread(server, producer_id, root, project_id)
+                _thread(server, consumer_id, root, project_id)
+                try:
+                    latest = sessions._history_page(server.call("thread/turns/list", {
+                        "threadId": producer_id, "itemsView": "notLoaded", "sortDirection": "desc", "limit": 1}), "thread/turns/list")["data"]
+                except sessions.NativeError as exc:
+                    if exc.code != -32601:
+                        raise
+                    latest = []
             row = {"id": uuid.uuid4().hex, "request_key": key, "input_sha256": sha, "producer_thread_id": producer_id,
-                   "consumer_thread_id": consumer_id, "condition": condition, "phase": "waiting"}
+                   "consumer_thread_id": consumer_id, "condition": condition, "phase": "waiting",
+                   "project_id": project_id, "producer_turn_id": latest[0]["id"] if latest else None,
+                   "consumer_binding": binding}
             state["dependencies"].append(row)
             write_json(_task_path(root), state)
         _render_tasks(root, state)
         return {**copy.deepcopy(row), "end_turn": True}
 
 
+@_arm_notifications
 def dependency_finish(target, dependency_id, *, outcome="completed", result=None, message=None, factory=sessions.command_server):
     if outcome not in ("completed", "failed", "cancelled"):
         raise HarnessError("Dependency outcome must be completed, failed or cancelled")
@@ -1151,6 +1292,8 @@ def dependency_finish(target, dependency_id, *, outcome="completed", result=None
         row = next((row for row in state["dependencies"] if row["id"] == dependency_id), None)
         if row is None:
             raise HarnessError("Unknown dependency ID")
+        if not _dependency_current(state, row):
+            return {**copy.deepcopy(row), "phase": "superseded", "instruction": "Preserve this previous task cycle; no notice was sent."}
         if row["phase"] == "waiting":
             row.update(phase=outcome, result=result, text=message or f"Dependency {outcome}: {row['condition']}. Result: {result or 'see producer chat ' + row['producer_thread_id']}.")
             write_json(_task_path(root), state)
@@ -1160,11 +1303,162 @@ def dependency_finish(target, dependency_id, *, outcome="completed", result=None
                 project_id = row.get("project_id") or sessions.project_id(server, root)
                 _thread(server, row["producer_thread_id"], root, project_id)
                 row["project_id"] = project_id
-                row["delivery"] = sessions.send_once(path, row["consumer_thread_id"], row["text"], server,
-                                                    expected_binding=_binding(root, project_id))
+                row["delivery"] = _deliver_notice(root, row, row["consumer_thread_id"], row["text"], path, server, explicit=True)
+                _dependency_continuation(state, row)
         except Exception as exc:
             _render_after_failure(root, state, exc)
             raise
         write_json(_task_path(root), state)
         _render_tasks(root, state)
         return copy.deepcopy(row)
+
+
+def _dependency_current(state, dependency):
+    binding = dependency.get("consumer_binding")
+    if binding is None:
+        return True
+    return any(task.get("id") == binding["task_id"] and task.get("cycle", 0) == binding["cycle"]
+               and task.get("camel_thread_id") == dependency["consumer_thread_id"] for task in state["tasks"])
+
+
+def _dependency_continuation(state, dependency):
+    delivery = dependency.get("delivery") or {}
+    binding = dependency.get("consumer_binding")
+    if not binding or delivery.get("state") != "accepted" or not delivery.get("turn_id"):
+        return
+    task = _task(state, binding["task_id"])
+    continuations = task.setdefault("dependency_continuations", [])
+    if not any(row["dependency_id"] == dependency["id"] for row in continuations):
+        continuations.append({"dependency_id": dependency["id"], "delivery": copy.deepcopy(delivery)})
+        task["phase"] = "assigned"
+
+
+def notification_targets(root, server):
+    """Read registered paths without delivering a notification."""
+    state, targets = _tasks(root), {}
+    for row in state["tasks"]:
+        if row.get("camel_thread_id") and row.get("assignment_delivery") and not row.get("archived"):
+            native = _thread(server, row["camel_thread_id"], root, _task_project(row))
+            targets[native["id"]] = {"thread_id": native["id"], "path": native["path"]}
+    return list(targets.values())
+
+
+def _notification_pending(root, state):
+    for row in state["tasks"]:
+        if row.get("archived") or not row.get("camel_thread_id") or not row.get("assignment_delivery"):
+            continue
+        if row.get("completion"):
+            if _notice(root, row)["state"] != "accepted":
+                return True
+        elif row.get("unsubmitted_notice", {}).get("delivery", {}).get("state") != "accepted":
+            return True
+    return any(_dependency_current(state, row) and row.get("delivery", {}).get("state") != "accepted"
+               for row in state["dependencies"])
+
+
+def notification_step(root, server, *, changed_threads=None, cache=None):
+    """Observe exact registered work, then reconcile one notice per transition.
+
+    Readers run outside the writer lock. Revalidated identities protect late
+    results; the existing send journal protects accepted and ambiguous effects.
+    The process owns no model work, integration, archive or host lifecycle.
+    """
+    root = Path(root).resolve()
+    cache = cache if cache is not None else {}
+    state = _tasks(root)
+    observations, targets = {}, {}
+
+    def native(identity, project):
+        key = ("thread", identity, project)
+        if key not in cache or changed_threads is None or identity in changed_threads:
+            cache[key] = _thread(server, identity, root, project)
+        thread = cache[key]
+        if isinstance(thread.get("path"), str):
+            targets[identity] = {"thread_id": identity, "path": thread["path"]}
+        return thread
+
+    for row in state["tasks"]:
+        identity = row.get("camel_thread_id")
+        completion = row.get("completion") or {}
+        if (not identity or not row.get("assignment_delivery") or row.get("archived")
+                or row.get("phase") in ("creating", "creation_uncertain", "assignment_uncertain")):
+            continue
+        if completion and _notice(root, row)["state"] == "accepted":
+            continue
+        missing = row.get("unsubmitted_notice") or {}
+        if not completion and missing.get("delivery", {}).get("state") == "accepted":
+            continue
+        signature = _collection_identity(root, row)
+        key = ("task", row["id"], signature)
+        if key not in cache or changed_threads is None or identity in changed_threads:
+            cache[key] = _terminal_snapshot(root, row, server)
+        snapshot, thread = cache[key]
+        targets[identity] = {"thread_id": identity, "path": thread["path"], "turn_id": snapshot.get("id")}
+        observations[row["id"]] = (signature, snapshot)
+        if completion or snapshot["state"] in ("ready", "failed", "cancelled"):
+            native(row["cameleer_thread_id"], _task_project(row))
+    for row in state["dependencies"]:
+        if not _dependency_current(state, row):
+            continue
+        if row.get("delivery", {}).get("state") == "accepted":
+            continue
+        project = row.get("project_id") or sessions.project_id(server, root)
+        native(row["producer_thread_id"], project)
+        if row.get("phase") == "waiting" and row.get("producer_turn_id"):
+            key = ("dependency", row["id"], row["producer_turn_id"])
+            if key not in cache or changed_threads is None or row["producer_thread_id"] in changed_threads:
+                turns = sessions._history_page(server.call("thread/turns/list", {
+                    "threadId": row["producer_thread_id"], "itemsView": "notLoaded", "sortDirection": "desc", "limit": 1}), "thread/turns/list")["data"]
+                cache[key] = turns[0] if turns else {}
+            turn = cache[key]
+            if turn.get("id") == row["producer_turn_id"] and turn.get("status") in ("failed", "interrupted"):
+                observations[row["id"]] = (digest(row), "failed" if turn["status"] == "failed" else "cancelled")
+        if row.get("phase") != "waiting" or row["id"] in observations:
+            native(row["consumer_thread_id"], project)
+
+    with operation_lock(contained(root, ".oasis/local/operations.lock")):
+        current = _tasks(root)
+        before = digest(current)
+        for row in current["tasks"]:
+            observation = observations.get(row["id"])
+            if not observation or _collection_identity(root, row) != observation[0]:
+                continue
+            snapshot = observation[1]
+            row["native_turn"] = snapshot
+            if not row.get("completion") and snapshot["state"] in ("failed", "cancelled"):
+                outcome = snapshot["state"]
+                text = f"Task {outcome}: {row.get('current_goal', row['goal'])}. Result: {row['camel_thread_id']}. Resume this same task for corrections."
+                row["completion"] = {"outcome": outcome, "text": text,
+                    "result_key": digest([row["id"], row.get("cycle", 0), snapshot["id"], outcome]), "native_only": True}
+            if row.get("completion"):
+                _deliver_completion(root, row, snapshot, server)
+            elif snapshot["state"] == "ready" and any(dependency.get("consumer_thread_id") == row["camel_thread_id"]
+                    and (dependency.get("phase") == "waiting" or dependency.get("delivery", {}).get("state") != "accepted")
+                    and _dependency_current(current, dependency)
+                    for dependency in current["dependencies"]):
+                row["phase"] = "waiting_dependency"
+            elif snapshot["state"] == "ready":
+                row["phase"] = "terminal_unsubmitted"
+                notice = row.setdefault("unsubmitted_notice", {"text":
+                    f"Task ended without a submitted result: {row.get('current_goal', row['goal'])}. Review {row['camel_thread_id']} and recover this same task."})
+                notice["delivery"] = _deliver_notice(root, row, row["cameleer_thread_id"], notice["text"],
+                    _delivery_path(root, row, "unsubmitted"), server)
+        for row in current["dependencies"]:
+            if not _dependency_current(current, row):
+                continue
+            observed = observations.get(row["id"])
+            if observed and digest(row) == observed[0] and row.get("phase") == "waiting":
+                row.update(phase=observed[1], text=f"Dependency {observed[1]}: {row['condition']}. Producer turn ended; resume the blocked portion with the retained result.")
+            if row.get("phase") in ("completed", "failed", "cancelled") and row.get("delivery", {}).get("state") != "accepted":
+                project = row.get("project_id") or sessions.project_id(server, root)
+                _thread(server, row["producer_thread_id"], root, project)
+                row["project_id"] = project
+                row["delivery"] = _deliver_notice(root, row, row["consumer_thread_id"], row["text"],
+                    contained(root, f".oasis/local/tasks/dependencies/{row['id']}.json"), server)
+                _dependency_continuation(current, row)
+        if digest(current) != before:
+            write_json(_task_path(root), current)
+            _render_tasks(root, current)
+    pending = _notification_pending(root, current)
+    return {"pending": pending, "targets": list(targets.values()), "journal_digest": digest(current),
+            "next_action": "Use workflow task-resume or dependency-finish for the retained operation; do not poll from a model."}

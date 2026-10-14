@@ -11,8 +11,13 @@ They verify the exercised functions; live chat adoption and remote effects need
 their own evidence. Select affected modules for ordinary changes; shared or
 unknown Python uses the full suite when passing evidence does not cover the same
 inputs. Reuse passed checks with matching code, tests, configuration and other
-consumed inputs. Version/documentation changes alone do not invalidate unaffected
-functional checks.
+consumed inputs. Compare the inputs actually consumed, using their retained
+fingerprint where available; missing proof remains unknown. Version/documentation
+changes alone do not invalidate unaffected functional checks. State a rerun's
+changed input or concrete concern in the existing check/result summary, without
+a new required form. Independent review still inspects relevant original inputs.
+Reuse unchanged source/result reads for the same purpose instead of repeatedly
+loading full histories; inspect affected ranges when the inputs or purpose change.
 
 Run checks for changed inputs and retain failed, missing or deferred coverage.
 Exact final export, privacy and identity checks still apply to the candidate.
@@ -22,8 +27,8 @@ log or failed run cannot become a pass.
 | Surface | Local verification | Separate live evidence |
 |---|---|---|
 | Install/update | All 24 active skills, three-way conflicts, recovery and preserved project knowledge/settings | Actual adopter conflicts, discovery and chat adoption |
-| Roles/tasks | Actual-ID assignment, title changes, direct completion, collection/archive/restore and task-list updates | Visible chats, real completion arrival and integration |
-| Dependencies | One terminal notice, failure/cancellation, duplicates and uncertain-send recovery | Ended-turn idle and authorized follow-up |
+| Roles/tasks | Actual-ID assignment, submitted/terminal-ready separation, collection/archive/restore and task-list updates | Visible chats, real completion arrival and integration |
+| Dependencies | Partial readiness, failure/cancellation, cycle/delivery deduplication and uncertain-send recovery | All-role ended-turn idle, active-recipient delivery and authorized follow-up |
 | Plan | Supported settings/update or turn/start fields and manual fallback | Actual native Plan selection and model planning |
 | Project modes | Preserved selection, interrupted transitions and unfinished/independent work | UI navigation and native archive cascades |
 | Native transport | RPC dispatch, write/close deadlines, notification ordering/limits and private diagnostics | Actual host endpoint, supported methods, UI and active-turn behavior |
@@ -48,11 +53,22 @@ live trials need their concrete scope, settings and cleanup; source maintenance
 does not create diagnostic chats or model turns.
 
 The transport exposes bounded notification retrieval and private diagnostics.
-It supplies no host startup, cross-process bridge, approval UI or automatic
-workflow integration. Standard-I/O/WebSocket fixtures cannot establish Desktop
+The scoped workflow observer owns future terminal notification, without host
+startup, approval UI or automatic review/integration. Test exact turn identity,
+registration races, burst coalescing, rate limits, lifecycle/FS fallback, finite
+reconnect, unsupported APIs, lost/duplicate/old-cycle events, lease expiry and
+cleanup failure. Whole deadlines include connection, RPC, I/O and cleanup.
+Standard-I/O/WebSocket fixtures cannot establish Desktop
 surface availability; see [sessions](sessions.md).
 
 For dependency costs, separate elapsed wait, tool wait and model requests.
+An unchanged dependency should cause zero periodic model requests and a confirmed
+meaningful transition should produce no duplicate wake-up. Compare the same fixed
+task on baseline and candidate: elapsed time, role-specific waiting tokens, RPC
+counts and output quality. Count experiment-observer queries separately from
+product/runtime queries and model polling. A role's total input includes actual
+assignment, review and collection work; do not classify it all as waiting cost.
+Do not infer unmeasured Camel behavior or unnecessary tests from Cameleer traces.
 Count distinct native usage response IDs; cached input and reasoning output are
 subsets. Missing telemetry is unknown. A local duplicate guard prevents repeated
 integration, but cannot prevent every duplicate native message invoking a model.

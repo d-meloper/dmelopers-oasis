@@ -30,6 +30,9 @@ Select checks for the changed contract and connected consumer. Reuse passing
 evidence while consumed source, configuration, tools, test runners and data
 match. Package-initializer behavior and shared test/fixture imports can invalidate
 checks beyond the directly edited test; a version literal alone need not.
+Reuse source/result reads for the same purpose while those inputs match. Inspect
+changed ranges or a concrete concern, state that reason in the existing result
+when repeating a check, and preserve independent review of the relevant originals.
 When a behavior test is useful, reproduce the user's failing action and check
 its result, with a relevant negative control. Avoid checks that merely repeat
 the implementation's wording or calculate their expected value through the

@@ -12,6 +12,8 @@ chat, with relevant checks and compatible local harness upkeep. Use requested
 workers and preserve the mode until the owner switches it. Read applicable
 [shared implementation experience](../oasis-camel/references/best-practices.md)
 for implementation; keep Pioneer-specific mode and coordination lessons here.
+Use [dependency waiting](../../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
+when requested workers or shared resources block further work.
 
 Before the final completion report, consolidate useful lessons from this work
 once in the owning experience reference.

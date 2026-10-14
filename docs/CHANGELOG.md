@@ -6,6 +6,48 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 1.2.3
+
+Core remains 2.0.0. All roles end a turn after independently possible work when
+a registered dependency blocks progress. A waiting turn does not complete its
+task or trigger another experience consolidation. Independent specialist chats
+retain their assignments and actual identities.
+
+Result submission is separate from native terminal readiness. A project/backend
+scoped non-model observer delivers one retained notice after the assigned turn
+actually ends; active recipients retain pending messages until idle. Confirmed
+dependency deliveries identify same-cycle continuation turns while preserving
+the original assignment. Previous-cycle dependencies cannot wake new work.
+Partial results resume the named portion without waiting for the whole producer.
+Failure, cancellation, missing submissions and uncertain delivery stay distinct.
+
+The observer connects only to an existing selected backend, owns no server or
+model, and ends when pending notices resolve or its default 24-hour lease expires.
+Unsupported observation leaves a specific resume action. Connection loss permits
+one reconciliation/reconnect without replaying uncertain mutations. Ownership
+uses an OS-held lock, generation and actual process birth/executable information.
+
+File invalidations coalesce with bounded debounce and history-query rate. A
+same-watch burst of 100 events previously caused 103 history reads; the focused
+regression now permits at most four state reads. Unrelated-watch filtering,
+assigned latest-turn identity, nonempty final-phase output, idle status and fresh
+pre-archive checks remain. A single absolute native-operation deadline covers
+connection, RPC, event waiting, writes and cleanup; collect exposes --timeout
+while retaining the Python event wait budget. Consumed-input evidence supports
+check and source/result read reuse without removing independent review or
+requiring new project forms.
+
+Disposable native trials verified delayed terminal-ready delivery after the
+creating CLI exited, final output preservation, archive/same-ID restoration and
+unrelated chat preservation. Camel, Pioneer, Developer and an independent
+specialist each ended their initial waiting turn, resumed once from a partial
+result while its producer was still active, and ignored a duplicate finish.
+The Camel continuation retained its task cycle and collected successfully.
+The one-file comparison took 111 seconds for the baseline and 128 seconds for
+the candidate; neither produced periodic idle model requests in that case.
+These observations establish the exercised lifecycle boundaries, not a general
+speed/token saving or reproduction of earlier large polling workloads.
+
 ## 1.2.2
 
 Core remains 2.0.0. Reused request keys compare original input fingerprints

@@ -1839,6 +1839,80 @@
         "Command-local exact-version selection changes only package metadata. Implementation and corrected validation inputs are preserved."
       ],
       "files": []
+    },
+    {
+      "version": "1.2.3",
+      "previous": "1.2.2",
+      "summary": [
+        "End unchanged model waiting and deliver retained terminal-ready notices through a bounded project/backend I/O owner; Core remains 2.0.0."
+      ],
+      "areas": [
+        {
+          "name": "Terminal readiness and dependency continuation",
+          "paths": [
+            "oasis_harness/workflows.py",
+            "oasis_harness/sessions.py",
+            "oasis_harness/notifications.py",
+            "oasis_harness/installation.py"
+          ],
+          "change": "Separate result submission, exact native terminal state and delivered notices; observe without model polling and preserve same-cycle dependency continuation.",
+          "apply": "Use an ordinary inspected three-way upgrade. Preserve local task/receipt state, settings, user knowledge and skills. The observer connects only to the selected existing backend and owns no server.",
+          "checks": [
+            "Early submissions do not wake managers; exact final output survives collection and archive.",
+            "Duplicate and previous-cycle notices cannot resend or repeat integration; partial dependencies resume their named portion.",
+            "Burst invalidations are coalesced; absolute native deadlines and bounded cleanup retain recoverable state."
+          ]
+        },
+        {
+          "name": "Role waiting and verification reuse",
+          "paths": [
+            "seed/LocalGitWorkflow.md",
+            "seed/ProjectGuide.md",
+            "seed/.agents/skills/oasis-camel/SKILL.md",
+            "seed/.agents/skills/oasis-cameleer/SKILL.md",
+            "seed/.agents/skills/oasis-pioneer/SKILL.md",
+            "library/oasis-runtime-lifecycle/references/best-practices.md"
+          ],
+          "change": "Apply one shared ended-turn dependency rule across roles and independent specialists, reuse matching consumed-input evidence and retain one useful closing learning pass.",
+          "apply": "Merge only compatible guidance into existing project owners; retain independent chats, local knowledge and unfinished work. No new mandatory forms or completion gates.",
+          "checks": [
+            "Waiting is distinct from task completion and does not trigger repeated experience edits.",
+            "Changed inputs and concrete doubts justify relevant retesting; independent review still reads affected originals."
+          ]
+        }
+      ],
+      "source_only": [
+        "Source-only tests, exact privacy pins and documentation accompany the change; no automatic adopter upgrade, service installation, tag or release asset."
+      ],
+      "files": [
+        "README.md",
+        "docs/CHANGELOG.md",
+        "docs/identity.md",
+        "docs/knowledge.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/installation.py",
+        "oasis_harness/notifications.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-camel/SKILL.md",
+        "seed/.agents/skills/oasis-camel/references/best-practices.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-pioneer/SKILL.md",
+        "seed/.oasis/docs/communication.md",
+        "seed/AGENTS.md",
+        "seed/LocalGitWorkflow.md",
+        "seed/ProjectGuide.md",
+        "tests/test_deadlines.py",
+        "tests/test_dependencies.py",
+        "tests/test_distribution.py",
+        "tests/test_notifications.py",
+        "tests/test_waiting.py",
+        "tests/test_workflows.py",
+        "tools/public-source-policy.json"
+      ]
     }
   ],
   "schema_version": 1

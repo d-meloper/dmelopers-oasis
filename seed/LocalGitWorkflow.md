@@ -14,17 +14,23 @@ for check-input reuse and encoding conditions.
 
 ## Dependency waiting and resumption
 
-When another Camel's result or overlapping edit blocks work, name the precise
-portion and the terminal result needed to resume. Agree who sends that result.
-Finish independently possible work, leave the dependency reference and end the
-turn while it is unchanged.
+This rule applies to Cameleer, Camel, Pioneer, Developer and independent
+specialists. When a result or shared resource blocks work, register the precise
+portion, producer/consumer IDs and outcome needed to resume. Finish independently
+possible work, retain its reference and end the turn. Do not keep a model turn
+open to inspect status, result files or elapsed time; runtime handles observation.
 
-The other Camel sends one notice when that portion completes, fails or is
-cancelled. Include the outcome and the result/reference needed for resumption.
-Keep routine progress local and end the turn after independent work. Resume
-from the named terminal result. The consumer resumes
-from the relevant result and current affected files. A duplicate terminal notice
-does not repeat the same work or integration.
+Resume once from a meaningful result, failure or cancellation notice, using its
+reference and current affected inputs. A whole-assignment notice waits for the
+assigned native turn to finish; a named partial result or resource release can
+resume its consumer while the producer continues. Duplicate or earlier-cycle
+notices do not repeat work or integration. Runtime retains a notice for an active
+recipient until that recipient is idle.
+
+Ending a waiting turn does not complete the assignment or trigger its closing
+experience pass. Keep routine progress local. If observation expires or is
+unsupported, leave the exact explicit resume step and end the turn instead of
+creating a model retry loop.
 
 If delivery fails or is uncertain, retain that operation and reconcile its
 actual result before retrying. Recover the affected handoff without resending
