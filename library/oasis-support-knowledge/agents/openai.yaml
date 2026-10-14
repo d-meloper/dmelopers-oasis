@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Support Knowledge"
-  short_description: "Support Knowledge for the requested project work"
+  short_description: "Maintain grounded support facts and response quality"
   default_prompt: "Use $oasis-support-knowledge for the requested project scope."

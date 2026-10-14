@@ -12,5 +12,5 @@ Include each transformed instance in bounds and dispose instance/shared resource
 
 Reuse previews only within an isolated serial input-free batch; reset authored pose/crop through the owning path and compare A/B/A against a cold renderer. Never reset live input history for preview speed. Gate animation work and drawing appropriately while input remains responsive. Count eliminated work: draw calls, CPU payload, GPU texels, resident memory and native utilization are different metrics. Preserve negative controls and fixed tolerances. Software fixtures cannot establish installed Windows GPU equivalence.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

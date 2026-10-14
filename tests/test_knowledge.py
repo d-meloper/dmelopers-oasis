@@ -25,6 +25,10 @@ def example():
 
 
 class KnowledgeContracts(unittest.TestCase):
+    def test_https_is_not_a_windows_drive_finding(self):
+        self.assertEqual(knowledge.contamination({"evidence": "https://example.invalid/docs"}), ["external target"])
+        self.assertIn("private path", knowledge.contamination({"evidence": "C:/private-fixture/report"}))
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-knowledge-")
         self.root = Path(self.temp.name) / "project"

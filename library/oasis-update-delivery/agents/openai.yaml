@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Update Delivery"
-  short_description: "Update Delivery for the requested project work"
+  short_description: "Verify update handoffs, cancellation and durable state"
   default_prompt: "Use $oasis-update-delivery for the requested project scope."

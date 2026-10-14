@@ -70,9 +70,14 @@ Run source commands from this root; adopters use installed `tools/oasis.py`:
 
 ```powershell
 python -B -X utf8 oasis.py --help
-python -B -X utf8 oasis.py skills list
+python -B -X utf8 oasis.py skills list --summary
 python -B -X utf8 -m unittest discover -s tests -t . -v
 ```
+
+`skills list --project <target>` reads the target's actual bundled skill files,
+including local descriptions and missing/invalid file status. `--summary` omits
+resource hashes; the full inventory remains available without it. These are file
+facts, separate from native discovery and model use.
 
 Read the applicable skill experience before choosing an approach. Once before
 final completion, consolidate useful lessons in the existing owner, combining

@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Preview renderer reused across A/B/A assets
+## Scenario 1
 
-Expected behavior: Results match cold references with bounded retained resources.
+Request/state: Preview renderer reused across A/B/A assets.
 
-## Negative: Geometry-only test passes but first upload draw is wrong
+## Scenario 2
 
-Expected behavior: Keep failure and exercise the backend upload boundary.
+Request/state: Geometry-only test passes but first upload draw is wrong.
 
-## Ambiguous: Requested quality differs from allocated targets
+## Scenario 3
 
-Expected behavior: Report applied-state uncertainty; inspect actual context.
+Request/state: Requested quality differs from allocated targets.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

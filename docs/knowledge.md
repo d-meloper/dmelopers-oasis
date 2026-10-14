@@ -8,6 +8,9 @@ completion report or handoff, consolidate what matters for the next task in the
 reference that owns that subject. Work involving several skills uses one closing
 pass over those used skills; each worker closes its assigned scope, and the
 integrator retains lessons created by integration.
+Retain non-obvious information that changes the next decision: a newly established
+condition, failure cause or useful action. Do not add general advice already owned
+by the current reference.
 
 Keep one canonical source for shared experience and link from other roles.
 Combine duplicates without losing distinct applicability or evidence. Remove or
@@ -21,6 +24,9 @@ file and relevant heading, and adds only compatible closing guidance there.
 Keep shared implementation experience in its existing reference. Coordinate a
 single writer for shared files, reread current content and edit the affected
 portion without overwriting another writer.
+When workers share an owner, use the writer already chosen for their overlapping
+scope. Other workers include any useful lesson in their existing final result;
+that writer consolidates it with the relevant work once.
 
 If this work supplies no useful lesson, duplicate or invalidated advice, finish
 without a reference edit, placeholder or routine experience report. Interrupted
@@ -36,9 +42,11 @@ affected by the actual change and the final deliverable.
 
 Project knowledge and settings remain local. Raw transcripts, host paths,
 account/chat IDs and operational evidence belong in `.oasis/local/`. Portable
-lessons use sanitized examples. Historical observations and procedures live in
-[CHANGELOG](CHANGELOG.md); retain unique evidence there or in the project's
-existing history rather than leaving obsolete instructions in active references.
+lessons use sanitized examples. [CHANGELOG](CHANGELOG.md) owns harness version
+changes and transition procedures. Project experience history belongs in the
+project's existing history or local evidence, preserving unique observations
+without putting obsolete instructions in active references or local lessons in
+the installed harness CHANGELOG.
 
 ## Optional structured cases
 

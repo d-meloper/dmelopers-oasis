@@ -10,7 +10,9 @@ Authenticate the actual comparison. A version, branch name, ancestry or tag alon
 
 Trace changed contracts into connected unchanged callers, data, timing, teardown and channel paths. Inspect revised tests for weakened expectations. Establish the expected behavior and causal before/after evidence before calling a defect new. Keep suspected and pre-existing issues separate; a read-only request stays read-only and a no-defect review creates no fabricated change.
 
+Use the user's reproduced failure and an independent expected result when a behavior test is needed. A relevant negative control separates the changed contract from unrelated behavior; assertions that copy the implementation's wording do not establish that contract.
+
 Make the smallest complete authorized correction at the responsible layer. Refresh only evidence invalidated by source drift and inspect the final net effect. Report user-visible change notes, proven resolutions and actual checks in the owner's language, with manual/unknown limits. Do not create a report ledger, rebuild, scan, launch, publish or send messages solely because a review ran.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

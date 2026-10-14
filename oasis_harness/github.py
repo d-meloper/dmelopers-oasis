@@ -2,10 +2,15 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
 import subprocess
+import queue
+import tempfile
+import threading
+import time
 from urllib.parse import urlparse, quote
 import urllib.request
 
@@ -106,22 +111,99 @@ class GitHub:
 
     def download_asset(self, slug, asset, *, anonymous=False):
         if anonymous:
-            return anonymous_download(asset["browser_download_url"])
+            return anonymous_download(asset["browser_download_url"], max_bytes=asset["size"], expected_size=asset["size"])
+        return b"".join(self._asset_chunks(slug, asset))
+
+    def asset_digest(self, slug, asset, *, anonymous=False):
+        chunks = anonymous_chunks(asset["browser_download_url"], max_bytes=asset["size"], expected_size=asset["size"]) if anonymous else self._asset_chunks(slug, asset)
+        result = hashlib.sha256()
+        for chunk in chunks:
+            result.update(chunk)
+        return result.hexdigest()
+
+    def _asset_chunks(self, slug, asset):
+        """Bounded-memory gh transport; only this owned download child is stopped."""
+        limit = asset["size"]
+        if type(limit) is not int or limit < 0:
+            raise HarnessError("Asset size must be a nonnegative integer")
         self.assert_stored_oauth()
-        result = subprocess.run(["gh", "api", "--hostname", self.host, "-H", "Accept: application/octet-stream",
-                                 f"/repos/{repository_slug(slug)}/releases/assets/{int(asset['id'])}"],
-                                capture_output=True, env=clean_environment(), timeout=600)
-        if result.returncode:
-            raise HarnessError("Authenticated asset readback failed")
-        return result.stdout
+        argv = ["gh", "api", "--hostname", self.host, "-H", "Accept: application/octet-stream",
+                f"/repos/{repository_slug(slug)}/releases/assets/{int(asset['id'])}"]
+        packets, stop = queue.Queue(maxsize=4), threading.Event()
+        with tempfile.TemporaryFile() as diagnostic:
+            process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=diagnostic, env=clean_environment(),
+                                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0)
+            def read():
+                try:
+                    while not stop.is_set():
+                        chunk = process.stdout.read(64 * 1024)
+                        while not stop.is_set():
+                            try:
+                                packets.put(chunk or None, timeout=0.1)
+                                break
+                            except queue.Full:
+                                pass
+                        if not chunk:
+                            break
+                except OSError:
+                    while not stop.is_set():
+                        try:
+                            packets.put(False, timeout=0.1)
+                            break
+                        except queue.Full:
+                            pass
+            reader = threading.Thread(target=read, daemon=True)
+            reader.start()
+            total, deadline = 0, time.monotonic() + 600
+            try:
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise HarnessError("Authenticated asset readback timed out")
+                    try:
+                        chunk = packets.get(timeout=remaining)
+                    except queue.Empty as exc:
+                        raise HarnessError("Authenticated asset readback timed out") from exc
+                    if chunk is False:
+                        raise HarnessError("Authenticated asset stream failed")
+                    if chunk is None:
+                        break
+                    total += len(chunk)
+                    if total > limit:
+                        raise HarnessError("Asset stream exceeds the approved size")
+                    yield chunk
+                try:
+                    code = process.wait(timeout=max(0.01, deadline - time.monotonic()))
+                except subprocess.TimeoutExpired as exc:
+                    raise HarnessError("Authenticated asset readback timed out") from exc
+                if code or total != limit:
+                    raise HarnessError("Authenticated asset readback failed or was incomplete")
+            finally:
+                stop.set()
+                if process.poll() is None:
+                    process.kill()
+                    process.wait(timeout=5)
+                reader.join(timeout=1)
+                if not reader.is_alive():
+                    process.stdout.close()
 
     def download_source(self, slug, commit, path):
+        return self.download_source_bounded(slug, commit, path)
+
+    def download_source_bounded(self, slug, commit, path, *, max_bytes=64 * 1024 * 1024, expected_size=None):
         from .common import safe_relative
         safe_relative(path)
-        return anonymous_download(f"https://raw.githubusercontent.com/{repository_slug(slug)}/{quote(commit, safe='')}/{quote(path, safe='/')}")
+        return anonymous_download(f"https://raw.githubusercontent.com/{repository_slug(slug)}/{quote(commit, safe='')}/{quote(path, safe='/')}",
+                                  max_bytes=max_bytes, expected_size=expected_size)
 
 
-def anonymous_download(url):
+def anonymous_download(url, *, max_bytes=64 * 1024 * 1024, expected_size=None):
+    return b"".join(anonymous_chunks(url, max_bytes=max_bytes, expected_size=expected_size))
+
+
+def anonymous_chunks(url, *, max_bytes, expected_size=None):
+    if type(max_bytes) is not int or max_bytes < 0 or (expected_size is not None and (type(expected_size) is not int or expected_size < 0 or expected_size > max_bytes)):
+        raise HarnessError("Download limits must be nonnegative approved byte counts")
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname not in {"github.com", "raw.githubusercontent.com"} or parsed.username or parsed.password:
         raise HarnessError("Expected an anonymous HTTPS GitHub release asset URL")
@@ -133,4 +215,22 @@ def anonymous_download(url):
                 raise HarnessError("Unexpected release download redirect")
             return super().redirect_request(req, fp, code, msg, headers, newurl)
     with urllib.request.build_opener(SafeRedirect()).open(url, timeout=120) as response:
-        return response.read()
+        length = response.headers.get("Content-Length")
+        if length is not None:
+            try:
+                size = int(length)
+            except ValueError as exc:
+                raise HarnessError("Download has an invalid declared size") from exc
+            if size < 0 or size > max_bytes or expected_size is not None and size != expected_size:
+                raise HarnessError("Download declared size differs from the approved limit")
+        total = 0
+        while True:
+            chunk = response.read(min(64 * 1024, max_bytes - total + 1))
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                raise HarnessError("Download exceeds the approved byte limit")
+            yield chunk
+        if expected_size is not None and total != expected_size:
+            raise HarnessError("Download ended before the approved size")

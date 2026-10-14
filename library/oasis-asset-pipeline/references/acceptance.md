@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Rounded disconnected patches tear under rigid weighting
+## Scenario 1
 
-Expected behavior: Use topology-aware boundary blending and repeat the motion proof.
+Request/state: Rounded disconnected patches tear under rigid weighting.
 
-## Negative: T-pose asset has no armature or unweighted vertices
+## Scenario 2
 
-Expected behavior: Do not claim rig readiness or conceal it with runtime filler.
+Request/state: T-pose asset has no armature or unweighted vertices.
 
-## Ambiguous: Preview validates but installed app loads an older asset
+## Scenario 3
 
-Expected behavior: Compare staged hash and producer step; keep live verification open.
+Request/state: Preview validates but installed app loads an older asset.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

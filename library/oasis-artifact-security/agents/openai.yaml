@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Artifact Security"
-  short_description: "Artifact Security for the requested project work"
+  short_description: "Check requested artifact bytes and actual scanner coverage"
   default_prompt: "Use $oasis-artifact-security for the requested project scope."

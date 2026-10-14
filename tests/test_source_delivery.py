@@ -17,6 +17,114 @@ spec.loader.exec_module(delivery)
 
 
 class SourceDeliveryContracts(unittest.TestCase):
+    def test_remote_status_reads_checks_and_stops_on_moved_base_without_mutation(self):
+        from oasis_harness.publication import Publisher
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "candidate"
+            fixture_candidate(root)
+            value = read_json(root / "candidate.json")
+            value["config"].update(operation="source", tag=None, make_latest=False)
+            value["assets"] = {}
+            sha = digest(value)
+            write_json(root / "candidate.json", value)
+            write_json(root / "state.json", {"candidate_id": sha, "phase": "prepared", "events": []})
+            provider = GitHubFixture()
+            original_pages = provider.pages
+            provider.pages = lambda path: [] if path.endswith("/statuses") else original_pages(path)
+            with self.assertRaisesRegex(HarnessError, "Required commit status"):
+                Publisher(root, sha, provider).execute("fixture current request")
+            selected = {**value["config"], "account_id": value["account_id"]}
+            count, before = len(provider.mutations), (root / "state.json").read_bytes()
+            with patch.object(delivery, "source_config", return_value=selected):
+                result = delivery.status(root, sha, remote=True, provider=provider)
+                self.assertEqual(result["required_checks"], {"fixture-check": "missing"})
+                provider.refs["heads/main"] = "moved-base"
+                changed = delivery.status(root, sha, remote=True, provider=provider)
+            self.assertTrue(result["remote_checked"])
+            self.assertEqual(changed["next_commands"], [])
+            self.assertIn("Public base moved", changed["next"])
+            self.assertEqual(count, len(provider.mutations))
+            self.assertEqual(before, (root / "state.json").read_bytes())
+
+    def test_fresh_public_version_exception_uses_actual_bytes(self):
+        from oasis_harness.publication import blob_sha
+        from types import SimpleNamespace
+        previous = b'__version__ = "1.2.0"\n'
+        import base64
+        provider = SimpleNamespace(request=lambda *args, **kwargs: {"encoding": "base64", "size": len(previous), "content": base64.b64encode(previous).decode()})
+        remote = {"oasis_harness/__init__.py": {"sha": blob_sha(previous), "mode": "100644"}}
+        with patch.object(delivery.publication, "remote_tree", return_value=("tree", remote)), patch.object(delivery, "git", return_value='__version__ = "1.2.1"\n'):
+            self.assertTrue(delivery.public_version_literal_only(provider, {"repository": "fixture/repo"}, "base", "head", list(remote)))
+        with patch.object(delivery.publication, "remote_tree", return_value=("tree", remote)), patch.object(delivery, "git", return_value='__version__ = "1.2.1"\nBEHAVIOR = True\n'):
+            self.assertFalse(delivery.public_version_literal_only(provider, {"repository": "fixture/repo"}, "base", "head", list(remote)))
+
+    def test_depth_guidance_reads_existing_full_baseline_and_detects_cycle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp)
+            baseline, current = parent / "baseline.json", parent / "current.json"
+            write_json(baseline, {"commands": [{"argv": []}, {"argv": ["--full"]}]})
+            write_json(current, {"source_verification": {"runner_full": False, "reuse": {"receipt": str(baseline)}}})
+            info = delivery.reuse_chain(current)
+            self.assertEqual(info["depth"], 2)
+            self.assertEqual(info["existing_full_baselines"], [str(baseline.resolve())])
+            self.assertFalse(info["cycle"] or info["evidence_verified"])
+            write_json(baseline, {"source_verification": {"runner_full": False, "reuse": {"receipt": str(current)}}})
+            self.assertTrue(delivery.reuse_chain(current)["cycle"])
+
+    def test_fresh_and_reused_helper_changes_select_actual_consumers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp)
+            source, baseline = self.reuse_fixture(parent, initial_files={
+                "tests/fixture_values.py": "VALUE = 1\n",
+                "tests/test_backup.py": "from tests.fixture_values import VALUE\nimport unittest\nclass Fixture(unittest.TestCase):\n    def test_value(self):\n        self.assertEqual(VALUE, 1)\n"})
+            (source / "tests/fixture_values.py").write_text("VALUE = 2\n", encoding="utf-8")
+            git(source, "add", "tests/fixture_values.py")
+            git(source, "commit", "-m", "fixture helper changed")
+            with patch.object(delivery, "ROOT", source):
+                fresh = delivery._committed_selector("HEAD")(["tests/fixture_values.py"])
+                proof = delivery.verification_plan("HEAD", ["tests/fixture_values.py"], reuse_build_receipt=baseline)
+                self.assertIn("tests.test_backup", fresh["modules"])
+                self.assertIn("tests.test_backup", proof["executed"]["modules"])
+                self.assertNotIn("tests.fixture_values", fresh["modules"])
+                self.assertNotIn("tests.test_backup", proof["reused_modules"])
+                with self.assertRaises(HarnessError):
+                    build.execute(source, "HEAD", delivery.verification_adapter(proof), parent / "failed", "1")
+
+    def test_changed_current_selection_does_not_reinterpret_retained_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp)
+            source, baseline = self.reuse_fixture(parent, full=False)
+            with patch.object(delivery, "ROOT", source), patch.dict("tools.source_checks.DEPENDENTS", {"sessions": {"backup", "sessions"}}):
+                _, covered = delivery._checked_receipt(baseline)
+            self.assertEqual(covered, {"tests.test_public_source", "tests.test_source_delivery", "tests.test_distribution"})
+
+    def test_environment_changes_are_scoped_and_missing_legacy_is_unknown(self):
+        from copy import deepcopy
+        previous = {"python": {"version": [3, 11, 1]}, "platform": {"os": "nt"}, "git": "one", "env": {}}
+        current = deepcopy(previous)
+        current["git"] = "two"
+        match, invalid, full = delivery._environment_changes(previous, current, {"tests.test_backup", "tests.test_sessions"})
+        self.assertEqual((match, invalid, full), ("changed", {"tests.test_backup"}, False))
+        self.assertEqual(delivery._environment_changes(None, current, {"tests.test_sessions"}), ("unknown-legacy", set(), False))
+
+    def test_source_status_does_not_write_or_invoke_provider_by_default(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "candidate"
+            sha = fixture_candidate(root)
+            value = read_json(root / "candidate.json")
+            value["config"].update(operation="source", tag=None, make_latest=False)
+            value["assets"] = {}
+            sha = digest(value)
+            write_json(root / "candidate.json", value)
+            write_json(root / "state.json", {"candidate_id": sha, "phase": "pull_request", "pr_number": 1, "candidate_commit": "fixture-head", "events": []})
+            selected = {**value["config"], "account_id": value["account_id"]}
+            before = {path: path.read_bytes() for path in root.rglob("*") if path.is_file()}
+            with patch.object(delivery, "source_config", return_value=selected), patch.object(delivery, "GitHub", side_effect=AssertionError("network constructed")):
+                result = delivery.status(root, sha)
+            self.assertFalse(result["remote_checked"])
+            self.assertEqual(result["next_commands"][0][6], "--candidate")
+            self.assertEqual(before, {path: path.read_bytes() for path in root.rglob("*") if path.is_file()})
+
     def reuse_fixture(self, parent, *, full=True, initial_files=None):
         source = parent / "source"
         source.mkdir()
@@ -115,13 +223,14 @@ class SourceDeliveryContracts(unittest.TestCase):
             with patch.object(delivery, "ROOT", source):
                 proof = delivery.verification_plan("HEAD", ["tests/test_sessions.py"], reuse_build_receipt=baseline)
                 self.assertFalse(proof["runner_full"])
-                self.assertEqual(proof["additional_modules"], ["tests.test_backup", "tests.test_dependencies", "tests.test_workflows"])
-                for module in proof["additional_modules"]:
+                self.assertEqual(proof["additional_modules"], [])
+                for module in ("tests.test_backup", "tests.test_dependencies", "tests.test_workflows"):
+                    self.assertIn(module, proof["executed"]["modules"])
                     self.assertNotIn(module, proof["reused_modules"])
                 with self.assertRaisesRegex(HarnessError, "failed with exit code"):
                     build.execute(source, "HEAD", delivery.verification_adapter(proof), parent / "changed", "1.2.0")
-                log = (parent / "changed/command-3.log").read_text(encoding="utf-8")
-                for module in proof["additional_modules"]:
+                log = (parent / "changed/command-2.log").read_text(encoding="utf-8")
+                for module in ("tests.test_backup", "tests.test_dependencies", "tests.test_workflows"):
                     self.assertIn(module, log)
                 self.assertIn("FAIL", log)
 

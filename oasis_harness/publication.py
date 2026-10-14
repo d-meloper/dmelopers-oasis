@@ -374,7 +374,8 @@ class Publisher:
         if not pr:
             if any(e["operation"] == "pull_request" and e["status"] in ("intent", "uncertain_or_rejected") for e in self.state["events"]):
                 raise HarnessError("PR creation was uncertain and lookup found none; obtain operator reconciliation before retry")
-            pr = self.mutation("pull_request", "POST", self.prefix + "/pulls", {"title": self.config["title"], "body": f"Exact publication candidate {self.state['candidate_id']}.\n", "head": self.branch, "base": self.config["base_branch"]})
+            body = (self.dest / "notes.md").read_text(encoding="utf-8").rstrip() + f"\n\nExact publication candidate {self.state['candidate_id']}.\n"
+            pr = self.mutation("pull_request", "POST", self.prefix + "/pulls", {"title": self.config["title"], "body": body, "head": self.branch, "base": self.config["base_branch"]})
         self.save(pr_url=pr["html_url"], pr_number=pr["number"])
         pr = self.provider.request("GET", self.prefix + f"/pulls/{pr['number']}")
         self.check_pr(pr)
@@ -427,13 +428,21 @@ class Publisher:
             expected = self.spec["assets"][row["name"]]
             if row["state"] != "uploaded" or row["size"] != expected["size"]:
                 raise HarnessError("Partial or mismatched upload retained for inspection")
-            if digest(self.provider.download_asset(self.slug, row, anonymous=anonymous)) != expected["sha256"]:
+            native_digest = getattr(self.provider, "asset_digest", None)
+            actual_digest = native_digest(self.slug, row, anonymous=anonymous) if callable(native_digest) else digest(self.provider.download_asset(self.slug, row, anonymous=anonymous))
+            if actual_digest != expected["sha256"]:
                 raise HarnessError("Downloaded release bytes differ from candidate")
         return set(names)
 
     def verify_source(self, commit):
         for name, row in self.spec["projection"].items():
-            data = self.provider.download_source(self.slug, commit, name)
+            bounded = getattr(self.provider, "download_source_bounded", None)
+            local = self.spec["public_files"].get(name)
+            size = contained(self.dest, local["file"]).stat().st_size if local else None
+            data = bounded(self.slug, commit, name, max_bytes=size if size is not None else 64 * 1024 * 1024,
+                           expected_size=size) if callable(bounded) else self.provider.download_source(self.slug, commit, name)
+            if size is not None and len(data) != size:
+                raise HarnessError("Anonymous public source size differs from approved bytes")
             if blob_sha(data) != row["sha"]:
                 raise HarnessError("Anonymous public source differs from approved bytes")
             scan_source_file(name, data, self.config, self.policy)
@@ -443,7 +452,9 @@ class Publisher:
         with operation_lock(self.dest / "publish.lock"):
             if digest(self.spec) != self.state["candidate_id"]:
                 raise HarnessError("In-memory candidate drift; reload the exact reviewed candidate")
-            load_candidate(self.dest, self.state["candidate_id"])
+            self.dest, self.spec, self.state = load_candidate(self.dest, self.state["candidate_id"])
+            self.config = self.spec["config"]
+            check_source_policy(self.config, self.policy)
             self.check_target()
             if self.config.get("operation", "release") == "source" and (self.config.get("tag") is not None or self.config.get("make_latest") is not False):
                 raise HarnessError("Source-only publication requires tag null and make_latest false")

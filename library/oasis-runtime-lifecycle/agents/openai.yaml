@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Runtime Lifecycle"
-  short_description: "Runtime Lifecycle for the requested project work"
+  short_description: "Trace process, window and listener ownership through lifecycle"
   default_prompt: "Use $oasis-runtime-lifecycle for the requested project scope."

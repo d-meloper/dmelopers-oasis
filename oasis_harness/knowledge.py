@@ -11,7 +11,7 @@ from .installation import target_root
 
 KINDS = {"knowledge", "existing-skill", "new-skill", "delete-skill", "core"}
 SENSITIVE = (
-    ("private path", r"(?i)(?:[a-z]:[\\/]|/Users/|/home/|\\\\[^\s]+\\)"),
+    ("private path", r"(?i)(?:(?<![a-z0-9])[a-z]:[\\/]|/Users/|/home/|\\\\[^\s]+\\)"),
     ("credential", r"(?i)(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]+|sk-[A-Za-z0-9_-]{12,}|-----BEGIN .*PRIVATE KEY-----|Bearer\s+\S+|(?:password|token|secret|api[_-]?key)\s*[:=]\s*[^\s,}]+)"),
     ("email", r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"),
     ("live identifier", r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"),

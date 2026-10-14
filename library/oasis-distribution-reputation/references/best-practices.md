@@ -12,5 +12,5 @@ Reproduce only within requested execution scope and preserve the warning's exact
 
 Submit only to the exact authorized target and retain its real acknowledgement. Do not disable protection, add broad exceptions, weaken update trust or submit unrelated binaries. Reconcile uncertain submission by its case identity before repeating. Report vendor receipt separately from accepted correction or changed distribution behavior.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

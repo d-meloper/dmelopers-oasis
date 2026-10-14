@@ -12,5 +12,5 @@ Collect input independently from frame throttling and advance motion by elapsed 
 
 Keep coordinate transforms and contact targets consistent with current device/layout settings. A smooth helper does not prove dispatch delivers an event exactly once without reinitializing state. Preserve bounded semantic reaction state; do not add typed text or raw key histories. Use deterministic timing/pose tests and separately report physical-input/native animation observations. Settings layout, GPU representation and asset rigging retain their own owners.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

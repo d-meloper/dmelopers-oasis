@@ -27,7 +27,48 @@ class DependencyContracts(unittest.TestCase):
         self.assertTrue(first["end_turn"])
         self.assertEqual(first["phase"], "waiting")
         self.assertEqual(self.native.calls, [])
-        self.assertFalse((self.root / ".oasis/state/tasks.md").exists())
+        self.assertTrue((self.root / ".oasis/state/tasks.md").exists())
+
+    def test_self_dependency_and_request_conflicts_are_local_errors(self):
+        with self.assertRaisesRegex(HarnessError, "different producer"):
+            workflows.dependency_wait(self.root, "producer", "producer", "same-chat")
+        self.wait(request_id="fixed")
+        with self.assertRaisesRegex(HarnessError, "different inputs"):
+            workflows.dependency_wait(self.root, "producer", "caller", "Different condition", request_id="fixed")
+        self.assertEqual(self.native.calls, [])
+
+    def test_cycle_is_an_advisory_summary_warning_without_native_queries(self):
+        first = self.wait()
+        second = workflows.dependency_wait(self.root, "consumer", "producer", "second partial result")
+        summary = workflows.task_status(self.root, summary=True)
+        warning = summary["warnings"][0]
+        self.assertTrue(warning["advisory_only"])
+        self.assertEqual(set(warning["dependency_ids"]), {first["id"], second["id"]})
+        self.assertEqual(self.native.calls, [])
+
+    def test_terminal_dependency_with_lost_notice_stays_in_compact_status(self):
+        row = self.wait()
+        self.native.lose["turn/start"] = 1
+        with self.assertRaises(HarnessError):
+            workflows.dependency_finish(self.root, row["id"], result="saved", factory=self.native)
+        pending = workflows.task_status(self.root, summary=True)["dependencies"][0]
+        self.assertEqual(pending["phase"], "completed")
+        self.assertEqual(pending["terminal_notice"]["state"], "uncertain")
+        self.assertEqual(pending["terminal_notice"]["resume"]["command"], "workflow dependency-finish")
+        workflows.dependency_finish(self.root, row["id"], factory=self.native)
+        self.assertEqual(workflows.task_status(self.root, summary=True)["dependencies"], [])
+
+    def test_cross_project_notice_is_not_sent_and_wait_table_updates(self):
+        task = workflows.assign(self.root, "caller", "Use partial interface", factory=self.native)
+        row = workflows.dependency_wait(self.root, "producer", task["camel_thread_id"], "interface")
+        table = self.root / ".oasis/state/tasks.md"
+        self.assertIn("waiting for interface", table.read_text(encoding="utf-8"))
+        self.native.threads[task["camel_thread_id"]]["projectId"] = "OTHER"
+        sent = self.native.sent
+        with self.assertRaisesRegex(HarnessError, "another project"):
+            workflows.dependency_finish(self.root, row["id"], result="private result", factory=self.native)
+        self.assertEqual(self.native.sent, sent)
+        self.assertNotIn("waiting for interface", table.read_text(encoding="utf-8"))
 
     def test_only_scoped_terminal_notice_resumes_consumer_once(self):
         row = self.wait()

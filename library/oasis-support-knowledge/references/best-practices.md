@@ -12,5 +12,5 @@ Review content before updating source hashes, review date and material revision.
 
 Use semantic acceptance questions with expected answers kept outside uploaded material and withheld from the evaluated model. Local assertions and editorial coverage do not prove actual refreshed answers. Live registration requires the exact requested account/destination and only selected user-facing files; exclude validators, receipts, internal sources, logs and personal data. Read saved material back and exercise actual questions before claiming adoption.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

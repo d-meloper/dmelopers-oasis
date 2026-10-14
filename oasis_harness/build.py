@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import platform
+import struct
 import subprocess
+import sys
 import uuid
 
-from .common import (HarnessError, clean_environment, contained, digest, file_hash,
-                     git, read_json, run, write_json)
+from .common import (HarnessError, ProcessTimeout, clean_environment, contained, digest, file_hash,
+                     git, git_objects, json_object, read_json, run, write_json, write_new_json)
 
 
 def committed_snapshot(root, revision, destination):
@@ -39,15 +42,14 @@ def committed_snapshot(root, revision, destination):
         files.append((name, blob, target, mode))
     destination.mkdir(parents=True, exist_ok=False)
     hashes, modes = {}, {}
-    for name, blob, target, mode in files:
-        result = subprocess.run(["git", "-C", str(root), "cat-file", "blob", blob],
-                                capture_output=True, env=clean_environment(), timeout=120)
-        if result.returncode:
+    for index, (object_id, kind, data) in enumerate(git_objects(root, [row[1] for row in files])):
+        name, blob, target, mode = files[index]
+        if kind != "blob" or object_id != blob:
             raise HarnessError("Cannot materialize committed source blob")
         target.parent.mkdir(parents=True, exist_ok=True)
         with target.open("xb") as stream:
-            stream.write(result.stdout)
-        hashes[name] = digest(result.stdout)
+            stream.write(data)
+        hashes[name] = digest(data)
         modes[name] = mode
     return {"state": "committed", "object_format": fmt, "commit": oid, "tree": tree, "files": hashes, "modes": modes}
 
@@ -75,37 +77,62 @@ def adapter_commands(value, variables):
     return commands
 
 
+def execution_environment(root, keys=()):
+    """Minimal private runtime inputs; never collect ambient configuration."""
+    if not isinstance(keys, (list, tuple)) or any(not isinstance(key, str) or not key or not key.isidentifier() for key in keys):
+        raise HarnessError("verification_env must name explicit environment inputs")
+    return {"python": {"implementation": sys.implementation.name, "version": list(sys.version_info[:3]),
+                       "bits": struct.calcsize("P") * 8, "optimize": sys.flags.optimize},
+            "platform": {"os": os.name, "machine": platform.machine()},
+            "git": git(root, "--version"),
+            "env": {key: {"set": key in os.environ, "sha256": digest(os.environ.get(key, ""))}
+                    for key in sorted(set(keys))}}
+
+
 def execute(root, revision, adapter, destination, version):
     """Adapters are executable project code: inspect/authorize them before invocation."""
     destination = Path(destination).resolve()
     if destination.exists():
         raise HarnessError("Build evidence destination already exists; retain it and use a new run")
     adapter = read_json(adapter) if isinstance(adapter, (str, Path)) else adapter
-    if not {"schema_version", "build", "checks", "artifacts"}.issubset(adapter) or set(adapter) - {"schema_version", "build", "checks", "artifacts", "purpose"} or adapter["schema_version"] != 1:
+    adapter = json_object(adapter, "Build adapter")
+    if not {"schema_version", "build", "checks", "artifacts"}.issubset(adapter) or set(adapter) - {"schema_version", "build", "checks", "artifacts", "purpose", "verification_env"} or type(adapter["schema_version"]) is not int or adapter["schema_version"] != 1:
         raise HarnessError("Expected a schema-1 project build adapter")
     purpose = adapter.get("purpose", "release")
     if purpose not in ("source", "release"):
         raise HarnessError("Build purpose must be source or release")
-    if not isinstance(adapter["artifacts"], list) or (purpose == "release" and not adapter["artifacts"]):
+    if (not isinstance(adapter["artifacts"], list) or any(not isinstance(path, str) or not path for path in adapter["artifacts"]) or
+            (purpose == "release" and not adapter["artifacts"])):
         raise HarnessError("Adapter must name exact artifact output paths")
     # Validate commands before creating the retained workspace.
     variables = {"source": str(destination / "source"), "output": str(destination / "output"), "version": version}
     commands = [(kind, cmd) for kind in ("build", "checks") for cmd in
                 ([] if kind == "build" and purpose == "source" and adapter[kind] == [] else adapter_commands(adapter[kind], variables))]
+    environment = execution_environment(root, adapter.get("verification_env", []))
     source = committed_snapshot(root, revision, destination / "source")
     output = destination / "output"
     output.mkdir()
     receipt = {"schema_version": 1, "run_id": uuid.uuid4().hex, "source": source,
                "source_root": str(Path(root).resolve()), "adapter_sha256": digest(adapter), "version": version,
-               "phase": "running", "purpose": purpose, "commands": [], "artifacts": {}}
+               "phase": "running", "purpose": purpose, "commands": [], "artifacts": {},
+               "execution_environment": environment}
     receipt_path = destination / "build.json"
-    write_json(receipt_path, receipt)
+    write_new_json(receipt_path, receipt)
     try:
         for kind, command in commands:
-            result = run(command, cwd=destination / "source", check=False, timeout=1800)
+            try:
+                result = run(command, cwd=destination / "source", check=False, timeout=1800)
+            except ProcessTimeout as exc:
+                log = destination / f"command-{len(receipt['commands']) + 1}.log"
+                with log.open("x", encoding="utf-8", newline="\n") as stream:
+                    stream.write(exc.stdout + "\n" + exc.stderr)
+                receipt["commands"].append({"kind": kind, "argv": command, "exit_code": None,
+                                            "timed_out": True, "log_sha256": file_hash(log)})
+                raise
             # Logs are local evidence and may contain private project information.
             log = destination / f"command-{len(receipt['commands']) + 1}.log"
-            log.write_text(result.stdout + "\n" + result.stderr, encoding="utf-8")
+            with log.open("x", encoding="utf-8", newline="\n") as stream:
+                stream.write(result.stdout + "\n" + result.stderr)
             receipt["commands"].append({"kind": kind, "argv": command, "exit_code": result.returncode, "log_sha256": file_hash(log)})
             write_json(receipt_path, receipt)
             if result.returncode:
@@ -133,9 +160,37 @@ def execute(root, revision, adapter, destination, version):
 
 def verify_evidence(path):
     path = Path(path).resolve()
-    value = read_json(path)
+    value = json_object(read_json(path), "Build receipt")
     if value.get("phase") != "verified" or not value.get("commands") or (value.get("purpose", "release") == "release" and not value.get("artifacts")):
         raise HarnessError("Build receipt is not a verified project adapter run")
+    if (not isinstance(value["commands"], list) or not isinstance(value.get("source"), dict) or
+            not isinstance(value["source"].get("files"), dict) or not isinstance(value.get("artifacts"), dict)):
+        raise HarnessError("Build receipt collections have invalid types")
+    if (type(value.get("schema_version")) is not int or value["schema_version"] != 1 or
+            not isinstance(value.get("source_root"), str) or not isinstance(value.get("adapter_sha256"), str) or
+            any(not isinstance(value["source"].get(key), str) for key in ("commit", "tree")) or
+            ("modes" in value["source"] and (not isinstance(value["source"]["modes"], dict) or
+                any(not isinstance(name, str) or not isinstance(mode, str) for name, mode in value["source"]["modes"].items())))):
+        raise HarnessError("Build receipt identity fields have invalid types")
+    if "execution_environment" in value:
+        environment = value["execution_environment"]
+        if (not isinstance(environment, dict) or not isinstance(environment.get("python"), dict) or
+                not isinstance(environment.get("platform"), dict) or not isinstance(environment.get("git"), str) or
+                not isinstance(environment.get("env"), dict) or any(not isinstance(key, str) or not isinstance(row, dict) or
+                    type(row.get("set")) is not bool or not isinstance(row.get("sha256"), str) for key, row in environment["env"].items())):
+            raise HarnessError("Execution environment has invalid consumed fields")
+    for row in value["commands"]:
+        if (not isinstance(row, dict) or not isinstance(row.get("kind"), str) or type(row.get("exit_code")) is not int or
+                not isinstance(row.get("argv"), list) or not row["argv"] or any(not isinstance(arg, str) for arg in row["argv"]) or
+                not isinstance(row.get("log_sha256"), str)):
+            raise HarnessError("Build receipt command has invalid consumed fields")
+    for name, expected in value["source"]["files"].items():
+        if not isinstance(name, str) or not isinstance(expected, str):
+            raise HarnessError("Build source inventory must contain text paths and hashes")
+    for name, expected in value["artifacts"].items():
+        if (not isinstance(name, str) or not isinstance(expected, dict) or not isinstance(expected.get("sha256"), str) or
+                type(expected.get("size")) is not int or expected["size"] < 0):
+            raise HarnessError("Build artifact inventory has invalid consumed fields")
     if any(row["exit_code"] != 0 for row in value["commands"]) or not any(row["kind"] == "checks" for row in value["commands"]):
         raise HarnessError("Product checks did not pass")
     for index, row in enumerate(value["commands"], 1):

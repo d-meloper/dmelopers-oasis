@@ -7,12 +7,11 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from oasis_harness.common import HarnessError, clean_environment, digest, run
+from oasis_harness.common import HarnessError, digest, git_objects, run
 from tools.source_policy import validate_harness_distribution
 
 
@@ -23,7 +22,7 @@ def candidate(root, revision=None, *, index=False):
     else:
         revision = run(argv + ["rev-parse", "--verify", (revision or "HEAD") + "^{commit}"]).stdout.strip()
         entries = run(argv + ["ls-tree", "-rz", "--full-tree", revision]).stdout.split("\0")
-    files, modes = {}, {}
+    files, modes, blobs = {}, {}, {}
     for entry in filter(None, entries):
         metadata, name = entry.split("\t", 1)
         fields = metadata.split()
@@ -35,13 +34,15 @@ def candidate(root, revision=None, *, index=False):
             mode, kind, blob = fields
             if kind != "blob":
                 raise HarnessError("Source candidate contains unsupported objects")
-        if mode not in ("100644", "100755") or name in files:
+        if mode not in ("100644", "100755") or name in modes:
             raise HarnessError("Source candidate contains links/submodules/duplicate paths")
-        response = subprocess.run(argv + ["cat-file", "blob", blob], capture_output=True,
-                                  env=clean_environment(), timeout=120)
-        if response.returncode:
-            raise HarnessError("Cannot read the complete candidate")
-        files[name], modes[name] = response.stdout, mode
+        modes[name], blobs[name] = mode, blob
+    contents = {}
+    for oid, kind, data in git_objects(root, list(dict.fromkeys(blobs.values()))):
+        if kind != "blob":
+            raise HarnessError("Source candidate contains unsupported object contents")
+        contents[oid] = data
+    files = {name: contents[oid] for name, oid in blobs.items()}
     return files, modes
 
 

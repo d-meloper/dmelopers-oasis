@@ -20,10 +20,31 @@ must not consume another call's response or a terminal event. Preserve accepted
 buffers after EOF or failure; report protocol/overflow failure once to the event
 reader and retain its diagnostic state.
 
-Include actual write/flush time in the request deadline and bound teardown.
+For bounded history recovery, verify whether a cursor includes its anchor and
+include changes to an active turn. Reject older text matches; if paging becomes
+unsupported, use strong delivery identity or retain uncertainty.
+
+Before archiving a delivering worker, bind the assignment to its latest native
+turn, completed status, retained nonempty final-phase output and idle chat.
+A completion report or marker in a user prompt can arrive before that boundary.
+Use a scoped change notification to wake a fresh state read, not as proof of
+completion, and release the listener when the call ends. Preserve newer work or
+uncertain identity instead of archiving an arbitrary finished turn.
+Wait outside the project mutation lock. After reacquiring it, reload current
+state and verify the assignment/result binding before applying review or archive
+inputs; independent workers must remain able to complete during the wait.
+
+Include actual write/flush time in the request deadline. Recheck the absolute
+deadline after encoding/framing and immediately before I/O after taking the
+writer lock: even an expired zero-time wait can acquire a free lock. Bound teardown.
 Drain stderr continuously into a bounded private diagnostic buffer instead of
 attaching it to public errors. Injected protocol and standard-I/O fixtures verify
 these mechanisms; they do not establish live host, model or native UI behavior.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Give disposable protocol servers separate handshake and connection lifetimes.
+An idle read timeout can close an initialized fixture during suite scheduling
+and masquerade as a client protocol failure. Let the fixture's explicit shutdown
+release application reads, and include an idle gap as a negative control.
+
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

@@ -13,8 +13,8 @@ import re
 import subprocess
 import uuid
 
-from .common import (HarnessError, atomic_write, canonical, clean_environment, contained, digest, file_hash, git, is_reparse,
-                     operation_lock, read_json, run, write_json)
+from .common import (HarnessError, atomic_write, canonical, clean_environment, contained, digest, file_hash, git, git_objects, is_reparse,
+                     operation_lock, read_json, run, write_json, write_new_json)
 from .github import GitHub, repository_slug
 from . import gitops
 
@@ -270,25 +270,7 @@ def configure(root, repository, relay, repository_id, account_id, *, provider=No
 
 def _batch_objects(root, identities):
     """Read binary Git objects without text newline/Unicode transformations."""
-    for offset in range(0, len(identities), 128):
-        requested = identities[offset:offset + 128]
-        result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch"],
-                                input=("\n".join(requested) + "\n").encode("ascii"),
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                env=clean_environment(), timeout=120)
-        if result.returncode:
-            raise HarnessError("Cannot inspect complete retained Git object graph")
-        cursor = 0
-        for expected in requested:
-            end = result.stdout.index(b"\n", cursor)
-            fields = result.stdout[cursor:end].split()
-            if len(fields) != 3 or fields[0].decode("ascii") != expected:
-                raise HarnessError("Retained object inventory changed during inspection")
-            size = int(fields[2]); cursor = end + 1
-            data = result.stdout[cursor:cursor + size]; cursor += size + 1
-            if len(data) != size:
-                raise HarnessError("Truncated retained Git object")
-            yield expected, fields[1].decode("ascii"), data
+    yield from git_objects(root, identities)
 
 
 def _assert_self_contained_history(root):
@@ -563,7 +545,7 @@ def export_binding(root, output):
     output = _external(root, output)
     if output.exists():
         raise HarnessError("Recovery binding output already exists")
-    write_json(output, config)
+    write_new_json(output, config)
     return {"binding": str(output), "contains_credentials": False,
             "purpose": "Remote-only restore after loss of source and relay"}
 

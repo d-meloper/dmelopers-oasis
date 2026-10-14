@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Support Automation"
-  short_description: "Support Automation for the requested project work"
+  short_description: "Maintain support collection, outbox and delivery recovery"
   default_prompt: "Use $oasis-support-automation for the requested project scope."

@@ -12,6 +12,27 @@ PACKAGE = Path(__file__).resolve().parents[1]
 
 
 class CommitVersionTests(unittest.TestCase):
+    def test_delta_draft_preserves_index_version_and_head(self):
+        self.stage_work()
+        before = (self.git("rev-parse", "HEAD").stdout, self.git("write-tree").stdout, (self.root / "oasis_harness/__init__.py").read_bytes())
+        result = subprocess.run(["python", "-B", "-X", "utf8", "tools/bump_commit_version.py", "--delta-draft"], cwd=self.root, env=self.env, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        draft = json.loads(result.stdout)
+        self.assertEqual((draft["previous"], draft["version"]), ("1.2.3", "1.2.4"))
+        self.assertEqual(draft["files"], ["work.txt"])
+        self.assertEqual(draft["summary"], [])
+        self.assertEqual(before, (self.git("rev-parse", "HEAD").stdout, self.git("write-tree").stdout, (self.root / "oasis_harness/__init__.py").read_bytes()))
+
+    def test_persistent_version_base_is_refused_without_replacement(self):
+        self.stage_work()
+        self.git("config", "oasis.versionBase", "2.0.0")
+        before = self.committed()
+        failed = self.git("commit", "-m", "fixture persistent base", check=False)
+        self.assertNotEqual(failed.returncode, 0)
+        self.assertIn(b"command-local", failed.stderr)
+        self.assertEqual(self.committed(), before)
+        self.assertEqual(self.git("config", "--get", "oasis.versionBase").stdout.strip(), b"2.0.0")
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-version-")
         self.root = Path(self.temp.name).resolve() / "source 한글 😀"

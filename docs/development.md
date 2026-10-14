@@ -66,6 +66,9 @@ Retain uncertain commits, candidates and evidence; reconcile remote state before
 retry. No tag, release asset, adopter update, monitoring or service activation
 follows from source delivery. Repeat restore, fresh install and live discovery
 when affected or requested.
+`tools/source_delivery.py status --candidate <file> --sha256 <hash>` inspects
+retained local progress. Add `--remote` for read-only remote reconciliation; status
+does not prepare a new candidate or repeat a publication.
 
 The complete projection retains bounded privacy scanning, regular file/mode
 inventory, neutral templates and resource links. Exact path/hash exceptions in
@@ -85,6 +88,11 @@ chronological predecessor entry in `docs/upgrade-index.json`, listing changed
 paths, adopter application/checks and source-only effects. Its inventory matches
 staged files except the index and package literal. Keep earlier identities;
 advisory notes do not replace actual byte review.
+
+`tools/bump_commit_version.py --delta-draft` previews an unfinished release row
+from the staged scope. `--output <new external file>` retains that draft without
+changing the index or filling in review judgments. Inspect and finish it before
+staging the version index.
 
 Stage the scope and use plain `git commit`; partial-path/alternate-index commits
 refuse before version writes. A failed retry against unchanged HEAD reuses the

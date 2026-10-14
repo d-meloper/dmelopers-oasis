@@ -19,11 +19,8 @@ Camel sends a short completion message directly to Cameleer, for example:
 > Result: …
 > Please review, integrate and archive this work.
 
-Cameleer checks the request, diff and reported checks, integrates completed work,
-and adds checks only for effects introduced by integration or doubtful evidence.
-After collection it retains the result link and archives Camel automatically.
-Later corrections restore the same chat. Unfinished work stays available there.
-Repeated completion delivery must not cause repeated integration.
+The [role contract](../manual/identity.md) covers collection, integration,
+archival and corrections. Repeated completion delivery must not repeat integration.
 
 Intermediate messages to Cameleer are useful for a material goal/scope change or
 a problem Camel cannot resolve. Keep routine progress local. For Camel-to-Camel
@@ -31,10 +28,8 @@ dependencies, use the [one terminal notice](../../LocalGitWorkflow.md#dependency
 after the named portion completes, fails or is cancelled. Keep independent
 work moving and resume from that result.
 
-Planning uses [actual native Plan mode](../../ProjectGuide.md#planning-work) and
-starts from the supplied request. Unsupported mode-setting paths give one manual
-mode-and-start instruction. Existing model, reasoning, permissions and project
-settings carry into role chats through supported native interfaces.
+Use [planning work](../../ProjectGuide.md#planning-work) for native Plan and
+the supplied request, preserving current model, reasoning and permissions.
 
 Use compact English for internal work context, preserve exact localized literals,
 and speak to the user in their language. A narrow result/reference usually gives

@@ -12,5 +12,5 @@ Separate known affected ranges, reachable usage, mitigations and unknown evidenc
 
 Refresh generated notices through their owning generator and check distribution inclusion. Reuse still-valid exact-input evidence; a changed report hash alone is not a content review. Never weaken verification, silently accept a finding, widen credentials or upgrade unrelated dependencies to make a gate green. Report source/tool checks independently of published or installed safety.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

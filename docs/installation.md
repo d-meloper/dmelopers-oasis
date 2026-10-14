@@ -30,6 +30,7 @@ From the trusted source, create an external plan:
 
 ```powershell
 python -B -X utf8 oasis.py install plan --target 'C:\Projects\Example' --output 'C:\Review\install.json'
+python -B -X utf8 oasis.py install diff --plan 'C:\Review\install.json'
 python -B -X utf8 oasis.py install apply --plan 'C:\Review\install.json'
 ```
 
@@ -73,6 +74,9 @@ python -B -X utf8 tools/oasis.py session discovery --target .
 
 The 24 target-local bundled skills and user skills may coexist with
 shared host skills. File inventory and discovery do not prove instruction adoption.
+Use `skills list --project . --summary` for the bundled files' current descriptions
+and missing/invalid status. Existing metadata validation remains limited to the
+supported frontmatter shape; it is not a general YAML validator.
 
 Initialize one visible Pioneer, or Oasis plus Cameleer, using the selected mode's
 [workflow](workflows.md). An install-only request leaves them ready for later
@@ -122,6 +126,8 @@ Locally specialized files absent from the incoming package remain preserved
 for resolution. Root knowledge scaffold ownership is released without deleting
 project copies; their content can remain the project's canonical knowledge. All bundled
 skills refresh through three-way comparison without discarding local changes.
+Owned files absent from the incoming payload are removed when unmodified;
+customized copies remain project-owned after ownership is released.
 User skills and knowledge outside
 package ownership remain untouched.
 

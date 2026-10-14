@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 from pathlib import Path
 import re
+import time
 import uuid
 
 from . import sessions
@@ -58,11 +60,28 @@ def _state(root):
                 "project_id": None, "roles": [], "history": [], "pending_operation": None}
     value = read_json(path)
     if (not isinstance(value, dict) or value.get("schema_version") != 1
-            or sessions.canonical_root(value.get("target", "")) != sessions.canonical_root(root)
+            or not isinstance(value.get("target"), str)
+            or sessions.canonical_root(value["target"]) != sessions.canonical_root(root)
             or not isinstance(value.get("roles"), list) or not isinstance(value.get("history"), list)
             or any(not isinstance(row, dict) for row in value.get("roles", []))):
         raise HarnessError("Invalid workflow state or target root")
+    if (isinstance(value.get("generation"), bool) or not isinstance(value.get("generation"), int)
+            or value["generation"] < 0 or value.get("mode") not in (None, *MODES)
+            or not isinstance(value.get("unrelated", []), list)):
+        raise HarnessError("Invalid workflow generation, mode or independent bindings")
+    if any(not isinstance(row, dict) or not isinstance(row.get("thread_id"), str)
+           for row in value.get("unrelated", [])):
+        raise HarnessError("Independent workflow bindings must retain actual thread IDs")
     return value
+
+
+def _basis(state, project):
+    return {"generation": state["generation"], "mode": state["mode"], "project_id": state["project_id"],
+            "roles_sha256": digest(state["roles"]), "selected_mode": effective_mode(project)}
+
+
+def _binding(root, project_id):
+    return {"target": str(root), "project_id": project_id}
 
 
 def status(target):
@@ -77,15 +96,13 @@ def status(target):
 def _thread(server, identity, root, project_id, *, turns=False):
     sessions.require_text(identity, "Thread ID")
     thread = server.call("thread/read", {"threadId": identity, "includeTurns": turns})["thread"]
-    if (thread.get("id") != identity or sessions.canonical_root(thread.get("cwd", "")) != sessions.canonical_root(root)
-            or thread.get("projectId") != project_id):
-        raise HarnessError("Native thread belongs to another project/root")
+    sessions.check_thread_binding(thread, identity, _binding(root, project_id))
     return thread
 
 
 def verify_binding(server, binding, root, project_id):
-    if not isinstance(binding, dict):
-        raise HarnessError("Workflow binding must be an object")
+    if not isinstance(binding, dict) or not isinstance(binding.get("role"), str) or not binding["role"]:
+        raise HarnessError("Workflow binding requires role text")
     return _thread(server, binding.get("thread_id"), root, project_id)
 
 
@@ -105,6 +122,9 @@ def _bindings(server, root, identity, bindings):
         if key in result and result[key] != row:
             raise HarnessError("Conflicting bindings for one thread ID")
         result[key] = copy.deepcopy(row)
+    for role in {role for roles in MODES.values() for role in roles}:
+        if sum(row.get("role") == role for row in result.values()) > 1:
+            raise HarnessError(f"More than one {role} binding; preserve actual IDs and reconcile the intended role")
     return list(result.values())
 
 
@@ -150,7 +170,7 @@ def _read_receipt(path):
 
 
 def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings=None,
-         task=None, language="ko", factory=sessions.AppServer):
+         task=None, language="ko", factory=sessions.command_server):
     root, project = _root(target)
     sessions.require_text(source_id, "Source thread ID")
     mode = mode or effective_mode(project)
@@ -165,22 +185,26 @@ def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings
     with factory(operation + "_plan") as server:
         identity, settings, _ = sessions.prepare(server, source_id, root)
         owned = _bindings(server, root, identity, state["roles"] + (bindings or []))
+    mode_roles = {role for roles in MODES.values() for role in roles}
+    independent = [row for row in owned if row.get("role") not in mode_roles]
+    owned = [row for row in owned if row.get("role") in mode_roles]
+    unrelated = {row["thread_id"]: row for row in state.get("unrelated", []) + independent}
     same = all(any(row.get("role") == role for row in owned) for role in MODES[mode])
     same = same and not any(row.get("role") in MODES["oasis" if mode == "pioneer" else "pioneer"] for row in owned)
     return {"schema_version": 1, "operation_id": operation, "target": str(root), "project_id": identity,
             "source_thread_id": source_id, "settings": settings, "mode": mode,
             "selected_mode_before": effective_mode(project), "primary_role": "Pioneer" if mode == "pioneer" else "Cameleer",
             "language": language, "context": context, "follow_on_task": _completion_prompt(task) if task is not None else None, "existing_roles": owned,
-            "old_roles": [] if same else owned, "unrelated": state.get("unrelated", []),
+            "old_roles": [] if same else owned, "unrelated": list(unrelated.values()), "basis": _basis(state, project),
             "new_roles": [] if same else [{"role": role, "originator": operation + "_" + role.lower(),
                                            "prompt": _prompt(role, context, language)} for role in MODES[mode]],
             "same_mode": same}
 
 
-def start(reviewed, authority=None, factory=sessions.AppServer):
+def start(reviewed, authority=None, factory=sessions.command_server):
     value = read_json(reviewed) if isinstance(reviewed, (str, Path)) else copy.deepcopy(reviewed)
     path = _receipt_path(value)
-    root, _ = _root(value["target"])
+    root, project = _root(value["target"])
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _state(root)
         if state.get("pending_operation") and Path(state["pending_operation"]).resolve() != path.resolve():
@@ -188,6 +212,8 @@ def start(reviewed, authority=None, factory=sessions.AppServer):
         if path.exists():
             value = _read_receipt(path)
         else:
+            if value.get("basis") is not None and value["basis"] != _basis(state, read_json(contained(root, ".oasis/project.json"))):
+                raise HarnessError("Mode plan is stale; preserve current roles and prepare a fresh plan")
             value.update(phase="metadata", actions=[], target_receipts=[])
             write_json(path, value)
             state["pending_operation"] = str(path)
@@ -195,13 +221,16 @@ def start(reviewed, authority=None, factory=sessions.AppServer):
         return _advance(path, value, factory)
 
 
-def _lifecycle_once(path, thread_id, server, root, *, restore=False, scoped=()):
+def _lifecycle_once(path, thread_id, server, root, *, restore=False, scoped=(), expected_binding=None, native=None):
     method = "thread/unarchive" if restore else "thread/archive"
     value = read_json(path) if Path(path).exists() else {"thread_id": thread_id, "state": "not_started", "method": method}
     if value.get("thread_id") != thread_id or value.get("method") != method:
         raise HarnessError("Lifecycle action path belongs to another operation")
     if value["state"] == "accepted":
         return value
+    if expected_binding is not None:
+        native = native if native is not None else server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
+        sessions.check_thread_binding(native, thread_id, expected_binding)
     if value["state"] in ("started", "uncertain"):
         if thread_id in _listing(server, root, archived=not restore):
             value["state"] = "accepted"
@@ -242,7 +271,18 @@ def _advance(path, value, factory):
     root, _ = _root(value["target"])
     if value["phase"] == "complete":
         return _result(path, value)
-    unfinished = unfinished_tasks(root) if value["old_roles"] else []
+    current_state = _state(root)
+    if current_state.get("pending_operation") and Path(current_state["pending_operation"]).resolve() != Path(path).resolve():
+        raise HarnessError("Another mode operation owns the current state; preserve its progress")
+    if (value["operation_id"] in current_state["history"] and
+            (current_state["mode"] != value["mode"] or current_state.get("primary_thread_id") != value.get("primary_thread_id"))):
+        raise HarnessError("A later mode operation changed the roles; preserve its state")
+    if value.get("basis") and value["operation_id"] not in current_state["history"] and not current_state.get("pending_operation"):
+        if value["basis"] != _basis(current_state, read_json(contained(root, ".oasis/project.json"))):
+            raise HarnessError("Mode operation state changed; preserve other writers before recovery")
+    scoped_roles = {row["thread_id"] for row in value["old_roles"]}
+    unfinished = [row for row in unfinished_tasks(root) if
+                  not row.get("cameleer_thread_id") or row["cameleer_thread_id"] in scoped_roles] if scoped_roles else []
     if unfinished:
         value.update(phase="waiting_for_tasks", unfinished_tasks=unfinished)
         write_json(path, value)
@@ -261,7 +301,7 @@ def _advance(path, value, factory):
     new_roles = []
     for row, target_path in zip(value["new_roles"], value["target_receipts"]):
         receipt = read_json(target_path)
-        if not receipt.get("thread_id") and receipt["phase"] != "prepared":
+        if not receipt.get("thread_id") and receipt["phase"] not in sessions.CREATION_RETRYABLE:
             found = sessions.inspect(target_path, factory)
             if not found.get("thread_id"):
                 value["phase"] = "creation_uncertain"
@@ -272,7 +312,7 @@ def _advance(path, value, factory):
         new_roles.append({"role": row["role"], "thread_id": receipt["thread_id"], "parent_thread_id": None})
         with factory(value["operation_id"]) as server:
             delivery = sessions.send_once(path.parent / (row["role"] + "-assign.json"), receipt["thread_id"], row["prompt"], server,
-                                          skill=_role_skill(root, row["role"]))
+                                          skill=_role_skill(root, row["role"]), expected_binding=_binding(root, value["project_id"]))
         if delivery["state"] != "accepted":
             value["phase"] = "assignment_uncertain"
             write_json(path, value)
@@ -289,7 +329,8 @@ def _advance(path, value, factory):
                 write_json(path, value)
                 return _result(path, value)
             lifecycle = _lifecycle_once(path.parent / (digest(row["thread_id"]) + "-archive.json"),
-                                        row["thread_id"], server, root, scoped=scoped)
+                                        row["thread_id"], server, root, scoped=scoped,
+                                        expected_binding=_binding(root, value["project_id"]), native=native)
             if lifecycle["state"] != "accepted":
                 value["phase"] = "archive_uncertain"
                 write_json(path, value)
@@ -308,7 +349,8 @@ def _advance(path, value, factory):
     write_json(_local(root, "state.json"), state)
     if value.get("follow_on_task"):
         with factory(value["operation_id"]) as server:
-            delivery = sessions.send_once(path.parent / "task.json", primary, value["follow_on_task"], server)
+            delivery = sessions.send_once(path.parent / "task.json", primary, value["follow_on_task"], server,
+                                          expected_binding=_binding(root, value["project_id"]))
         if delivery["state"] != "accepted":
             value["phase"] = "task_uncertain"
             write_json(path, value)
@@ -320,13 +362,13 @@ def _advance(path, value, factory):
     return _result(path, value)
 
 
-def inspect(path, factory=sessions.AppServer):
+def inspect(path, factory=sessions.command_server):
     """Read retained local state; inspection never sends a role prompt."""
     value = _read_receipt(path)
     return _result(Path(path).resolve(), value)
 
 
-def resume(path, authority=None, factory=sessions.AppServer, *, begin_action=None):
+def resume(path, authority=None, factory=sessions.command_server, *, begin_action=None):
     value = _read_receipt(path)
     with operation_lock(contained(value["target"], ".oasis/local/operations.lock")):
         return _advance(Path(path).resolve(), value, factory)
@@ -346,6 +388,33 @@ def _tasks(root):
             or any(not isinstance(row, dict) or ("phase" in row and not isinstance(row["phase"], str))
                    for row in value.get("tasks", []) + value.get("dependencies", []))):
         raise HarnessError("Invalid task state; preserve it for recovery")
+    identities = set()
+    for kind in ("tasks", "dependencies"):
+        for row in value[kind]:
+            for key in ("id", "camel_thread_id", "cameleer_thread_id", "producer_thread_id", "consumer_thread_id", "goal", "condition"):
+                if row.get(key) is not None:
+                    sessions.require_text(row[key], f"Task/dependency {key}")
+            if row.get("id"):
+                if row["id"] in identities:
+                    raise HarnessError("Duplicate task/dependency ID; preserve state")
+                identities.add(row["id"])
+            if "cycle" in row and (isinstance(row["cycle"], bool) or not isinstance(row["cycle"], int) or row["cycle"] < 0):
+                raise HarnessError("Task cycle must be a nonnegative integer")
+            if "history" in row and (not isinstance(row["history"], list) or any(not isinstance(item, dict) for item in row["history"])):
+                raise HarnessError("Task history must contain objects")
+            if row.get("completion") is not None and not isinstance(row["completion"], dict):
+                raise HarnessError("Task completion must be an object")
+            if row.get("native_turn") is not None and not isinstance(row["native_turn"], dict):
+                raise HarnessError("Task native turn evidence must be an object")
+            if row.get("completion"):
+                completion = row["completion"]
+                if completion.get("outcome") not in ("completed", "failed", "cancelled"):
+                    raise HarnessError("Invalid task completion outcome")
+                for key in ("text", "result_key"):
+                    sessions.require_text(completion.get(key), f"Completion {key}")
+            if kind == "dependencies" and row.get("phase") == "waiting":
+                for key in ("id", "producer_thread_id", "consumer_thread_id", "condition"):
+                    sessions.require_text(row.get(key), f"Waiting dependency {key}")
     return value
 
 
@@ -404,19 +473,27 @@ def _cell(value):
 
 
 def _render_tasks(root, state):
-    lines = ["# Camel tasks", "", "Updated when Cameleer assigns, collects or resumes work.", "",
+    lines = ["# Camel tasks", "", "Updated when work or dependency state changes.", "",
              "| Camel chat | Goal | Stage / dependencies | Work / result | Result / checks |",
              "| --- | --- | --- | --- | --- |"]
     for row in state["tasks"]:
         identity = row.get("camel_thread_id")
-        chat = f"[{identity}](codex://threads/{identity})" if identity else f"Creation pending ({row['id']})"
+        chat = f"[{identity}](codex://threads/{identity})" if identity else f"Creation pending ({row.get('id', 'unresolved')})"
         waits = [d["condition"] for d in state["dependencies"] if d.get("consumer_thread_id") == identity and d.get("phase") == "waiting"]
-        phase = row["phase"] + ("; waiting for " + ", ".join(waits) if waits else "")
+        phase = row.get("phase", "unknown") + ("; waiting for " + ", ".join(waits) if waits else "")
+        notice = _notice(root, row) if row.get("completion") else None
+        if notice and notice["state"] != "accepted":
+            phase += "; completion notice " + notice["state"]
+        for dependency in state["dependencies"]:
+            if dependency.get("consumer_thread_id") == identity and dependency.get("phase") in ("completed", "failed", "cancelled"):
+                notice = _notice(root, dependency, dependency=True)
+                if notice["state"] != "accepted":
+                    phase += "; dependency notice " + notice["state"]
         location = " / ".join(str(value) for value in (row.get("location"), row.get("result")) if value)
         summary = " / ".join(str(value) for value in (row.get("summary"), row.get("checks")) if value)
-        if row["phase"] in TERMINAL:
+        if row.get("phase") in TERMINAL:
             location = str(row.get("result") or "")
-        lines.append("| " + " | ".join((chat, _cell(row["goal"]), _cell(phase), _cell(location), _cell(summary))) + " |")
+        lines.append("| " + " | ".join((chat, _cell(row.get("current_goal", row.get("goal", "Existing task"))), _cell(phase), _cell(location), _cell(summary))) + " |")
     path = contained(root, ".oasis/state/tasks.md")
     block = "<!-- oasis-tasks:start -->\n" + "\n".join(lines) + "\n<!-- oasis-tasks:end -->"
     original = path.read_text(encoding="utf-8") if path.exists() else ""
@@ -432,11 +509,89 @@ def _task(state, task_id):
     row = next((row for row in state["tasks"] if row.get("id") == task_id or row.get("camel_thread_id") == task_id), None)
     if row is None:
         raise HarnessError("Unknown task ID or Camel chat ID")
+    sessions.require_text(row.get("id"), "Resolved task ID")
     return row
 
 
-def task_status(target, task_id=None, *, include_complete=False):
-    state = _tasks(Path(target).resolve())
+def _notice(root, row, *, dependency=False):
+    path = contained(root, f".oasis/local/tasks/dependencies/{row['id']}.json") if dependency else _delivery_path(root, row, "complete")
+    delivery = read_json(path) if path.exists() else row.get("delivery", {}) if dependency else row.get("completion", {}).get("delivery", {})
+    if not isinstance(delivery, dict):
+        raise HarnessError("Completion delivery must be an object")
+    state = delivery.get("state", "not_started")
+    action = {"command": "workflow dependency-finish", "dependency_id": row["id"]} if dependency else {"command": "workflow complete", "task_id": row["id"]}
+    return {"state": state, "receipt": str(path),
+            **({"resume": action} if state != "accepted" else {})}
+
+
+def _cycles(dependencies):
+    waiting = [row for row in dependencies if row.get("phase") == "waiting"]
+    graph, reverse = {}, {}
+    for row in waiting:
+        source, destination = row["consumer_thread_id"], row["producer_thread_id"]
+        graph.setdefault(source, set()).add(destination)
+        graph.setdefault(destination, set())
+        reverse.setdefault(destination, set()).add(source)
+        reverse.setdefault(source, set())
+    visited, order = set(), []
+    for node in graph:
+        stack = [(node, False)]
+        while stack:
+            current, returning = stack.pop()
+            if returning:
+                order.append(current)
+            elif current not in visited:
+                visited.add(current)
+                stack.append((current, True))
+                stack.extend((neighbor, False) for neighbor in graph[current] if neighbor not in visited)
+    visited, warnings = set(), []
+    for node in reversed(order):
+        component, stack = set(), [node]
+        while stack:
+            current = stack.pop()
+            if current not in visited:
+                visited.add(current)
+                component.add(current)
+                stack.extend(reverse[current] - visited)
+        if len(component) > 1 or component and node in graph[node]:
+            links = [row for row in waiting if row["consumer_thread_id"] in component and row["producer_thread_id"] in component]
+            warnings.append({"kind": "dependency_cycle", "dependency_ids": [row["id"] for row in links],
+                             "conditions": [row["condition"] for row in links], "advisory_only": True})
+    return warnings
+
+
+def task_status(target, task_id=None, *, include_complete=False, summary=False):
+    root = Path(target).resolve()
+    state = _tasks(root)
+    if summary:
+        rows = [_task(state, task_id)] if task_id else state["tasks"]
+        tasks = []
+        for row in rows:
+            notice = _notice(root, row) if row.get("completion") else None
+            pending_collection = bool(row.get("completion") and row["completion"].get("outcome") == "completed"
+                                      and row.get("collected_result_key") != row["completion"].get("result_key"))
+            if not (task_id or include_complete or row.get("phase") not in TERMINAL
+                    or pending_collection or notice and notice["state"] != "accepted"):
+                continue
+            entry = {key: copy.deepcopy(row.get(key)) for key in ("id", "camel_thread_id", "cameleer_thread_id", "phase", "location", "result", "checks")}
+            entry["goal"] = row.get("current_goal", row.get("goal"))
+            if notice:
+                entry["completion_notice"] = notice
+            if pending_collection:
+                entry["collection"] = row.get("phase") if (row.get("native_turn") or {}).get("state") not in (None, "ready") else "awaiting_review"
+            if row.get("native_turn"):
+                entry["native_turn"] = copy.deepcopy(row["native_turn"])
+            tasks.append(entry)
+        dependencies = []
+        for row in state["dependencies"]:
+            notice = _notice(root, row, dependency=True) if row.get("phase") in ("completed", "failed", "cancelled") else None
+            if include_complete or row.get("phase") == "waiting" or notice and notice["state"] != "accepted":
+                entry = {key: copy.deepcopy(row.get(key)) for key in
+                         ("id", "producer_thread_id", "consumer_thread_id", "condition", "phase", "result")}
+                if notice:
+                    entry["terminal_notice"] = notice
+                dependencies.append(entry)
+        return {"tasks": tasks, "dependencies": dependencies, "warnings": _cycles(state["dependencies"])}
     if task_id:
         return copy.deepcopy(_task(state, task_id))
     return {"tasks": [row for row in state["tasks"] if include_complete or row.get("phase") not in TERMINAL]}
@@ -448,21 +603,51 @@ def _delivery_path(root, row, kind):
 
 def _assign_delivery(root, row, server):
     delivery = sessions.send_once(_delivery_path(root, row, "assign"), row["camel_thread_id"], row["prompt"], server,
-                                  planning=row.get("planning", False), skill=_role_skill(root, "Camel"))
+                                  planning=row.get("planning", False), skill=_role_skill(root, "Camel"),
+                                  expected_binding=_binding(root, _task_project(row)))
     row["phase"] = "assigned" if delivery["state"] == "accepted" else delivery["state"]
     row["assignment_delivery"] = delivery
     return delivery
 
 
+def _task_project(row):
+    return row.get("project_id") or read_json(row["session_receipt"])["project_id"]
+
+
+def _render_after_failure(root, state, error):
+    try:
+        _render_tasks(root, state)
+    except (HarnessError, OSError, ValueError, KeyError) as refresh:
+        error.add_note(f"Task table refresh failed: {refresh}. Preserve the retained action before retrying.")
+
+
+def _request_match(row, sha, fields, *, hash_field="input_sha256"):
+    if row.get(hash_field) is not None:
+        if row[hash_field] != sha:
+            raise HarnessError("Request ID already belongs to different inputs; preserve the original action")
+    elif any(key in row and row[key] != value for key, value in fields.items()):
+        raise HarnessError("Legacy request ID has different recorded inputs; preserve the original action")
+
+
 def assign(target, cameleer_id, goal, *, context=None, location=None, planning=False, title=None,
-           request_id=None, factory=sessions.AppServer):
+           request_id=None, factory=sessions.command_server):
     root, _ = _root(target)
     sessions.require_text(cameleer_id, "Cameleer chat ID")
     sessions.require_text(goal, "Task goal")
-    key = request_id or digest([cameleer_id, goal, context, location, planning, title])
+    if request_id is not None:
+        sessions.require_text(request_id, "Request ID")
+    if not isinstance(planning, bool):
+        raise HarnessError("Planning selection must be a boolean")
+    if location is not None:
+        sessions.require_text(location, "Assigned work location")
+    sha = digest([cameleer_id, goal, context, location, planning, title])
+    key = request_id or sha
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _tasks(root)
         row = next((item for item in state["tasks"] if item.get("request_key") == key), None)
+        if row is not None:
+            _request_match(row, sha, {"cameleer_thread_id": cameleer_id, "goal": goal,
+                                    "location": location or str(root), "planning": planning})
         if row is None:
             identity = uuid.uuid4().hex
             originator = "oasis_session_" + identity
@@ -473,8 +658,9 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
             prompt = "Apply $oasis-camel to this assigned task. " + goal
             if context:
                 prompt += "\n\n" + (context if isinstance(context, str) else json.dumps(context, ensure_ascii=False))
+            prompt += "\n\nAssigned work location: " + (location or str(root))
             prompt = _completion_prompt(prompt)
-            row = {"id": identity, "request_key": key, "role": "Camel", "project_id": project_id, "cameleer_thread_id": cameleer_id,
+            row = {"id": identity, "request_key": key, "input_sha256": sha, "role": "Camel", "project_id": project_id, "cameleer_thread_id": cameleer_id,
                    "camel_thread_id": None, "goal": goal, "prompt": prompt, "planning": planning,
                    "location": location or str(root), "phase": "creating", "cycle": 0, "history": []}
             receipt = {"schema_version": 1, "originator": originator, "target": str(root), "project_id": project_id,
@@ -488,7 +674,7 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
             return copy.deepcopy(row)
         try:
             receipt = read_json(row["session_receipt"])
-            if not receipt.get("thread_id") and receipt["phase"] != "prepared":
+            if not receipt.get("thread_id") and receipt["phase"] not in sessions.CREATION_RETRYABLE:
                 found = sessions.inspect(row["session_receipt"], factory)
                 if not found.get("thread_id"):
                     row["phase"] = "creation_uncertain"
@@ -568,7 +754,8 @@ def register(subparsers):
     p.add_argument("--target", required=True)
     p.add_argument("--task-id")
     p.add_argument("--include-complete", action="store_true")
-    p.set_defaults(func=lambda args: task_status(args.target, args.task_id, include_complete=args.include_complete))
+    p.add_argument("--summary", action="store_true", help="Compact work, pending notices and dependency warnings")
+    p.set_defaults(func=lambda args: task_status(args.target, args.task_id, include_complete=args.include_complete, summary=args.summary))
     p = commands.add_parser("complete")
     p.add_argument("--target", required=True)
     p.add_argument("--task-id", required=True)
@@ -614,7 +801,7 @@ def register(subparsers):
         message=Path(args.message_file).read_text(encoding="utf-8") if args.message_file else None))
 
 
-def complete(target, task_id, message=None, *, result=None, checks=None, outcome="completed", factory=sessions.AppServer):
+def complete(target, task_id, message=None, *, result=None, checks=None, outcome="completed", factory=sessions.command_server):
     if outcome not in ("completed", "failed", "cancelled"):
         raise HarnessError("Task outcome must be completed, failed or cancelled")
     root, _ = _root(target)
@@ -630,17 +817,144 @@ def complete(target, task_id, message=None, *, result=None, checks=None, outcome
                        completion={"outcome": outcome, "text": text, "result_key": digest([row["id"], row.get("cycle", 0), outcome, result, checks, text])})
             write_json(_task_path(root), state)
         text = row["completion"]["text"]
-        with factory("oasis_complete_" + row["id"]) as server:
-            delivery = sessions.send_once(_delivery_path(root, row, "complete"), row["cameleer_thread_id"], text, server)
+        try:
+            with factory("oasis_complete_" + row["id"]) as server:
+                delivery = sessions.send_once(_delivery_path(root, row, "complete"), row["cameleer_thread_id"], text, server,
+                                              expected_binding=_binding(root, _task_project(row)))
+        except Exception as exc:
+            _render_after_failure(root, state, exc)
+            raise
         row["completion"]["delivery"] = delivery
         write_json(_task_path(root), state)
+        _render_tasks(root, state)
         return copy.deepcopy(row)
 
 
-def collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None, factory=sessions.AppServer):
+def _terminal_snapshot(root, row, server):
+    native = _thread(server, row["camel_thread_id"], root, _task_project(row))
+    try:
+        page = sessions._history_page(server.call("thread/turns/list", {"threadId": row["camel_thread_id"],
+            "itemsView": "full", "sortDirection": "desc", "limit": 1}), "thread/turns/list")
+        turns = page["data"]
+    except sessions.NativeError as exc:
+        if exc.code != -32601:
+            raise
+        turns = sessions._full_turns(server, row["camel_thread_id"])[-1:]
+    delivery = row.get("assignment_delivery", {})
+    if not isinstance(delivery, dict):
+        raise HarnessError("Assignment delivery must be an object")
+    if not delivery.get("turn_id"):
+        path = _delivery_path(root, row, "assign")
+        if path.exists():
+            delivery = read_json(path)
+            if not isinstance(delivery, dict):
+                raise HarnessError("Retained assignment delivery must be an object")
+    tracked = delivery.get("turn_id")
+    if not turns:
+        return {"state": "pending", "id": tracked, "status": None, "final_available": False}, native
+    turn = turns[0]
+    sessions.require_text(turn.get("id"), "Native assignment turn ID")
+    if not isinstance(turn.get("items"), list):
+        raise HarnessError("Native turn final items are unavailable")
+    if not tracked:
+        # Legacy links need actual assignment evidence, never an arbitrary idle turn.
+        if any(item.get("type") == "userMessage" and (
+                delivery.get("message_id") and item.get("clientId") == delivery["message_id"]
+                or row.get("prompt") and sessions._message_text(item) == row["prompt"])
+                for item in turn["items"] if isinstance(item, dict)):
+            tracked = turn["id"]
+        else:
+            return {"state": "unverified", "id": None, "status": turn.get("status"), "final_available": False}, native
+    if turn["id"] != tracked:
+        return {"state": "unverified", "id": tracked, "status": None, "final_available": False,
+                "reason": "New native work exists beyond this assignment; preserve its chat and task link"}, native
+    status = turn.get("status")
+    if not isinstance(status, str):
+        raise HarnessError("Native assignment turn status must be text")
+    final = next((item for item in reversed(turn["items"]) if isinstance(item, dict)
+                  and item.get("type") == "agentMessage" and item.get("phase") == "final_answer"
+                  and isinstance(item.get("text"), str) and item["text"].strip()), None)
+    state = "failed" if status == "failed" else "cancelled" if status == "interrupted" else "pending"
+    thread_status = native.get("status") or {}
+    if not isinstance(thread_status, dict):
+        raise HarnessError("Native thread status must be an object")
+    if status == "completed" and final and thread_status.get("type") in ("idle", "notLoaded"):
+        state = "ready"
+    return {"state": state, "id": tracked, "status": status, "final_available": final is not None,
+            **({"final_message_id": final.get("id")} if final else {})}, native
+
+
+def _await_terminal(root, row, server, timeout):
+    snapshot, native = _terminal_snapshot(root, row, server)
+    if snapshot["state"] != "pending" or timeout == 0 or not callable(getattr(server, "wait_events", None)):
+        return snapshot
+    path = sessions.require_text(native.get("path"), "Native rollout watch path")
+    if not Path(path).is_absolute():
+        raise HarnessError("Native rollout watch requires an absolute path")
+    watch_id, watching, failure = "oasis_collect_" + uuid.uuid4().hex, False, None
+    deadline = time.monotonic() + timeout
+    try:
+        try:
+            response = server.call("fs/watch", {"watchId": watch_id, "path": path})
+        except sessions.NativeError as exc:
+            if exc.code != -32601:
+                raise
+            return snapshot
+        watching = True
+        if not isinstance(response, dict) or not isinstance(response.get("path"), str) or sessions.canonical_root(response["path"]) != sessions.canonical_root(path):
+            raise HarnessError("Native filesystem watch returned another rollout path")
+        # Close the registration race before waiting for filesystem changes.
+        snapshot, _ = _terminal_snapshot(root, row, server)
+        while snapshot["state"] == "pending" and time.monotonic() < deadline:
+            events = server.wait_events(max(0, deadline - time.monotonic()))
+            changed = any(event.get("method") == "fs/changed" and isinstance(event.get("params"), dict)
+                          and event["params"].get("watchId") == watch_id for event in events)
+            if changed:
+                snapshot, _ = _terminal_snapshot(root, row, server)
+            elif not events:
+                break
+        # Persistence may have completed at the wait boundary without a delivered event.
+        if snapshot["state"] == "pending":
+            snapshot, _ = _terminal_snapshot(root, row, server)
+        return snapshot
+    except Exception as exc:
+        failure = exc
+        raise
+    finally:
+        if watching:
+            try:
+                server.call("fs/unwatch", {"watchId": watch_id})
+            except (HarnessError, OSError, ValueError, KeyError) as exc:
+                if failure is None:
+                    raise
+                failure.add_note(f"Native watch cleanup failed: {exc}; connection closure releases this scoped watch")
+
+
+def _collection_boundary(root, state, row, snapshot):
+    row["native_turn"] = snapshot
+    if snapshot["state"] == "ready":
+        return None
+    row["phase"] = snapshot["state"] if snapshot["state"] in ("failed", "cancelled") else "terminal_unverified" if snapshot["state"] == "unverified" else "awaiting_terminal"
+    write_json(_task_path(root), state)
+    _render_tasks(root, state)
+    return {**copy.deepcopy(row), "instruction": snapshot.get("reason") or
+            "Keep this Camel available. Resume this same collection only after its actual assignment turn completes naturally with final output; use task-resume for failed or interrupted work."}
+
+
+def _collection_identity(root, row):
+    assignment = _delivery_path(root, row, "assign")
+    return digest([{key: row.get(key) for key in ("id", "cycle", "camel_thread_id", "cameleer_thread_id", "prompt", "assignment_delivery")},
+                   (row.get("completion") or {}).get("result_key"), _task_project(row),
+                   read_json(assignment) if assignment.exists() else None])
+
+
+def collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None, factory=sessions.command_server, wait_timeout=30):
     """Collect a reviewed result; merge callbacks and native archives run once."""
     root, _ = _root(target)
-    with operation_lock(contained(root, ".oasis/local/operations.lock")):
+    if isinstance(wait_timeout, bool) or not isinstance(wait_timeout, (int, float)) or not math.isfinite(wait_timeout) or wait_timeout < 0:
+        raise HarnessError("Collection event wait timeout must be finite and nonnegative")
+    lock = contained(root, ".oasis/local/operations.lock")
+    with operation_lock(lock):
         state = _tasks(root)
         row = _task(state, task_id)
         completion = row.get("completion")
@@ -648,63 +962,115 @@ def collect(target, task_id, *, result=None, checks=None, merge=None, merged_ref
             raise HarnessError("This task has no terminal result to collect")
         if row.get("collected_result_key") == completion["result_key"]:
             return copy.deepcopy(row)
-        if result is not None:
-            row["result"] = result
-        if checks is not None:
-            row["checks"] = checks
-        if merged_reference is not None:
-            row.update(merge_state="merged", result=merged_reference)
-            write_json(_task_path(root), state)
         if completion["outcome"] != "completed":
+            if result is not None:
+                row["result"] = result
+            if checks is not None:
+                row["checks"] = checks
+            if merged_reference is not None:
+                row.update(merge_state="merged", result=merged_reference)
             row["collected_result_key"] = completion["result_key"]
             write_json(_task_path(root), state)
             _render_tasks(root, state)
             return copy.deepcopy(row)
-        if row.get("merge_state") in ("started", "uncertain"):
-            if merged_reference is None:
-                return {**copy.deepcopy(row), "phase": "merge_uncertain",
-                        "instruction": "Inspect the retained merge outcome and resume with its actual merged reference."}
-            row.update(merge_state="merged", result=merged_reference)
-            write_json(_task_path(root), state)
-        elif merge is not None and row.get("merge_state") != "merged":
-            row["merge_state"] = "started"
-            write_json(_task_path(root), state)
-            try:
-                reference = merge(copy.deepcopy(row))
-                row.update(merge_state="merged", result=reference if reference is not None else row.get("result"))
+        identity, captured = _collection_identity(root, row), copy.deepcopy(row)
+    # Native final output may arrive later. Independent task notices must retain
+    # access to the project state throughout this connection-scoped I/O wait.
+    with factory("oasis_collect_" + captured["id"]) as server:
+        snapshot = _await_terminal(root, captured, server, wait_timeout)
+        with operation_lock(lock):
+            state = _tasks(root)
+            row = _task(state, task_id)
+            if _collection_identity(root, row) != identity:
+                return {**copy.deepcopy(row), "collection": "collection_changed",
+                        "instruction": "The assignment or result changed during the native wait. Review the current task before collecting it; prior merge inputs were not applied."}
+            completion = row["completion"]
+            if row.get("collected_result_key") == completion["result_key"]:
+                return copy.deepcopy(row)
+            if result is not None:
+                row["result"] = result
+            if checks is not None:
+                row["checks"] = checks
+            boundary = _collection_boundary(root, state, row, snapshot)
+            if boundary is not None:
+                return boundary
+            if merged_reference is not None:
+                row.update(merge_state="merged", result=merged_reference)
                 write_json(_task_path(root), state)
-            except Exception as exc:
-                row.update(merge_state="uncertain", error=str(exc))
+            if row.get("merge_state") in ("started", "uncertain"):
+                if merged_reference is None:
+                    return {**copy.deepcopy(row), "phase": "merge_uncertain",
+                            "instruction": "Inspect the retained merge outcome and resume with its actual merged reference."}
+                row.update(merge_state="merged", result=merged_reference)
                 write_json(_task_path(root), state)
-                raise
-        with factory("oasis_collect_" + row["id"]) as server:
-            _thread(server, row["camel_thread_id"], root,
-                    row.get("project_id") or read_json(row["session_receipt"])["project_id"])
+            elif merge is not None and row.get("merge_state") != "merged":
+                row["merge_state"] = "started"
+                write_json(_task_path(root), state)
+                try:
+                    reference = merge(copy.deepcopy(row))
+                    row.update(merge_state="merged", result=reference if reference is not None else row.get("result"))
+                    write_json(_task_path(root), state)
+                except Exception as exc:
+                    row.update(merge_state="uncertain", error=str(exc))
+                    write_json(_task_path(root), state)
+                    raise
+            boundary = _collection_boundary(root, state, row, _terminal_snapshot(root, row, server)[0])
+            if boundary is not None:
+                return boundary
+            native = _thread(server, row["camel_thread_id"], root, _task_project(row))
+            if (native.get("status") or {}).get("type") not in ("idle", "notLoaded"):
+                return _collection_boundary(root, state, row, {**row["native_turn"], "state": "pending",
+                    "reason": "Native work became active before archive; preserve this Camel and resume collection after its final output."})
             lifecycle = _lifecycle_once(_delivery_path(root, row, "archive"), row["camel_thread_id"], server, root,
-                                       scoped={row["camel_thread_id"]})
-        if lifecycle["state"] == "accepted":
-            row.update(phase="archived", archived=True, collected_result_key=completion["result_key"])
-        else:
-            row["phase"] = "archive_uncertain"
-        write_json(_task_path(root), state)
-        _render_tasks(root, state)
-        return copy.deepcopy(row)
+                                       scoped={row["camel_thread_id"]}, expected_binding=_binding(root, _task_project(row)), native=native)
+            if lifecycle["state"] == "accepted":
+                row.update(phase="archived", archived=True, collected_result_key=completion["result_key"])
+            else:
+                row["phase"] = "archive_uncertain"
+            write_json(_task_path(root), state)
+            _render_tasks(root, state)
+            return copy.deepcopy(row)
 
 
-def resume_task(target, task_id, message=None, *, planning=False, implementation=False, request_id=None, factory=sessions.AppServer):
+def resume_task(target, task_id, message=None, *, planning=False, implementation=False, request_id=None, factory=sessions.command_server):
     root, _ = _root(target)
+    if not isinstance(planning, bool) or not isinstance(implementation, bool) or planning and implementation:
+        raise HarnessError("Choose either planning or implementation follow-up")
+    if request_id is not None:
+        sessions.require_text(request_id, "Follow-up request ID")
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _tasks(root)
         row = _task(state, task_id)
         if message is None and row.get("completion"):
             return copy.deepcopy(row)
+        if message is not None:
+            sessions.require_text(message, "Follow-up request")
+            sha = digest([message, planning, implementation])
+            request_key = request_id or sha
+            if row.get("followup_key") == request_key:
+                _request_match(row, sha, {"planning": planning, "execution": implementation}, hash_field="followup_input_sha256")
+                if row.get("followup_input_sha256") is None:
+                    saved_prompt = row.get("prompt", "")
+                    suffix = "\n\n" + COMPLETION_REMINDER
+                    if isinstance(saved_prompt, str) and saved_prompt.endswith(suffix) and saved_prompt[:-len(suffix)] != message:
+                        raise HarnessError("Legacy request ID has different recorded message inputs")
+                    saved_delivery = row.get("assignment_delivery", {})
+                    if isinstance(saved_delivery, dict) and "execution" in saved_delivery and saved_delivery["execution"] != implementation:
+                        raise HarnessError("Legacy request ID has different recorded implementation selection")
+                if row.get("completion"):
+                    return copy.deepcopy(row)
+            for previous in row.get("history", []):
+                if previous.get("followup_key") == request_key:
+                    _request_match(previous, sha, {}, hash_field="followup_input_sha256")
+                    return {"id": row["id"], "camel_thread_id": row["camel_thread_id"],
+                            "current_cycle": row.get("cycle", 0), **copy.deepcopy(previous)}
         previous_archive = _delivery_path(root, row, "archive")
         if message is not None and not row.get("archived") and previous_archive.exists():
             archive_record = read_json(previous_archive)
             if archive_record.get("state") in ("accepted", "started", "uncertain"):
                 with factory("oasis_restore_recover_" + row["id"]) as server:
                     archive_result = _lifecycle_once(previous_archive, row["camel_thread_id"], server, root,
-                                                     scoped={row["camel_thread_id"]})
+                                                     scoped={row["camel_thread_id"]}, expected_binding=_binding(root, _task_project(row)))
                 if archive_result["state"] != "accepted":
                     return {**copy.deepcopy(row), "phase": "archive_uncertain",
                             "instruction": "Reconcile the retained archive outcome before delivering the follow-up."}
@@ -712,37 +1078,39 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
                 write_json(_task_path(root), state)
         if not row.get("camel_thread_id"):
             receipt = read_json(row["session_receipt"])
-            found = sessions.inspect(row["session_receipt"], factory)
-            if not found.get("thread_id"):
-                return {**copy.deepcopy(row), "phase": "creation_uncertain"}
-            receipt["thread_id"] = found["thread_id"]
+            if receipt.get("phase") != "creation_rejected":
+                found = sessions.inspect(row["session_receipt"], factory)
+                if not found.get("thread_id"):
+                    return {**copy.deepcopy(row), "phase": "creation_uncertain"}
+                receipt["thread_id"] = found["thread_id"]
             sessions.create_metadata(row["session_receipt"], receipt, factory)
-            row["camel_thread_id"] = found["thread_id"]
+            row["camel_thread_id"] = receipt["thread_id"]
             write_json(_task_path(root), state)
         if message is None:
             with factory("oasis_resume_" + row["id"]) as server:
                 _assign_delivery(root, row, server)
         else:
-            sessions.require_text(message, "Follow-up request")
-            request_key = request_id or digest([message, planning, implementation])
-            if row.get("followup_key") == request_key and row.get("completion"):
-                return copy.deepcopy(row)
             if row.get("followup_key") != request_key:
-                row["history"].append({name: copy.deepcopy(row.get(name)) for name in ("cycle", "phase", "completion", "result", "checks")})
+                row["history"].append({name: copy.deepcopy(row.get(name)) for name in
+                    ("cycle", "phase", "completion", "result", "checks", "current_goal", "followup_key", "followup_input_sha256", "native_turn")})
                 row["cycle"] = row.get("cycle", 0) + 1
-                row.update(followup_key=request_key, prompt=_completion_prompt(message), planning=planning, phase="resuming")
-                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result"):
+                row.update(followup_key=request_key, followup_input_sha256=sha, prompt=_completion_prompt(message),
+                           current_goal=message.strip().splitlines()[0], planning=planning, execution=implementation, phase="resuming")
+                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn"):
                     row.pop(name, None)
                 write_json(_task_path(root), state)
             with factory("oasis_resume_" + row["id"]) as server:
+                native = _thread(server, row["camel_thread_id"], root, _task_project(row))
                 if row.get("archived"):
-                    lifecycle = _lifecycle_once(_delivery_path(root, row, "restore"), row["camel_thread_id"], server, root, restore=True)
+                    lifecycle = _lifecycle_once(_delivery_path(root, row, "restore"), row["camel_thread_id"], server, root, restore=True,
+                                                expected_binding=_binding(root, _task_project(row)), native=native)
                     if lifecycle["state"] != "accepted":
                         return {**copy.deepcopy(row), "phase": "restore_uncertain"}
                     row["archived"] = False
                     write_json(_task_path(root), state)
                 delivery = sessions.send_once(_delivery_path(root, row, "assign"), row["camel_thread_id"], row["prompt"], server,
-                                              planning=planning, execution=implementation, skill=_role_skill(root, "Camel"))
+                                              planning=planning, execution=implementation, skill=_role_skill(root, "Camel"),
+                                              expected_binding=_binding(root, _task_project(row)))
                 row.update(phase="assigned" if delivery["state"] == "accepted" else delivery["state"], assignment_delivery=delivery)
         row.pop("error", None)
         write_json(_task_path(root), state)
@@ -752,21 +1120,29 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
 
 def dependency_wait(target, producer_id, consumer_id, condition, *, request_id=None):
     root, _ = _root(target)
+    if request_id is not None:
+        sessions.require_text(request_id, "Dependency request ID")
     for value, label in ((producer_id, "Producer chat ID"), (consumer_id, "Consumer chat ID"), (condition, "Dependency condition")):
         sessions.require_text(value, label)
-    key = request_id or digest([producer_id, consumer_id, condition])
+    if producer_id == consumer_id:
+        raise HarnessError("A dependency needs different producer and consumer chat IDs")
+    sha = digest([producer_id, consumer_id, condition])
+    key = request_id or sha
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _tasks(root)
         row = next((row for row in state["dependencies"] if row.get("request_key") == key), None)
+        if row is not None:
+            _request_match(row, sha, {"producer_thread_id": producer_id, "consumer_thread_id": consumer_id, "condition": condition})
         if row is None:
-            row = {"id": uuid.uuid4().hex, "request_key": key, "producer_thread_id": producer_id,
+            row = {"id": uuid.uuid4().hex, "request_key": key, "input_sha256": sha, "producer_thread_id": producer_id,
                    "consumer_thread_id": consumer_id, "condition": condition, "phase": "waiting"}
             state["dependencies"].append(row)
             write_json(_task_path(root), state)
+        _render_tasks(root, state)
         return {**copy.deepcopy(row), "end_turn": True}
 
 
-def dependency_finish(target, dependency_id, *, outcome="completed", result=None, message=None, factory=sessions.AppServer):
+def dependency_finish(target, dependency_id, *, outcome="completed", result=None, message=None, factory=sessions.command_server):
     if outcome not in ("completed", "failed", "cancelled"):
         raise HarnessError("Dependency outcome must be completed, failed or cancelled")
     root, _ = _root(target)
@@ -779,7 +1155,16 @@ def dependency_finish(target, dependency_id, *, outcome="completed", result=None
             row.update(phase=outcome, result=result, text=message or f"Dependency {outcome}: {row['condition']}. Result: {result or 'see producer chat ' + row['producer_thread_id']}.")
             write_json(_task_path(root), state)
         path = contained(root, f".oasis/local/tasks/dependencies/{row['id']}.json")
-        with factory("oasis_dependency_" + row["id"]) as server:
-            row["delivery"] = sessions.send_once(path, row["consumer_thread_id"], row["text"], server)
+        try:
+            with factory("oasis_dependency_" + row["id"]) as server:
+                project_id = row.get("project_id") or sessions.project_id(server, root)
+                _thread(server, row["producer_thread_id"], root, project_id)
+                row["project_id"] = project_id
+                row["delivery"] = sessions.send_once(path, row["consumer_thread_id"], row["text"], server,
+                                                    expected_binding=_binding(root, project_id))
+        except Exception as exc:
+            _render_after_failure(root, state, exc)
+            raise
         write_json(_task_path(root), state)
+        _render_tasks(root, state)
         return copy.deepcopy(row)

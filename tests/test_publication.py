@@ -152,6 +152,32 @@ def fixture_candidate(root):
 
 
 class PublicationContracts(unittest.TestCase):
+    def test_waiting_instance_reloads_uncertain_journal_inside_lock(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "candidate"
+            sha = fixture_candidate(root)
+            provider = GitHubFixture()
+            first, waiting = Publisher(root, sha, provider), Publisher(root, sha, provider)
+            first.save(events=[{"operation": "pull_request", "status": "uncertain_or_rejected"}])
+            with self.assertRaisesRegex(HarnessError, "PR creation was uncertain"):
+                waiting.execute("fixture current request")
+            self.assertFalse(provider.prs)
+            self.assertIn({"operation": "pull_request", "status": "uncertain_or_rejected"}, read_json(root / "state.json")["events"])
+
+    def test_initial_pr_uses_reviewed_notes_without_extra_patch(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "candidate"
+            sha = fixture_candidate(root)
+            provider = GitHubFixture()
+            with patch.object(provider, "request", wraps=provider.request) as calls:
+                Publisher(root, sha, provider).execute("fixture request")
+            bodies = [call.args[2]["body"] for call in calls.call_args_list if len(call.args) > 2 and call.args[:2] == ("POST", "/repos/fixture/public/pulls")]
+            self.assertEqual(len(bodies), 1)
+            self.assertIn("Fixture notes", bodies[0])
+            self.assertIn(sha, bodies[0])
+            self.assertFalse(any(method == "PATCH" and "/pulls/" in path for method, path in provider.mutations))
+
     def test_source_only_stops_after_verified_merge_without_release(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/"candidate";fixture_candidate(root);provider=GitHubFixture()

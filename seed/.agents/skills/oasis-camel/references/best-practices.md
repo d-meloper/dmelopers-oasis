@@ -30,6 +30,10 @@ Select checks for the changed contract and connected consumer. Reuse passing
 evidence while consumed source, configuration, tools, test runners and data
 match. Package-initializer behavior and shared test/fixture imports can invalidate
 checks beyond the directly edited test; a version literal alone need not.
+When a behavior test is useful, reproduce the user's failing action and check
+its result, with a relevant negative control. Avoid checks that merely repeat
+the implementation's wording or calculate their expected value through the
+same changed path.
 Keep exact deferred commands and resume points. The
 [fast-work guide](../../../../ProjectGuide.md#fast-work) defines task pacing.
 
@@ -38,6 +42,9 @@ Keep exact deferred commands and resume points. The
 Coordinate actual shared inputs: a whole-checkout consumer can read outside its
 author's edit scope. Serialize shared Git operations. Reconcile uncertain
 create/send/write effects with their actual identity before retrying.
+An explicit request ID does not prove equal intent: bind original consumed inputs
+separately from generated prompts. If a retained record lacks that proof, current
+input cannot establish what its original request contained.
 Use the [terminal dependency notice](../../../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
 after independent work; duplicate notices do not repeat integration.
 

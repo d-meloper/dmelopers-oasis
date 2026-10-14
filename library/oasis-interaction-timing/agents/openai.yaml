@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Interaction Timing"
-  short_description: "Interaction Timing for the requested project work"
+  short_description: "Preserve asynchronous input semantics and motion continuity"
   default_prompt: "Use $oasis-interaction-timing for the requested project scope."

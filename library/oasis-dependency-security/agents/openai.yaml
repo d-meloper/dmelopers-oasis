@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Dependency Security"
-  short_description: "Dependency Security for the requested project work"
+  short_description: "Trace dependency exposure, provenance and distribution notices"
   default_prompt: "Use $oasis-dependency-security for the requested project scope."
