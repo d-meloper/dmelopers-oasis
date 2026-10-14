@@ -142,7 +142,10 @@ class SourceDeliveryContracts(unittest.TestCase):
         (source / "oasis_harness/cli.py").write_text("value = 1\n", encoding="utf-8")
         (source / "oasis_harness/sessions.py").write_text("value = 1\n", encoding="utf-8")
         (source / "tests/__init__.py").write_text("", encoding="utf-8")
-        for name in ("public_source", "source_delivery", "distribution", "sessions", "session_transport", "workflows", "dependencies", "backup"):
+        from tools.source_checks import DEPENDENTS, SMOKE
+        fixture_modules = {name.removeprefix("tests.test_") for name in SMOKE}
+        fixture_modules.update(name for consumers in DEPENDENTS.values() for name in consumers)
+        for name in sorted(fixture_modules):
             (source / f"tests/test_{name}.py").write_text(
                 "import unittest\nclass Fixture(unittest.TestCase):\n    def test_pass(self):\n        self.assertTrue(True)\n", encoding="utf-8")
         (source / "docs/guide.md").write_text("Original guide\n", encoding="utf-8")
@@ -264,7 +267,8 @@ class SourceDeliveryContracts(unittest.TestCase):
             proof, current, _ = self.run_reused_fixture(source, baseline, parent / "incremental")
             self.assertFalse(proof["executed"]["full"])
             self.assertIn("tests.test_backup", proof["reused_modules"])
-            for name in ("sessions", "session_transport", "workflows", "dependencies", "new_input"):
+            for name in ("sessions", "session_transport", "workflows", "dependencies", "waiting", "notifications",
+                         "deadlines", "shared_runtime", "rpc_efficiency", "new_input"):
                 self.assertIn("tests.test_" + name, proof["executed"]["modules"])
                 self.assertNotIn("tests.test_" + name, proof["reused_modules"])
             log = (current.parent / "command-2.log").read_text(encoding="utf-8")

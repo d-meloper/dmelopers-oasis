@@ -27,6 +27,23 @@ command output and file-change output. It retains lifecycle events and requests.
 Only an explicit unsupported opt-out parameter permits one initialization retry
 without that parameter; other errors keep their original failure boundary.
 
+Project-scoped commands share connections through the same transient workflow
+observer. It preserves separate upstream connections for creation originators;
+later calls for a known thread return to its creation connection. This retains
+native lifecycle events without resuming a thread merely to observe it.
+Direct `AppServer` callers retain their own connections and event contract.
+
+The local bridge uses bounded authenticated UTF-8 JSON over a same-user Windows
+named pipe, binding project/backend and owner generation. It does not deserialize
+pickle. A command releases its usage lease when it ends, rather than closing an
+upstream connection used by another command or registered task. Uncertain IPC
+delivery never authorizes a direct-connect mutation retry. Read-only status
+does not launch the owner or renew its lifetime.
+For an issued turn without verified completion-event coverage, a global idle
+transition triggers one bounded metadata check of its exact turn ID before
+releasing usage. Duplicate idle events coalesce; a newer or active turn remains
+owned. This adds no periodic history queries.
+
 Both transports cap protocol messages at 64 MiB. The event buffer is bounded
 at 256 notifications and 64 MiB in aggregate. Protocol errors or overflow end
 the connection and wake pending calls with an explicit failure; already
@@ -88,8 +105,8 @@ cancellation. Transport notifications alone are not a role workflow or task resu
 ## Workflow observation
 
 Registered work uses a verified host notification path where available. Otherwise
-one non-model observer per project/backend owns its client connection and scoped
-watches. It connects to the existing App Server; it does not start a host service,
+one non-model observer per project/backend owns shared client connections and
+scoped watches. It connects to the existing App Server; it does not start a host service,
 install a scheduler or change global settings. `thread/read` alone does not
 subscribe to events or prove that a backend supplies lifecycle notifications.
 
@@ -104,14 +121,20 @@ dependency readiness concerns its named artifact/resource, not producer shutdown
 Delivery to an active recipient is retained until the recipient is idle; an
 unverified native queue is not used. Collection and review remain the role's work.
 
-Fallback filesystem alerts are coalesced: debounce 250 ms, maximum delay one
-second and at most one state snapshot per second per target. No-change waiting
-does not make periodic history or model requests. Initial registration and
-terminal-boundary checks still verify actual native state.
+Confirmed event coverage uses exact turn completion and needed recipient-idle
+transitions. Progress text, tool output and token updates do not trigger history
+reads. Same-purpose concurrent reads can share a result; mutation and archival
+boundaries still recheck current identity and state.
+For threads without verified event coverage, filesystem alerts are coalesced:
+debounce 250 ms, maximum batching delay one second and at most one state snapshot
+per five seconds per changed target. No-change waiting makes no periodic history
+or model requests. Initial registration and terminal-boundary checks still verify
+actual native state. A fallback rate limit can extend the batching delay.
 
 Ownership includes project/backend, generation and actual process identity.
-The observer exits when work is resolved or its lease ends; an unspecified wait
-expires after 24 hours. Connection loss permits one reconnect and reconciliation.
+When no request or registered work remains, the shared owner exits after 60
+seconds idle; an unspecified work observation expires after 24 hours. Connection
+loss permits one reconnect and reconciliation.
 Unsupported observation, exhausted recovery or an expired lease retains state and
 an exact explicit resume step. The next requested workflow operation can restore
 observation. No unknown native send is automatically repeated, and duplicate
@@ -121,7 +144,10 @@ The whole collection budget is 30 seconds by default, including connection, RPC,
 I/O and cleanup. Its optional event-wait budget cannot exceed the remaining whole
 deadline. Observer waits do not hold the project's mutation lock. Watches and
 owned connections are released at their owner boundary; cleanup failures remain
-visible with retained recovery state.
+visible with retained recovery state. Diagnostics distinguish native RPC counts,
+local IPC requests, connections and reconciliation causes without retaining
+prompt/result bodies. An active owner without a compatible bridge completes its
+lease; shared routing begins with a compatible owner without replacing active work.
 
 ## Actual Plan mode
 

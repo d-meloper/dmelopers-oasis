@@ -6,6 +6,87 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 1.2.8
+
+Core remains 2.0.0. Releasing the final issued-turn verifier queues activity for
+the waiting observer, so it can enter idle grace even when the preceding RPC's
+activity was already consumed. A forced ordering regression verifies the wake;
+closed pools retain their accepted-event drain behavior. The verified preceding
+full run remains the baseline, with only affected checks refreshed.
+
+## 1.2.7
+
+Core remains 2.0.0. An issued turn on an externally loaded chat can receive global
+idle status without a connection-specific completion event. The shared owner now
+checks exact terminal IDs through one bounded metadata request on that event,
+releasing only confirmed usage. Duplicate idle is coalesced; active, newer or
+unidentified work stays owned with finite recovery diagnostics. Fast completion
+before the start response is retained. This adds no periodic query or model wait.
+The preceding integration was superseded when native cleanup exposed this lease
+leak; its partial evidence is retained separately from successful checks.
+A retained-chat native probe verified natural observer exit while its test host
+was still alive; owned resources were cleaned and settings/auth remained intact.
+
+## 1.2.6
+
+Core remains 2.0.0. Pending observation without an eligible transition returns
+read-only instead of taking the project mutation lock to save diagnostic state.
+This removes foreground completion contention exposed by two fixed-task subruns
+in the first 400-test integration run. Actual terminal/dependency delivery keeps
+its existing lock and fresh checks. Failed evidence is retained; no mutation
+retry or lock takeover is added.
+
+## 1.2.5
+
+Core remains 2.0.0. The source privacy policy pins the reviewed synthetic RPC
+efficiency fixture, whose environment cleanup names a thread-ID variable without
+bundling an actual ID. Hard secret/path checks remain unchanged. The first
+preparation stopped at this scan before functional tests began; its evidence is
+retained. Runtime behavior is unchanged from the preceding implementation.
+
+## 1.2.4
+
+Core remains 2.0.0. Project commands and terminal observation share the existing
+transient owner through a bounded same-user local bridge. Upstream connections
+retain creation originators, so an uncertain creation can still be reconciled
+with its original receipt. Separate CLI leases do not close a peer's connection;
+request IDs, generation checks and independent deadlines preserve recovery
+without replaying an uncertain native mutation. The bridge exchanges UTF-8 JSON
+byte frames, never pickle, and installs no service or App Server.
+
+Owned creation connections retain lifecycle notifications. Progress and token
+events do not trigger native history queries. Exact terminal and needed idle
+transitions request fresh native state; result submission still cannot replace
+actual latest-turn completion, nonempty final output, project binding or writer
+boundary checks. Uncovered threads retain changed-only filesystem observation,
+limited to one reconciliation per five seconds. Partial dependencies, same-cycle
+continuation, existing chats and independent project knowledge remain intact.
+
+The owner permits 60 seconds of idle reuse after registered work and command
+leases end, within its 24-hour observation lease. Active older owners are not
+replaced. Lease expiry and bounded resource cleanup remain distinct from RPC
+failure. Diagnostics separate native RPC, local IPC and reconciliation causes;
+they add no prompt or result bodies. Source checks include the installed runtime's
+actual waiting, deadline and connection-sharing consumers.
+
+The approach uses the documented App Server lifecycle and read/subscription
+boundaries, with connection-reuse principles from the pinned
+[OpenAI broker implementation](https://github.com/openai/codex-plugin-cc/blob/db52e28f4d9ded852ab3942cea316258ae4ef346/plugins/codex/scripts/app-server-broker.mjs).
+It does not adopt that implementation's single-active-stream ownership model.
+
+The installed, model-free protocol task repeats only the current candidate,
+counting native wire calls, local IPC, progress invalidations and notification
+delay separately. A historical RPC total is context, not a controlled speedup.
+The isolated native scenario verified early-result buffering, one partial
+continuation before producer shutdown, one terminal-ready manager notice,
+nonempty final output, archive/same-ID follow-up and unrelated chat preservation.
+Its evaluator required a corrected message-file argument and fresh follow-up
+history after archival ended the evaluator's subscription; passed task steps
+were retained. The final diagnostic-only send-counter adjustment is covered by
+the integrated source checks. No general elapsed-time or token saving is claimed.
+A different meaningful task transition can still cause a fresh check of a
+buffered recipient; quiet waiting and progress events do not require that read.
+
 ## 1.2.3
 
 Core remains 2.0.0. All roles end a turn after independently possible work when

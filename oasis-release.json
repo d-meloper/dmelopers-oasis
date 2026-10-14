@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "1.2.3",
+  "version": "1.2.8",
   "channel": "stable",
   "mode": "source-and-artifacts",
   "files": [
@@ -103,6 +103,7 @@
     "oasis_harness/notifications.py",
     "oasis_harness/publication.py",
     "oasis_harness/sessions.py",
+    "oasis_harness/shared_runtime.py",
     "oasis_harness/skills.py",
     "oasis_harness/workflows.py",
     "seed/.agents/skills/oasis-camel/SKILL.md",
@@ -162,8 +163,10 @@
     "tests/test_notifications.py",
     "tests/test_public_source.py",
     "tests/test_publication.py",
+    "tests/test_rpc_efficiency.py",
     "tests/test_session_transport.py",
     "tests/test_sessions.py",
+    "tests/test_shared_runtime.py",
     "tests/test_skills.py",
     "tests/test_source_delivery.py",
     "tests/test_waiting.py",

@@ -18,7 +18,8 @@ from .common import HarnessError, clean_environment, contained, digest, file_has
 DEFAULT_LIFETIME = 24 * 60 * 60
 DEBOUNCE = 0.25
 MAX_DELAY = 1.0
-MIN_QUERY_INTERVAL = 1.0
+MIN_QUERY_INTERVAL = 5.0
+IDLE_GRACE = 60.0
 
 
 class _OwnerBusy(HarnessError):
@@ -183,6 +184,11 @@ def status(root):
     if row["status"] in ("starting", "running") and not result["owner_verified"]:
         result["status"] = "recovery_required"
         result["next_action"] = "Run the pending task or dependency command; its next invocation reconciles retained state"
+    elif row["status"] == "running" and result["owner_verified"] and row.get("ipc"):
+        from . import shared_runtime
+        current = shared_runtime.read_diagnostics(root, row)
+        if current:
+            result["diagnostics"] = current
     return result
 
 
@@ -204,8 +210,10 @@ def ensure_running(root, *, lifetime=DEFAULT_LIFETIME):
                 return status(root)
             token = uuid.uuid4().hex
             now = time.time()
+            from .shared_runtime import PROTOCOL
             row = {"schema_version": 1, "target": str(root), "backend": _backend(), "token": token,
                    "generation": (previous or {}).get("generation", 0) + 1,
+                   "shared_protocol": PROTOCOL,
                    "status": "starting", "created_at": now, "expires_at": now + lifetime,
                    "process": {}, "next_action": "The I/O owner will observe pending transitions without model requests"}
             # The worker takes start.lock before reading this record, closing its startup race.
@@ -248,7 +256,7 @@ def _relevant(events, watches, targets, journal, *, waiting_for_writer=False):
         if not isinstance(event, dict):
             raise HarnessError("Native notification must be an object")
         params = event.get("params", {})
-        if event.get("method") not in ("fs/changed", "turn/completed", "thread/status/changed"):
+        if event.get("method") not in ("fs/changed", "turn/completed", "thread/status/changed", "item/completed"):
             continue
         if not isinstance(params, dict):
             raise HarnessError("Native transition parameters must be an object")
@@ -264,16 +272,32 @@ def _relevant(events, watches, targets, journal, *, waiting_for_writer=False):
                 journal_changed |= any(sessions.canonical_root(path) == sessions.canonical_root(expected)
                                        for path in paths if isinstance(path, str))
             else:
-                changed.add(watched["thread_id"])
-        elif event.get("method") in ("turn/completed", "thread/status/changed"):
+                if not targets.get(watched["thread_id"], {}).get("event_covered"):
+                    changed.add(watched["thread_id"])
+        else:
             identity = params.get("threadId")
             expected = targets.get(identity)
             if expected is None:
                 continue
             turn = params.get("turn", {})
-            if (event["method"] == "turn/completed" and expected.get("turn_id")
-                    and turn.get("id") != expected["turn_id"]):
-                continue
+            if event["method"] == "thread/status/changed":
+                status = params.get("status") or {}
+                if not isinstance(status, dict):
+                    raise HarnessError("Native thread status transition must be an object")
+                if not (expected.get("idle_only") or expected.get("awaiting_idle")) or status.get("type") not in ("idle", "notLoaded"):
+                    continue
+            elif event["method"] == "item/completed":
+                item = params.get("item") or {}
+                if not isinstance(item, dict):
+                    raise HarnessError("Native completed item must be an object")
+                if (params.get("turnId") != expected.get("turn_id")
+                        or item.get("type") != "agentMessage" or item.get("phase") != "final_answer"):
+                    continue
+            else:
+                if not isinstance(turn, dict):
+                    raise HarnessError("Native completed turn must be an object")
+                if expected.get("turn_id") and turn.get("id") != expected["turn_id"]:
+                    continue
             changed.add(identity)
     return changed, journal_changed
 
@@ -283,7 +307,7 @@ def _watch(server, watches, targets, journal):
     desired = {str(journal.parent): {"thread_id": None, "path": str(journal.parent), "event_path": str(journal)},
                str(operation.parent): {"thread_id": None, "path": str(operation.parent), "event_path": str(operation),
                                       "event_kind": "unlock"}}
-    desired.update({row["path"]: row for row in targets.values()})
+    desired.update({row["path"]: row for row in targets.values() if not row.get("event_covered")})
     added = set()
     for watch_id, row in list(watches.items()):
         if row["path"] not in desired:
@@ -306,18 +330,52 @@ def _busy(exc):
     return isinstance(exc, HarnessError) and "Operation is already locked:" in str(exc)
 
 
-def _observe(root, server, deadline, step, stop_guard=None):
+def _observe(root, server, deadline, step, stop_guard=None, *, runtime=None):
     journal = contained(root, ".oasis/local/tasks/state.json")
+    journal.parent.mkdir(parents=True, exist_ok=True)
     if not callable(getattr(server, "wait_events", None)):
         raise sessions.NativeError("fs/watch", {"code": -32601, "message": "Event observation unavailable"})
     cache, watches, targets = {}, {}, {}
     changed, dirty, last_step = None, True, -math.inf
     primary = None
     waiting_for_writer = False
+    pending, consumed, idle_since = True, None, None
+    reason = "initial"
+    last_query, deferred = {}, {}
+
+    def fallback_due(identity):
+        row = deferred[identity]
+        return max(min(row["first"] + MAX_DELAY, row["last"] + DEBOUNCE),
+                   last_query.get(identity, -math.inf) + MIN_QUERY_INTERVAL)
+
+    def transitions(events):
+        fallback, journal_event = _relevant([event for event in events if event.get("method") == "fs/changed"],
+            watches, targets, journal, waiting_for_writer=waiting_for_writer)
+        native, _ = _relevant([event for event in events if event.get("method") != "fs/changed"],
+            watches, targets, journal, waiting_for_writer=waiting_for_writer)
+        now = time.monotonic()
+        for identity in fallback - native:
+            row = deferred.setdefault(identity, {"first": now, "last": now})
+            row["last"] = now
+        for identity in native:
+            deferred.pop(identity, None)
+        if any(event.get("method") == "oasis/shared/activity" for event in events) and _journal_stamp(root) != consumed:
+            journal_event = True
+        return native, journal_event
+
+    def due_fallbacks():
+        ready = {identity for identity in deferred if fallback_due(identity) <= time.monotonic()}
+        for identity in ready:
+            del deferred[identity]
+        return ready
+
     try:
         while time.monotonic() < deadline:
             if dirty:
                 consumed = _journal_stamp(root)
+                record = getattr(server, "record_reconciliation", None)
+                if callable(record):
+                    record(reason)
                 try:
                     with sessions.deadline_scope(timeout=min(30, max(0, deadline - time.monotonic()))):
                         result = step(root, server, changed_threads=changed, cache=cache)
@@ -328,41 +386,77 @@ def _observe(root, server, deadline, step, stop_guard=None):
                     # The writer's durable journal event is the next retry trigger.
                     result = {"pending": True, "targets": list(targets.values())}
                     waiting_for_writer = True
+                queried = set(targets) if changed is None else changed
                 last_step, dirty, changed = time.monotonic(), False, set()
-                if not result["pending"]:
+                pending = result["pending"]
+                if not pending and runtime is None:
                     if stop_guard is not None and not stop_guard(consumed):
                         changed, dirty = None, True
+                        reason = "shutdown_changed"
                         continue
                     return "stopped", result.get("next_action", "All registered notifications are resolved")
-                targets = {row["thread_id"]: row for row in result.get("targets", [])}
+                if pending:
+                    idle_since = None
+                elif idle_since is None:
+                    idle_since = time.monotonic()
+                previous = targets
+                targets = {row["thread_id"]: row for row in result.get("targets", [])} if pending else {}
+                for identity in queried | (targets.keys() - previous.keys()):
+                    last_query[identity] = last_step
+                    deferred.pop(identity, None)
+                for identity in set(deferred) - targets.keys():
+                    del deferred[identity]
                 with sessions.deadline_scope(timeout=min(30, max(0, deadline - time.monotonic()))):
                     added = _watch(server, watches, targets, journal)
                 if added:
                     changed, dirty = added - {None}, True
+                    reason = "registration"
                     continue  # One post-registration read closes the event-registration race.
-            events = server.wait_events(max(0, deadline - time.monotonic()))
-            if not events and time.monotonic() < deadline:
-                raise HarnessError("Native event connection ended before a transition; reconcile once")
-            relevant, journal_changed = _relevant(events, watches, targets, journal, waiting_for_writer=waiting_for_writer)
-            if not relevant and not journal_changed:
+            ready = due_fallbacks()
+            if ready:
+                changed, dirty, reason = ready, True, "fallback_change"
                 continue
-            changed.update(relevant)
+            until = min([deadline, *(fallback_due(identity) for identity in deferred)])
+            if not pending and runtime is not None:
+                if runtime.busy():
+                    idle_since = time.monotonic()
+                else:
+                    until = min(until, max(idle_since, runtime.last_activity) + IDLE_GRACE)
+                    if time.monotonic() >= until:
+                        if stop_guard is None or stop_guard(consumed):
+                            return "stopped", "All registered work is resolved; shared connection idle grace ended"
+                        changed, dirty = None, True
+                        reason = "shutdown_changed"
+                        idle_since = time.monotonic()
+                        continue
+            events = server.wait_events(max(0, until - time.monotonic()))
+            if not events and time.monotonic() >= until:
+                continue
+            if not events:
+                raise HarnessError("Native event connection ended before a transition; reconcile once")
+            native, journal_changed = transitions(events)
+            if not native and not journal_changed:
+                continue
+            changed.update(native)
+            native_change = bool(native)
             first, latest = time.monotonic(), time.monotonic()
             # Coalesce actual input only. This timer never queries native/model status.
             while True:
                 now = time.monotonic()
                 due = min(first + MAX_DELAY, latest + DEBOUNCE)
-                due = max(due, last_step + MIN_QUERY_INTERVAL)
                 if now >= min(due, deadline):
                     break
                 batch = server.wait_events(max(0, min(due, deadline) - now))
                 if not batch and time.monotonic() < min(due, deadline):
                     raise HarnessError("Native event connection ended while merging transitions; reconcile once")
-                more, journal_event = _relevant(batch, watches, targets, journal, waiting_for_writer=waiting_for_writer)
+                more, journal_event = transitions(batch)
+                native_change |= bool(more)
                 if more or journal_event:
                     changed.update(more)
                     latest = time.monotonic()
+            changed.update(due_fallbacks())
             dirty = True
+            reason = "native_transition" if native_change else "fallback_change" if changed else "journal_change"
         return "expired", "Observation lifetime ended; run the pending task or dependency command to reconcile and resume"
     except BaseException as exc:
         primary = exc
@@ -389,6 +483,7 @@ def run(root, token, *, factory=None, step=None):
     from . import workflows
     root = Path(root).resolve()
     directory = _directory(root)
+    production = factory is None
     factory = factory or sessions.command_server
     step = step or workflows.notification_step
     shutdown = contextlib.ExitStack()
@@ -418,6 +513,7 @@ def run(root, token, *, factory=None, step=None):
                 return _save(root, token, status="expired", next_action="Observation lifetime ended; run the pending task or dependency command to reconcile and resume")
             cleanup_errors = []
             closing = False
+            runtime_owner = None
 
             def stop_guard(consumed):
                 nonlocal closing
@@ -425,6 +521,9 @@ def run(root, token, *, factory=None, step=None):
                 try:
                     candidate.enter_context(_wait_lock(directory / "start.lock"))
                     if _journal_stamp(root) != consumed:
+                        candidate.close()
+                        return False
+                    if runtime_owner is not None and not runtime_owner.begin_shutdown():
                         candidate.close()
                         return False
                     # Release owner.lock before this startup/shutdown barrier.
@@ -436,20 +535,34 @@ def run(root, token, *, factory=None, step=None):
                     raise
 
             for attempt in range(2):
+                diagnostics = {}
                 try:
                     with sessions.deadline_scope(deadline=deadline):
-                        with factory("oasis-notifications") as server:
-                            final, action = _observe(root, server, deadline, step, stop_guard)
+                        if production:
+                            from . import shared_runtime
+                            with contextlib.closing(shared_runtime.Pool()) as pool:
+                                with shared_runtime.Host(root, token, row["generation"], pool) as runtime_owner:
+                                    _save(root, token, ipc=runtime_owner.descriptor(), connection_mode="shared")
+                                    server = pool.facade("oasis-notifications")
+                                    try:
+                                        final, action = _observe(root, server, deadline, step, stop_guard, runtime=runtime_owner)
+                                    finally:
+                                        diagnostics = pool.diagnostics()
+                        else:
+                            with factory("oasis-notifications") as server:
+                                final, action = _observe(root, server, deadline, step, stop_guard)
+                            diagnostics = {"connection_mode": "direct"}
                     return _save(root, token, status=final, next_action=action, reconnects=attempt,
-                                 cleanup_errors=cleanup_errors)
+                                 cleanup_errors=cleanup_errors, diagnostics=diagnostics)
                 except HarnessError as exc:
                     if getattr(exc, "notification_cleanup_error", None):
                         cleanup_errors.append(exc.notification_cleanup_error)
                     unsupported = isinstance(exc, sessions.NativeError) and exc.code == -32601
                     if unsupported or closing or isinstance(exc, _CleanupError) or attempt == 1 or time.monotonic() >= deadline:
-                        return _save(root, token, status="unsupported" if unsupported else "recovery_required",
+                        expired = isinstance(exc, sessions.DeadlineExceeded) and time.monotonic() >= deadline
+                        return _save(root, token, status="expired" if expired else "unsupported" if unsupported else "recovery_required",
                                      error=str(exc), reconnects=attempt,
-                                     cleanup_errors=cleanup_errors,
+                                     cleanup_errors=cleanup_errors, diagnostics=diagnostics,
                                      next_action="Run the pending task or dependency command to reconcile retained state; do not poll with a model")
     except _OwnerBusy:
         return {"status": "already_running"}

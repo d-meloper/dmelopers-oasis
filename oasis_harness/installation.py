@@ -34,7 +34,7 @@ PROJECT_KNOWLEDGE_PATHS = frozenset({
 ADOPTER_MODULES = frozenset({
     "__init__.py", "backup.py", "build.py", "cli.py", "common.py", "doctor.py",
     "gitops.py", "github.py", "installation.py", "knowledge.py",
-    "publication.py", "sessions.py", "skills.py", "workflows.py", "notifications.py",
+    "publication.py", "sessions.py", "shared_runtime.py", "skills.py", "workflows.py", "notifications.py",
 })
 ENTRYPOINT = b'''#!/usr/bin/env python3
 from pathlib import Path

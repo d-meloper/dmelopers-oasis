@@ -53,8 +53,12 @@ live trials need their concrete scope, settings and cleanup; source maintenance
 does not create diagnostic chats or model turns.
 
 The transport exposes bounded notification retrieval and private diagnostics.
-The scoped workflow observer owns future terminal notification, without host
-startup, approval UI or automatic review/integration. Test exact turn identity,
+The scoped workflow observer owns shared command connections and future terminal
+notification, without host startup, approval UI or automatic review/integration.
+Test actual installed clients across process boundaries, same-user/generation
+identity, creation-originator connection reuse, simultaneous calls, response loss
+without mutation replay and caller deadlines that do not close a peer's work.
+Test exact turn identity,
 registration races, burst coalescing, rate limits, lifecycle/FS fallback, finite
 reconnect, unsupported APIs, lost/duplicate/old-cycle events, lease expiry and
 cleanup failure. Whole deadlines include connection, RPC, I/O and cleanup.
@@ -63,9 +67,15 @@ surface availability; see [sessions](sessions.md).
 
 For dependency costs, separate elapsed wait, tool wait and model requests.
 An unchanged dependency should cause zero periodic model requests and a confirmed
-meaningful transition should produce no duplicate wake-up. Compare the same fixed
-task on baseline and candidate: elapsed time, role-specific waiting tokens, RPC
-counts and output quality. Count experiment-observer queries separately from
+meaningful transition should produce no duplicate wake-up. Measure a fixed task
+on the selected candidate, retaining source identity and consumed fixture inputs.
+The fixed installed protocol fixture repeats the same model-free task three
+times. Count native RPC by method,
+local IPC, response bytes, connections/processes and completion delivery delay
+separately. A retained historical run is context, not a controlled speedup or
+token-saving measurement; do not rerun an old version merely to populate a report.
+Model-free fixtures cannot establish model behavior or quality. Count
+experiment-observer queries separately from
 product/runtime queries and model polling. A role's total input includes actual
 assignment, review and collection work; do not classify it all as waiting cost.
 Do not infer unmeasured Camel behavior or unnecessary tests from Cameleer traces.

@@ -221,7 +221,8 @@ class DeadlineContracts(unittest.TestCase):
                     patch("oasis_harness.sessions.shutil.which", return_value="fixture-codex"), \
                     patch("oasis_harness.sessions._ProxyTransport", return_value=wire):
                 started = time.monotonic()
-                result = workflows.collect(root, row["id"], timeout=1.15, wait_timeout=30, factory=sessions.command_server)
+                direct = lambda originator: sessions.AppServer(originator, notification_profile="command")
+                result = workflows.collect(root, row["id"], timeout=1.15, wait_timeout=30, factory=direct)
                 self.assertLess(time.monotonic() - started, 1.45)
                 self.assertEqual(result["phase"], "awaiting_terminal")
             self.assertTrue(wire.closed)

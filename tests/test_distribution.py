@@ -50,6 +50,7 @@ class DistributionBoundary(unittest.TestCase):
         self.assertNotIn(".oasis/runtime/oasis_harness/public_source.py", payload)
         self.assertIn(".oasis/runtime/oasis_harness/workflows.py", payload)
         self.assertIn(".oasis/runtime/oasis_harness/notifications.py", payload)
+        self.assertIn(".oasis/runtime/oasis_harness/shared_runtime.py", payload)
         self.assertIn(".oasis/manual/upgrade-index.json", payload)
         self.assertIn(".oasis/manual/workflows.md", payload)
         self.assertIn(".agents/skills/oasis-pioneer/SKILL.md", payload)
@@ -263,10 +264,16 @@ class DistributionBoundary(unittest.TestCase):
         self.assertTrue(select(["oasis_harness/__init__.py"])["full"])
         self.assertNotIn("tests.test_backup", docs["modules"])
         self.assertIn("tests.test_installation", select(["oasis_harness/installation.py"])["modules"])
+        self.assertIn("tests.test_rpc_efficiency", select(["oasis_harness/installation.py"])["modules"])
         self.assertIn("tests.test_backup", select(["oasis_harness/backup.py"])["modules"])
         # test_build owns the original-path export guard and source-only
         # prepare/execute integration, even when only the publisher changes.
         self.assertIn("tests.test_build", select(["oasis_harness/publication.py"])["modules"])
+        for module in ("sessions", "shared_runtime", "notifications", "workflows"):
+            selected = select([f"oasis_harness/{module}.py"])
+            self.assertFalse(selected["full"])
+            for consumer in ("shared_runtime", "rpc_efficiency", "notifications", "waiting", "deadlines"):
+                self.assertIn("tests.test_" + consumer, selected["modules"])
         for name in ("oasis_harness/common.py", "oasis_harness/cli.py", "oasis_harness/new.py", "tools/new.py"):
             self.assertTrue(select([name])["full"])
         self.assertTrue(select([], full=True)["full"])
