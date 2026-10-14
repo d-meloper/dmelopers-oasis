@@ -12,6 +12,10 @@ Trace changed contracts into connected unchanged callers, data, timing, teardown
 
 Use the user's reproduced failure and an independent expected result when a behavior test is needed. A relevant negative control separates the changed contract from unrelated behavior; assertions that copy the implementation's wording do not establish that contract.
 
+Use [matching testcase evidence](../../oasis-camel/references/best-practices.md#checks-and-reproducible-recovery)
+for an unchanged subset; preserve the original run's failures and perform checks
+required by changed inputs or the independent review's own purpose.
+
 Make the smallest complete authorized correction at the responsible layer. Refresh only evidence invalidated by source drift and inspect the final net effect. Report user-visible change notes, proven resolutions and actual checks in the owner's language, with manual/unknown limits. Do not create a report ledger, rebuild, scan, launch, publish or send messages solely because a review ran.
 
 Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;

@@ -207,6 +207,8 @@ def verify_evidence(path):
 
 
 def register(subparsers):
+    from . import check_results
+    check_results.register(subparsers)
     p = subparsers.add_parser("build", help="Execute an inspected project build adapter in a retained source snapshot")
     p.add_argument("--root", required=True)
     p.add_argument("--revision", required=True)

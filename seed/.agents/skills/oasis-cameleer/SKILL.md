@@ -16,7 +16,8 @@ workflow for delivery included in the request.
 
 When only assigned results remain, follow
 [dependency waiting](../../../LocalGitWorkflow.md#dependency-waiting-and-resumption):
-finish independent work and end the turn until its terminal notice.
+finish independent work and end the turn until its existing assignment notice.
+Do not add a whole-task dependency to yourself or a closing dependency-finish.
 
 Before the final completion report, consolidate useful lessons from this work
 once in the owning experience reference.

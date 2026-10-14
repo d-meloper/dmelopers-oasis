@@ -45,6 +45,8 @@ reviews the relevant diff and performed checks, integrates and archives the
 Camel. Follow-up work restores the same chat. All roles finish independent work
 and end their turn while blocked, resuming from one meaningful notice. Named
 partial results can resume a consumer before the producer's whole task ends.
+Whole assignments reuse their existing notice; collection needs no second
+dependency or confirmation turn.
 
 Owner-established independent specialist sessions keep their own requested
 scope and existing chat. They coordinate shared files or resources when needed
@@ -91,6 +93,10 @@ python -B -X utf8 -m unittest discover -s tests -t . -v
 including local descriptions and missing/invalid file status. `--summary` omits
 resource hashes; the full inventory remains available without it. These are file
 facts, separate from native discovery and model use.
+
+The optional [testcase evidence commands](docs/validation.md#reusing-a-testcase-subset)
+can reuse an unchanged passing subset while retaining failures elsewhere in its
+original run. They install no test runner and add no required completion step.
 
 Read the applicable skill experience before choosing an approach. Once before
 final completion, consolidate useful lessons in the existing owner, combining

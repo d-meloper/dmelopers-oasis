@@ -30,6 +30,11 @@ Select checks for the changed contract and connected consumer. Reuse passing
 evidence while consumed source, configuration, tools, test runners and data
 match. Package-initializer behavior and shared test/fixture imports can invalidate
 checks beyond the directly edited test; a version literal alone need not.
+An unrelated failed testcase does not erase independently recorded passing
+cases. Cite their exact IDs and original receipt for an unchanged subset; retain
+the overall failure and every failed/skipped/missing case. Automatic reuse also
+needs the actual runner, dependency/runtime files, cwd and environment fingerprint.
+Bare historical JUnit cannot establish missing original input fingerprints.
 Reuse source/result reads for the same purpose while those inputs match. Inspect
 changed ranges or a concrete concern, state that reason in the existing result
 when repeating a check, and preserve independent review of the relevant originals.

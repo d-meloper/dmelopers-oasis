@@ -16,7 +16,10 @@ earlier in-memory copy can still lose accepted or uncertain intent.
 Reuse retained passing checks whose consumed inputs match; refresh changed
 runner, initializer and fixture-consumer scope. Keep final export/privacy,
 repository identity, required status and anonymous readback bound to the current
-candidate. A failed or incomplete build receipt establishes no passing coverage.
+candidate. A failed or incomplete build receipt cannot establish whole-build or
+publication success. Separately recorded passed testcases can cover an unchanged
+subset while preserving the whole run's failure; see the
+[verification manual](../../../../.oasis/manual/validation.md).
 Verify past coverage with its retained runner, arguments, logs and Git inputs.
 Use the current selector for the next checks; do not apply today's dependency
 table retroactively to reject scope that the retained runner actually verified.

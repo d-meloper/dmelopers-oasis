@@ -6,6 +6,26 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 1.2.9
+
+Core remains 2.0.0. Whole-assignment waits to the assigning Cameleer reuse the
+existing task/cycle/result notification instead of creating another wake-up.
+Collection/archive needs no separate dependency-finish or confirmation turn.
+Explicit partial/resource waits, other consumers, terminal failures/cancellation
+and new cycles/results retain their own scope; untyped historical records are
+preserved. Coordination guidance and the owning experience describe this boundary.
+
+Optional local `check run`/`check reuse` commands record exact JUnit case outcomes
+and declared consumed inputs before/after execution. Reuse checks runner,
+dependency/runtime, cwd, environment, evidence integrity and verification purpose.
+A normally finished exit-1 run can cover its individually passed unchanged cases;
+its overall failure remains visible and cannot authorize publication. Missing or
+changed proof, infrastructure errors and nonpassing cases prevent automatic reuse.
+This adds no runner dependency, mandatory form, completion gate or automatic retry.
+Broad runtime hashing can outweigh tiny test execution; existing sufficient case
+evidence remains the ordinary reuse path. Operational measurements remain local;
+these corrections do not establish an overall task-time or token reduction.
+
 ## 1.2.8
 
 Core remains 2.0.0. Releasing the final issued-turn verifier queues activity for

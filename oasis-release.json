@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "1.2.8",
+  "version": "1.2.9",
   "channel": "stable",
   "mode": "source-and-artifacts",
   "files": [
@@ -93,6 +93,7 @@
     "oasis_harness/__init__.py",
     "oasis_harness/backup.py",
     "oasis_harness/build.py",
+    "oasis_harness/check_results.py",
     "oasis_harness/cli.py",
     "oasis_harness/common.py",
     "oasis_harness/doctor.py",
@@ -150,6 +151,7 @@
     "tests/skill_evaluation_cases.py",
     "tests/test_backup.py",
     "tests/test_build.py",
+    "tests/test_check_results.py",
     "tests/test_commit_version.py",
     "tests/test_common.py",
     "tests/test_deadlines.py",

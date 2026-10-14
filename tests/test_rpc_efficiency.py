@@ -187,7 +187,7 @@ def _until(predicate, *, timeout=10, detail="fixture condition"):
     raise AssertionError("Timed out awaiting " + detail) from last_sharing_error
 
 
-def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None):
+def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None, shared_wait=False):
     """One latest-only model-free run; returns metrics without host identifiers."""
     payload = installation.package_files(package) if payload is None else payload
     with tempfile.TemporaryDirectory(prefix="oasis RPC 한글 😶 ") as tmp:
@@ -222,6 +222,11 @@ def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None):
             _until(lambda: read_json(state_path).get("status") == "running", detail="installed observer startup")
             assigned = command("assign", "--cameleer-id", "caller", "--goal", "Produce the fixed output", "--request-id", "fixed")
             child = assigned["camel_thread_id"]
+            aliases = []
+            if shared_wait:
+                for index in range(2):
+                    aliases.append(command("dependency-wait", "--producer-id", child, "--consumer-id", "caller",
+                        "--condition", "whole assigned output", "--request-id", "whole-" + str(index)))
             submitted = command("complete", "--task-id", assigned["id"], "--result", "fixed-result", "--checks", "fixed-check")
             if submitted["phase"] != "awaiting_terminal" or wire.native.sent != 1:
                 raise AssertionError("Early submission woke its manager")
@@ -267,6 +272,19 @@ def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None):
                 raise AssertionError("Terminal notification was missing or duplicated")
             if ready["native_turn"]["state"] != "ready":
                 raise AssertionError("Notice lacked terminal readiness")
+            duplicate_finish_rpc = 0
+            if shared_wait:
+                collected = command("collect", "--task-id", assigned["id"])
+                if collected["phase"] != "archived":
+                    raise AssertionError("Installed collection did not archive the assigned chat")
+                before_finish = len(wire.snapshot())
+                for alias in aliases:
+                    resolved = command("dependency-finish", "--dependency-id", alias["id"])
+                    if resolved.get("end_turn") or resolved.get("subscription") != "assignment":
+                        raise AssertionError("Whole-assignment alias requires another closing operation")
+                duplicate_finish_rpc = len(wire.snapshot()) - before_finish
+                if wire.native.sent != 2:
+                    raise AssertionError("Archived whole assignment woke its manager again")
             current = read_json(state_path)
             same_owner = current["process"] == owner["process"]
             _until(lambda: read_json(state_path).get("status") not in ("starting", "running"),
@@ -304,6 +322,7 @@ def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None):
                 "owner_error": final.get("error"),
                 "runtime_diagnostics": final.get("runtime", final.get("diagnostics", {})),
                 "separate_experiment_native_rpc": 0,
+                "duplicate_finish_native_rpc": duplicate_finish_rpc,
             }
             if wire.errors:
                 raise AssertionError(wire.errors)
@@ -312,6 +331,12 @@ def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None):
 
 class FixedRpcContracts(unittest.TestCase):
     metrics = []
+
+    def test_installed_full_assignment_aliases_do_not_add_a_third_turn(self):
+        result = run_fixed_scenario(shared_wait=True, lifetime=12)
+        self.assertEqual(result["fixture_turn_starts"], 2)
+        self.assertEqual(result["notice_count"], 1)
+        self.assertEqual(result["duplicate_finish_native_rpc"], 0)
 
     def test_installed_latest_fixed_assignment_three_runs(self):
         self.__class__.metrics = []

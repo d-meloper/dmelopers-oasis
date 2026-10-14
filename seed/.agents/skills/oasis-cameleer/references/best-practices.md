@@ -30,6 +30,10 @@ For cursor and deadline mechanics, use the
 
 Name the blocked portion, finish independent work and use the
 [terminal dependency notice](../../../../LocalGitWorkflow.md#dependency-waiting-and-resumption).
+Whole assignments already notify their assigning Cameleer. A second dependency
+for that same completion adds a second wake-up, even with a different message ID.
+Reuse the assignment subscription; collection/archive needs no dependency-finish
+or confirmation turn. Name genuine partial/resource waits explicitly.
 Actual shared build/test inputs matter beyond edit paths.
 
 ## Context and experience
