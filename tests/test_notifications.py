@@ -204,7 +204,127 @@ class NotificationContracts(unittest.TestCase):
         self.server.on_watch = registered
         self.assertEqual(self.observe(step)[0], "stopped")
         self.assertEqual(steps, [None, set(), set()])
-        self.assertGreaterEqual(self.clock.now, 1)
+        self.assertGreaterEqual(self.clock.now, notifications.DEBOUNCE)
+
+    def test_covered_output_storm_only_reconciles_exact_terminal(self):
+        self.target["event_covered"] = True
+        self.server.events = [(0.001 * index, {"method": "item/completed", "params": {
+            "threadId": "worker", "turnId": "assigned-turn", "item": {"type": "commandExecution", "id": str(index)}}})
+            for index in range(1000)]
+        self.server.events.append((1.5, {"method": "turn/completed", "params": {
+            "threadId": "worker", "turn": {"id": "assigned-turn", "status": "completed"}}}))
+        steps = []
+
+        def step(*args, **kwargs):
+            steps.append((self.clock.now, kwargs["changed_threads"]))
+            return {"pending": len(steps) < 3, "targets": [self.target]}
+
+        self.assertEqual(self.observe(step)[0], "stopped")
+        self.assertEqual(len(steps), 3)  # Initial, journal registration, exact terminal.
+        self.assertEqual(steps[-1][1], {"worker"})
+        self.assertLess(steps[-1][0], notifications.MIN_QUERY_INTERVAL)
+        self.assertFalse(any(method == "fs/watch" and params["path"] == self.target["path"]
+                             for method, params in self.server.calls))
+
+    def test_idle_and_progress_only_wake_recipients_actually_awaited(self):
+        active = {"method": "thread/status/changed", "params": {"threadId": "worker", "status": {"type": "active"}}}
+        idle = {"method": "thread/status/changed", "params": {"threadId": "worker", "status": {"type": "idle"}}}
+        targets = {"worker": self.target}
+        self.assertEqual(notifications._relevant([active, idle], {}, targets, self.journal), (set(), False))
+        self.target["idle_only"] = True
+        self.assertEqual(notifications._relevant([active, idle], {}, targets, self.journal), ({"worker"}, False))
+
+    def test_fallback_sustained_changes_issue_at_most_one_read_per_five_seconds(self):
+        steps = []
+
+        def registered(params):
+            if params["path"] == self.target["path"]:
+                self.server.events.extend((0.01 + index * 0.01, {"method": "fs/changed", "params": {
+                    "watchId": params["watchId"], "changedPaths": [self.target["path"]]}}) for index in range(1200))
+
+        def step(*args, **kwargs):
+            steps.append((self.clock.now, kwargs["changed_threads"]))
+            return {"pending": True, "targets": [self.target]}
+
+        self.server.on_watch = registered
+        self.assertEqual(self.observe(step, deadline=13)[0], "expired")
+        self.assertEqual(len(steps), 4)  # Initial, registration race, 5s and 10s fallback.
+        self.assertGreaterEqual(steps[2][0] - steps[1][0], 5)
+        self.assertGreaterEqual(steps[3][0] - steps[2][0], 5)
+
+    def test_native_terminal_never_flushes_other_threads_deferred_fallback(self):
+        native = {"thread_id": "native", "turn_id": "native-turn", "event_covered": True,
+                  "path": str(self.root / "native.jsonl")}
+        steps = []
+
+        def registered(params):
+            if params["path"] == self.target["path"]:
+                self.server.events.extend([
+                    (1, {"method": "fs/changed", "params": {"watchId": params["watchId"], "changedPaths": [self.target["path"]]}}),
+                    (1, {"method": "turn/completed", "params": {"threadId": "native", "turn": {"id": "native-turn"}}}),
+                ])
+
+        def step(*args, **kwargs):
+            steps.append((self.clock.now, kwargs["changed_threads"]))
+            return {"pending": len(steps) < 4, "targets": [self.target, native]}
+
+        self.server.on_watch = registered
+        self.assertEqual(self.observe(step)[0], "stopped")
+        self.assertEqual(steps[2][1], {"native"})
+        self.assertLess(steps[2][0], 2)
+        self.assertEqual(steps[3][1], {"worker"})
+        self.assertGreaterEqual(steps[3][0], 5)
+
+    def test_shared_owner_stays_idle_for_sixty_seconds_without_native_queries(self):
+        runtime = mock.Mock()
+        runtime.busy.return_value = False
+        runtime.last_activity = 0
+        steps = []
+
+        def step(*args, **kwargs):
+            steps.append(None)
+            return {"pending": False, "targets": []}
+
+        with mock.patch.object(notifications, "time", self.clock):
+            result = notifications._observe(self.root, self.server, 100, step, runtime=runtime)
+        self.assertEqual(result[0], "stopped")
+        self.assertEqual(self.clock.now, 60)
+        self.assertEqual(len(steps), 2)  # The second step closes journal registration.
+        self.assertTrue(all(method in ("fs/watch", "fs/unwatch") for method, _ in self.server.calls))
+
+    def test_first_command_creates_only_missing_owned_watch_directory(self):
+        self.journal.unlink()
+        self.journal.parent.rmdir()
+        runtime = mock.Mock()
+        runtime.busy.return_value = False
+        runtime.last_activity = 0
+
+        def step(*args, **kwargs):
+            self.assertTrue(self.journal.parent.is_dir())
+            self.assertFalse(self.journal.exists(), "The I/O owner must not synthesize/reset a task journal")
+            return {"pending": False, "targets": []}
+
+        with mock.patch.object(notifications, "time", self.clock):
+            self.assertEqual(notifications._observe(self.root, self.server, 100, step, runtime=runtime)[0], "stopped")
+        self.assertFalse(self.journal.exists())
+
+    def test_completed_work_loses_targets_during_shared_idle_grace(self):
+        self.target["event_covered"] = True
+        self.server.events = [(0.5, {"method": "turn/completed", "params": {
+            "threadId": "worker", "turn": {"id": "assigned-turn"}}})]
+        runtime = mock.Mock()
+        runtime.busy.return_value = False
+        runtime.last_activity = 0
+        steps = []
+
+        def step(*args, **kwargs):
+            steps.append(kwargs["changed_threads"])
+            return {"pending": False, "targets": [self.target]}
+
+        with mock.patch.object(notifications, "time", self.clock):
+            self.assertEqual(notifications._observe(self.root, self.server, 100, step, runtime=runtime)[0], "stopped")
+        self.assertEqual(steps, [None, set()])
+        self.assertFalse(any(params.get("path") == self.target["path"] for _, params in self.server.calls))
 
     def test_own_lock_events_never_create_idle_reconciliation_loop(self):
         steps = []
@@ -384,6 +504,22 @@ class NotificationContracts(unittest.TestCase):
                                    step=lambda *a, **k: self.fail("Expired observer must not read task state"))
         self.assertEqual(result["status"], "expired")
         factory.assert_not_called()
+
+    def test_native_wait_deadline_at_owner_expiry_is_normal_expiration(self):
+        state = self.own_state()
+        clock = mock.Mock(wraps=time)
+
+        def expire(root, server, deadline, *args, **kwargs):
+            clock.monotonic.return_value = deadline + .01
+            raise sessions.DeadlineExceeded("Fixture native wait reached owner lifetime")
+
+        factory = mock.Mock(return_value=self.server)
+        with mock.patch.object(notifications, "time", clock), mock.patch.object(notifications, "_observe", side_effect=expire):
+            result = notifications.run(self.root, state["token"], factory=factory)
+        self.assertEqual(result["status"], "expired")
+        self.assertEqual(result["reconnects"], 0)
+        self.assertIn("Fixture native wait", result["error"])
+        factory.assert_called_once()
 
 
 if __name__ == "__main__":

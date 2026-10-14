@@ -12,14 +12,17 @@ sys.path.insert(0, str(ROOT))
 
 SMOKE = {"tests.test_public_source", "tests.test_source_delivery", "tests.test_distribution"}
 DEPENDENTS = {
-    "installation": {"installation", "workflow_installation", "doctor", "distribution", "skills", "gitops", "knowledge"},
+    "installation": {"installation", "workflow_installation", "doctor", "distribution", "skills", "gitops", "knowledge", "rpc_efficiency"},
     "doctor": {"doctor"}, "skills": {"skills", "workflow_installation", "doctor", "public_source"},
     "publication": {"publication", "build", "source_delivery", "public_source"},
     "github": {"github", "publication", "backup"},
     "build": {"build", "publication", "source_delivery"},
     "backup": {"backup", "gitops"}, "gitops": {"gitops", "backup"},
-    "sessions": {"sessions", "session_transport", "workflows", "dependencies"}, "knowledge": {"knowledge"},
-    "workflows": {"workflows", "sessions", "workflow_installation", "dependencies"},
+    "sessions": {"sessions", "session_transport", "deadlines", "shared_runtime", "rpc_efficiency", "notifications", "waiting", "workflows", "dependencies"},
+    "shared_runtime": {"shared_runtime", "rpc_efficiency", "sessions", "session_transport", "deadlines", "notifications", "waiting", "workflows", "dependencies"},
+    "notifications": {"notifications", "rpc_efficiency", "shared_runtime", "waiting", "deadlines", "workflows", "dependencies"},
+    "knowledge": {"knowledge"},
+    "workflows": {"workflows", "sessions", "workflow_installation", "dependencies", "notifications", "waiting", "deadlines", "shared_runtime", "rpc_efficiency"},
     "common": {"common"},
     "public_source": {"public_source", "source_delivery", "distribution"},  # Retire legacy source-only module.
 }

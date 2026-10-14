@@ -1429,15 +1429,14 @@
       "version": "1.2.0"
     },
     {
-      "version": "1.2.1",
-      "previous": "1.2.0",
-      "summary": [
-        "Used skills consult relevant experience and consolidate useful task lessons once before final reporting.",
-        "Existing project knowledge remains project-owned; chronological narrative is centralized.",
-        "App Server dispatch preserves concurrent replies and bounded events without changing role completion."
-      ],
       "areas": [
         {
+          "apply": "Use the ordinary installer/Doctor update and preserve local conflicts; link role references directly to existing canonical project knowledge.",
+          "change": "Thin start/finish guidance reuses canonical project policy and references; useful lessons merge without a learning gate.",
+          "checks": [
+            "Read applicable experience before choosing the approach.",
+            "Consolidate only useful new lessons, duplicates or disproven advice once; no-op and read-only work leave knowledge bytes intact."
+          ],
           "name": "Role skills and project experience",
           "paths": [
             "seed/.agents/skills/",
@@ -1445,44 +1444,44 @@
             "docs/knowledge.md",
             "seed/AGENTS.md",
             "seed/ProjectGuide.md"
-          ],
-          "change": "Thin start/finish guidance reuses canonical project policy and references; useful lessons merge without a learning gate.",
-          "apply": "Use the ordinary installer/Doctor update and preserve local conflicts; link role references directly to existing canonical project knowledge.",
-          "checks": [
-            "Read applicable experience before choosing the approach.",
-            "Consolidate only useful new lessons, duplicates or disproven advice once; no-op and read-only work leave knowledge bytes intact."
           ]
         },
         {
+          "apply": "Run the ordinary upgrade; unchanged, edited and absent project knowledge remains as it is.",
+          "change": "The three root knowledge templates are excluded and prior manifest ownership is released without deleting or replacing project bytes.",
+          "checks": [
+            "Existing own skills and canonical knowledge remain unowned.",
+            "Repeated upgrade/Doctor and interrupted recovery do not reclaim or rewrite project knowledge."
+          ],
           "name": "Project knowledge ownership",
           "paths": [
             "oasis_harness/installation.py",
             "seed/BestPractice/",
             "docs/installation.md"
-          ],
-          "change": "The three root knowledge templates are excluded and prior manifest ownership is released without deleting or replacing project bytes.",
-          "apply": "Run the ordinary upgrade; unchanged, edited and absent project knowledge remains as it is.",
-          "checks": [
-            "Existing own skills and canonical knowledge remain unowned.",
-            "Repeated upgrade/Doctor and interrupted recovery do not reclaim or rewrite project knowledge."
           ]
         },
         {
+          "apply": "Upgrade the installed runtime through the existing installer; retain the selected proxy or explicit endpoint and existing permissions.",
+          "change": "A shared reader routes replies by ID, preserves bounded notifications, wakes pending calls on disconnect and drains bounded diagnostics separately. New task inputs carry one concise learning reminder.",
+          "checks": [
+            "Reversed concurrent replies, EOF after events, malformed/large input and blocked writes fail or complete honestly.",
+            "Retries retain saved inputs and keys; explicit role completion and collection semantics remain."
+          ],
           "name": "App Server and task inputs",
           "paths": [
             "oasis_harness/sessions.py",
             "oasis_harness/workflows.py",
             "docs/sessions.md",
             "docs/workflows.md"
-          ],
-          "change": "A shared reader routes replies by ID, preserves bounded notifications, wakes pending calls on disconnect and drains bounded diagnostics separately. New task inputs carry one concise learning reminder.",
-          "apply": "Upgrade the installed runtime through the existing installer; retain the selected proxy or explicit endpoint and existing permissions.",
-          "checks": [
-            "Reversed concurrent replies, EOF after events, malformed/large input and blocked writes fail or complete honestly.",
-            "Retries retain saved inputs and keys; explicit role completion and collection semantics remain."
           ]
         },
         {
+          "apply": "Use current manuals for operation and CHANGELOG for historical migration details; keep existing project-owned historical notes.",
+          "change": "Current guidance describes the active contract; prior narrative moves to CHANGELOG and the original donor inventory is retained in the machine index.",
+          "checks": [
+            "All current skill/resource links resolve.",
+            "Original 26-source/69-file inventory identities are preserved without requiring historical destinations to exist."
+          ],
           "name": "Current guides and history",
           "paths": [
             "docs/CHANGELOG.md",
@@ -1490,18 +1489,8 @@
             "docs/",
             "README.md",
             "AGENTS.md"
-          ],
-          "change": "Current guidance describes the active contract; prior narrative moves to CHANGELOG and the original donor inventory is retained in the machine index.",
-          "apply": "Use current manuals for operation and CHANGELOG for historical migration details; keep existing project-owned historical notes.",
-          "checks": [
-            "All current skill/resource links resolve.",
-            "Original 26-source/69-file inventory identities are preserved without requiring historical destinations to exist."
           ]
         }
-      ],
-      "source_only": [
-        "Core remains 2.0.0. Source delivery uses retained successful coverage for unchanged inputs and fresh checks for this delta.",
-        "No managed server, approval UI, automatic role completion, tag, release asset, service or adopter deployment is introduced."
       ],
       "files": [
         "AGENTS.md",
@@ -1591,46 +1580,56 @@
         "tests/test_workflows.py",
         "tools/public-source-policy.json",
         "tools/source_policy.py"
-      ]
+      ],
+      "previous": "1.2.0",
+      "source_only": [
+        "Core remains 2.0.0. Source delivery uses retained successful coverage for unchanged inputs and fresh checks for this delta.",
+        "No managed server, approval UI, automatic role completion, tag, release asset, service or adopter deployment is introduced."
+      ],
+      "summary": [
+        "Used skills consult relevant experience and consolidate useful task lessons once before final reporting.",
+        "Existing project knowledge remains project-owned; chronological narrative is centralized.",
+        "App Server dispatch preserves concurrent replies and bounded events without changing role completion."
+      ],
+      "version": "1.2.1"
     },
     {
-      "version": "1.2.2",
-      "previous": "1.2.1",
-      "summary": [
-        "Original-input request collision checks and scoped recovery preserve real role chat identities and independent work.",
-        "Current task/skill summaries and thin shared learning guidance use actual installed files and existing project owners.",
-        "Bounded history, Git and download reads retain exact validation and source-delivery evidence."
-      ],
       "areas": [
         {
+          "apply": "Use the ordinary upgrade and the selected existing host endpoint; retain saved requests, role IDs and project settings.",
+          "change": "Input fingerprints, definite rejection, project binding and stale-plan checks precede native mutations; collection preserves actual terminal output.",
+          "checks": [
+            "Identical requests reuse their result while changed inputs conflict before native calls.",
+            "Completion notice, final output, archive and same-ID restore remain distinct; unrelated work is preserved."
+          ],
           "name": "Role requests and native lifetime",
           "paths": [
             "oasis_harness/sessions.py",
             "oasis_harness/workflows.py",
             "docs/sessions.md",
             "docs/workflows.md"
-          ],
-          "change": "Input fingerprints, definite rejection, project binding and stale-plan checks precede native mutations; collection preserves actual terminal output.",
-          "apply": "Use the ordinary upgrade and the selected existing host endpoint; retain saved requests, role IDs and project settings.",
-          "checks": [
-            "Identical requests reuse their result while changed inputs conflict before native calls.",
-            "Completion notice, final output, archive and same-ID restore remain distinct; unrelated work is preserved."
           ]
         },
         {
+          "apply": "Use workflow tasks --summary when concise output is useful; preserve task notes and original goals.",
+          "change": "Summaries retain current goal, links, result/checks and notice/recovery state; managed task rows track completion and dependencies.",
+          "checks": [
+            "Location is delivered as context without changing native cwd.",
+            "Self-dependencies fail before writes; cycle warnings do not become a work gate."
+          ],
           "name": "Current task views",
           "paths": [
             "oasis_harness/workflows.py",
             "docs/workflows.md"
-          ],
-          "change": "Summaries retain current goal, links, result/checks and notice/recovery state; managed task rows track completion and dependencies.",
-          "apply": "Use workflow tasks --summary when concise output is useful; preserve task notes and original goals.",
-          "checks": [
-            "Location is delivered as context without changing native cwd.",
-            "Self-dependencies fail before writes; cycle warnings do not become a work gate."
           ]
         },
         {
+          "apply": "Upgrade while preserving local conflicts and existing canonical project knowledge.",
+          "change": "Actual target metadata and owned local links are checked; one existing writer consolidates useful shared experience, with no additional proof or routine report.",
+          "checks": [
+            "All 24 skills remain active and summaries do not hide missing/invalid target metadata.",
+            "No-op and read-only work preserve knowledge bytes; historical and current guidance retain their existing owners."
+          ],
           "name": "Skills and shared experience",
           "paths": [
             "oasis_harness/skills.py",
@@ -1640,29 +1639,29 @@
             "seed/.oasis/docs/",
             "seed/ProjectGuide.md",
             "library/"
-          ],
-          "change": "Actual target metadata and owned local links are checked; one existing writer consolidates useful shared experience, with no additional proof or routine report.",
-          "apply": "Upgrade while preserving local conflicts and existing canonical project knowledge.",
-          "checks": [
-            "All 24 skills remain active and summaries do not hide missing/invalid target metadata.",
-            "No-op and read-only work preserve knowledge bytes; historical and current guidance retain their existing owners."
           ]
         },
         {
+          "apply": "Apply the reviewed upgrade plan; edited descriptors remain local and unmanaged.",
+          "change": "Fifteen unused capability descriptors leave the payload through ordinary ownership comparison.",
+          "checks": [
+            "Unchanged descriptors are removed, modified descriptors are preserved, and missing descriptors are not restored.",
+            "Interrupted recovery does not overwrite a subsequent user edit."
+          ],
           "name": "Retired descriptor ownership",
           "paths": [
             "library/",
             "oasis_harness/installation.py",
             "docs/installation.md"
-          ],
-          "change": "Fifteen unused capability descriptors leave the payload through ordinary ownership comparison.",
-          "apply": "Apply the reviewed upgrade plan; edited descriptors remain local and unmanaged.",
-          "checks": [
-            "Unchanged descriptors are removed, modified descriptors are preserved, and missing descriptors are not restored.",
-            "Interrupted recovery does not overwrite a subsequent user edit."
           ]
         },
         {
+          "apply": "Inspect install diff --plan before applying the existing plan; apply/recover rechecks current paths.",
+          "change": "Consumed types, exclusive evidence, source-to-installed guidance, request-local planning caches and HTTPS path recognition are corrected.",
+          "checks": [
+            "Existing project files, custom skills, settings and knowledge remain preserved.",
+            "Fresh write-time checks remain uncached and malformed state is not automatically reset."
+          ],
           "name": "Installation and Doctor inspection",
           "paths": [
             "oasis_harness/installation.py",
@@ -1671,19 +1670,8 @@
             "oasis_harness/knowledge.py",
             "docs/doctor.md",
             "docs/installation.md"
-          ],
-          "change": "Consumed types, exclusive evidence, source-to-installed guidance, request-local planning caches and HTTPS path recognition are corrected.",
-          "apply": "Inspect install diff --plan before applying the existing plan; apply/recover rechecks current paths.",
-          "checks": [
-            "Existing project files, custom skills, settings and knowledge remain preserved.",
-            "Fresh write-time checks remain uncached and malformed state is not automatically reset."
           ]
         }
-      ],
-      "source_only": [
-        "Core remains 2.0.0. Shared runner/fixture changes receive a final integrated suite; delivery reuses verified evidence rather than repeating unchanged tests.",
-        "Source-only changes include verified byte-budgeted Git reads, bounded downloads, minimal environment evidence, timeout partial logs, lock-time publication refresh, initial PR notes and local status/delta-draft commands.",
-        "Evaluation expectations remain in source-only tests. No service, automatic approval/replay, tag, release asset or adopter upgrade is introduced."
       ],
       "files": [
         "README.md",
@@ -1796,29 +1784,33 @@
         "tools/source_checks.py",
         "tools/source_delivery.py",
         "tools/source_policy.py"
-      ]
+      ],
+      "previous": "1.2.1",
+      "source_only": [
+        "Core remains 2.0.0. Shared runner/fixture changes receive a final integrated suite; delivery reuses verified evidence rather than repeating unchanged tests.",
+        "Source-only changes include verified byte-budgeted Git reads, bounded downloads, minimal environment evidence, timeout partial logs, lock-time publication refresh, initial PR notes and local status/delta-draft commands.",
+        "Evaluation expectations remain in source-only tests. No service, automatic approval/replay, tag, release asset or adopter upgrade is introduced."
+      ],
+      "summary": [
+        "Original-input request collision checks and scoped recovery preserve real role chat identities and independent work.",
+        "Current task/skill summaries and thin shared learning guidance use actual installed files and existing project owners.",
+        "Bounded history, Git and download reads retain exact validation and source-delivery evidence."
+      ],
+      "version": "1.2.2"
     },
     {
-      "version": "1.2.3",
-      "previous": "1.2.2",
-      "summary": [
-        "Correct source-only metadata and loopback lifetime fixtures revealed by integrated validation."
-      ],
       "areas": [
         {
+          "apply": "Preserve project changes during the ordinary optional future upgrade.",
+          "change": "Separate handshake timeout from the disposable connection lifetime.",
+          "checks": [
+            "Idle scheduling gaps do not terminate an initialized test peer."
+          ],
           "name": "Protocol fixture experience",
           "paths": [
             "library/oasis-runtime-lifecycle/references/best-practices.md"
-          ],
-          "change": "Separate handshake timeout from the disposable connection lifetime.",
-          "apply": "Preserve project changes during the ordinary optional future upgrade.",
-          "checks": [
-            "Idle scheduling gaps do not terminate an initialized test peer."
           ]
         }
-      ],
-      "source_only": [
-        "No runtime behavior changes. Retain the failed full-run evidence and validate the corrected source separately."
       ],
       "files": [
         "docs/CHANGELOG.md",
@@ -1826,44 +1818,53 @@
         "tests/test_public_source.py",
         "tests/test_session_transport.py",
         "tools/public-source-policy.json"
-      ]
+      ],
+      "previous": "1.2.2",
+      "source_only": [
+        "No runtime behavior changes. Retain the failed full-run evidence and validate the corrected source separately."
+      ],
+      "summary": [
+        "Correct source-only metadata and loopback lifetime fixtures revealed by integrated validation."
+      ],
+      "version": "1.2.3"
     },
     {
-      "version": "1.2.2",
-      "previous": "1.2.3",
-      "summary": [
-        "Retain the owner-selected public Package 1.2.2 after source-only validation fixture corrections; Core remains 2.0.0."
-      ],
       "areas": [],
+      "files": [],
+      "previous": "1.2.3",
       "source_only": [
         "Command-local exact-version selection changes only package metadata. Implementation and corrected validation inputs are preserved."
       ],
-      "files": []
+      "summary": [
+        "Retain the owner-selected public Package 1.2.2 after source-only validation fixture corrections; Core remains 2.0.0."
+      ],
+      "version": "1.2.2"
     },
     {
-      "version": "1.2.3",
-      "previous": "1.2.2",
-      "summary": [
-        "End unchanged model waiting and deliver retained terminal-ready notices through a bounded project/backend I/O owner; Core remains 2.0.0."
-      ],
       "areas": [
         {
+          "apply": "Use an ordinary inspected three-way upgrade. Preserve local task/receipt state, settings, user knowledge and skills. The observer connects only to the selected existing backend and owns no server.",
+          "change": "Separate result submission, exact native terminal state and delivered notices; observe without model polling and preserve same-cycle dependency continuation.",
+          "checks": [
+            "Early submissions do not wake managers; exact final output survives collection and archive.",
+            "Duplicate and previous-cycle notices cannot resend or repeat integration; partial dependencies resume their named portion.",
+            "Burst invalidations are coalesced; absolute native deadlines and bounded cleanup retain recoverable state."
+          ],
           "name": "Terminal readiness and dependency continuation",
           "paths": [
             "oasis_harness/workflows.py",
             "oasis_harness/sessions.py",
             "oasis_harness/notifications.py",
             "oasis_harness/installation.py"
-          ],
-          "change": "Separate result submission, exact native terminal state and delivered notices; observe without model polling and preserve same-cycle dependency continuation.",
-          "apply": "Use an ordinary inspected three-way upgrade. Preserve local task/receipt state, settings, user knowledge and skills. The observer connects only to the selected existing backend and owns no server.",
-          "checks": [
-            "Early submissions do not wake managers; exact final output survives collection and archive.",
-            "Duplicate and previous-cycle notices cannot resend or repeat integration; partial dependencies resume their named portion.",
-            "Burst invalidations are coalesced; absolute native deadlines and bounded cleanup retain recoverable state."
           ]
         },
         {
+          "apply": "Merge only compatible guidance into existing project owners; retain independent chats, local knowledge and unfinished work. No new mandatory forms or completion gates.",
+          "change": "Apply one shared ended-turn dependency rule across roles and independent specialists, reuse matching consumed-input evidence and retain one useful closing learning pass.",
+          "checks": [
+            "Waiting is distinct from task completion and does not trigger repeated experience edits.",
+            "Changed inputs and concrete doubts justify relevant retesting; independent review still reads affected originals."
+          ],
           "name": "Role waiting and verification reuse",
           "paths": [
             "seed/LocalGitWorkflow.md",
@@ -1872,17 +1873,8 @@
             "seed/.agents/skills/oasis-cameleer/SKILL.md",
             "seed/.agents/skills/oasis-pioneer/SKILL.md",
             "library/oasis-runtime-lifecycle/references/best-practices.md"
-          ],
-          "change": "Apply one shared ended-turn dependency rule across roles and independent specialists, reuse matching consumed-input evidence and retain one useful closing learning pass.",
-          "apply": "Merge only compatible guidance into existing project owners; retain independent chats, local knowledge and unfinished work. No new mandatory forms or completion gates.",
-          "checks": [
-            "Waiting is distinct from task completion and does not trigger repeated experience edits.",
-            "Changed inputs and concrete doubts justify relevant retesting; independent review still reads affected originals."
           ]
         }
-      ],
-      "source_only": [
-        "Source-only tests, exact privacy pins and documentation accompany the change; no automatic adopter upgrade, service installation, tag or release asset."
       ],
       "files": [
         "README.md",
@@ -1912,7 +1904,195 @@
         "tests/test_waiting.py",
         "tests/test_workflows.py",
         "tools/public-source-policy.json"
-      ]
+      ],
+      "previous": "1.2.2",
+      "source_only": [
+        "Source-only tests, exact privacy pins and documentation accompany the change; no automatic adopter upgrade, service installation, tag or release asset."
+      ],
+      "summary": [
+        "End unchanged model waiting and deliver retained terminal-ready notices through a bounded project/backend I/O owner; Core remains 2.0.0."
+      ],
+      "version": "1.2.3"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use the ordinary inspected three-way upgrade and let any older live owner finish its lease. Preserve settings, user skills, project knowledge, local task/receipt state and unrelated chats. No automatic server start, service or uncertain-mutation replay.",
+          "change": "Share authenticated local command leases, retain creation originators and native event coverage, cap changed-only fallback per target, and return accepted repeats before starting I/O. Count actual native sends separately from IPC.",
+          "checks": [
+            "Separate CLI processes reuse the creator connection; caller expiry does not close a peer connection.",
+            "Progress and quiet waiting add no history RPC; changed-only fallback stays bounded per target even alongside native transitions.",
+            "Early results retain exact latest-turn, final-output, idle and writer-boundary checks; partial and same-ID follow-up work remain collectable."
+          ],
+          "name": "Shared connections and bounded observation",
+          "paths": [
+            "oasis_harness/shared_runtime.py",
+            "oasis_harness/sessions.py",
+            "oasis_harness/notifications.py",
+            "oasis_harness/workflows.py",
+            "oasis_harness/installation.py"
+          ]
+        },
+        {
+          "apply": "Merge compatible guidance into the existing project owner without replacing local experience or adding completion forms.",
+          "change": "Consolidate connection readiness, independent deadlines, per-target observation and actual-send measurement lessons in the existing experience owner.",
+          "checks": [
+            "One shared learning owner and no model waiting loop, routine report or new required gate."
+          ],
+          "name": "Runtime experience and current guidance",
+          "paths": [
+            "library/oasis-runtime-lifecycle/references/best-practices.md"
+          ]
+        }
+      ],
+      "files": [
+        "README.md",
+        "docs/CHANGELOG.md",
+        "docs/sessions.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/installation.py",
+        "oasis_harness/notifications.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/shared_runtime.py",
+        "oasis_harness/workflows.py",
+        "tests/test_deadlines.py",
+        "tests/test_distribution.py",
+        "tests/test_notifications.py",
+        "tests/test_rpc_efficiency.py",
+        "tests/test_shared_runtime.py",
+        "tests/test_source_delivery.py",
+        "tests/test_waiting.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py"
+      ],
+      "previous": "1.2.3",
+      "source_only": [
+        "Distribution/consumer checks and exact privacy pins cover the shared module. Retain latest-only fixed-task metrics and distinguish evaluator/native evidence; no old-version benchmark, tag, release asset or adopter upgrade is performed."
+      ],
+      "summary": [
+        "Reduce repeated native RPC and initialization through the existing transient owner while preserving exact terminal readiness, scoped recovery and Core 2.0.0."
+      ],
+      "version": "1.2.4"
+    },
+    {
+      "areas": [],
+      "files": [
+        "docs/CHANGELOG.md",
+        "tools/public-source-policy.json"
+      ],
+      "previous": "1.2.4",
+      "source_only": [
+        "Only the synthetic fixture review policy and version history change. The preceding preparation stopped before functional tests; retain its evidence and run the final integrated suite once. No adopter runtime behavior change."
+      ],
+      "summary": [
+        "Pin the exactly reviewed synthetic RPC fixture for source privacy scanning; Core remains 2.0.0."
+      ],
+      "version": "1.2.5"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use the ordinary inspected upgrade and preserve local task state, settings, knowledge and user changes. No mutation retry, stale-lock takeover or new process is introduced.",
+          "change": "Skip the mutation lock when there is no eligible task/dependency transition, while retaining the existing writer boundary for actual effects.",
+          "checks": [
+            "Pending observation succeeds without changing task bytes while a foreground writer holds its lock.",
+            "Terminal delivery still requires the writer lock and sends once after release.",
+            "Immediate installed assign/complete succeeds across three fixed-task runs."
+          ],
+          "name": "Pending observation and foreground commands",
+          "paths": [
+            "oasis_harness/workflows.py"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "oasis_harness/workflows.py",
+        "tests/test_waiting.py",
+        "tools/public-source-policy.json"
+      ],
+      "previous": "1.2.5",
+      "source_only": [
+        "Retain the failed integrated run and validate the corrected candidate. Focused regression and exact privacy hash accompany the fix."
+      ],
+      "summary": [
+        "Keep pending observation read-only so it does not contend with foreground completion; Core remains 2.0.0."
+      ],
+      "version": "1.2.6"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use the ordinary inspected upgrade while preserving local tasks and project settings. Let an older live owner finish its finite lease; no server start, model polling or uncertain mutation replay is introduced.",
+          "change": "Coalesce global idle for the actual issuing channel, verify exact terminal turn IDs with bounded metadata I/O, and preserve newer or uncertain active work. Handle completion before the start response.",
+          "checks": [
+            "Duplicate/stale idle and fast completion do not lose or resurrect turn usage.",
+            "Unsupported verification is finite and retains recovery diagnostics.",
+            "An externally loaded native chat releases its issued turn and the observer exits naturally while its host remains alive."
+          ],
+          "name": "Issued-turn lifecycle ownership",
+          "paths": [
+            "oasis_harness/shared_runtime.py"
+          ]
+        },
+        {
+          "apply": "Merge compatible guidance without replacing project knowledge or introducing a new closing requirement.",
+          "change": "Retain the verified distinction between chat loading, event coverage and exact turn ownership in the existing experience owner.",
+          "checks": [
+            "No claim that a successful send proves terminal-event subscription."
+          ],
+          "name": "Runtime experience",
+          "paths": [
+            "library/oasis-runtime-lifecycle/references/best-practices.md"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/sessions.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/shared_runtime.py",
+        "tests/test_shared_runtime.py"
+      ],
+      "previous": "1.2.6",
+      "source_only": [
+        "Retain the failed and superseded integration evidence. The corrected source receives final integrated validation and latest-only wire metrics. No tag, release asset or adopter deployment."
+      ],
+      "summary": [
+        "Release otherwise unsubscribed issued-turn usage through exact event-driven terminal verification; Core remains 2.0.0."
+      ],
+      "version": "1.2.7"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use the ordinary inspected upgrade while preserving local tasks, settings and knowledge. No polling, service or extra native request is introduced.",
+          "change": "Queue predicate-visible activity after the final verifier exits, preserving closed-pool event draining.",
+          "checks": [
+            "A barrier regression consumes earlier activity before final usage release and verifies the observer wakes.",
+            "Existing closed-pool draining and shared-runtime tests remain intact."
+          ],
+          "name": "Observer idle transition",
+          "paths": [
+            "oasis_harness/shared_runtime.py"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "oasis_harness/shared_runtime.py",
+        "tests/test_shared_runtime.py"
+      ],
+      "previous": "1.2.7",
+      "source_only": [
+        "Reuse the verified preceding full-suite receipt and refresh only checks invalidated by this correction. No tag, asset or adopter deployment."
+      ],
+      "summary": [
+        "Wake the transient observer after its final issued-turn verifier releases usage; Core remains 2.0.0."
+      ],
+      "version": "1.2.8"
     }
   ],
   "schema_version": 1

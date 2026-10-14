@@ -101,10 +101,15 @@ an active recipient is retained until idle. Uncertain sends
 are reconciled without automatic replay; no backend-wide exactly-once guarantee
 is inferred from local deduplication.
 
-One project/backend observer lives only while registered work remains, with a
-default 24-hour lease, no new App Server or model polling. It makes one reconnect
+One project/backend observer shares scoped command connections, with a default
+24-hour observation lease and 60-second idle exit after requests and registered
+work end. It starts no App Server and makes no model polling requests. It makes one reconnect
 attempt before leaving an exact explicit recovery step. Unsupported or expired
 observation keeps the task available for the next requested operation.
+Exact covered lifecycle events trigger completion reconciliation; progress
+output does not. Uncovered threads use changed-only filesystem fallback, at most
+one reconciliation per five seconds per target. Status reports native RPC and
+local IPC activity separately; reading status does not keep the owner alive.
 The table updates after completion and dependency changes. Follow-up displays its
 current goal while retaining the original goal and history. Self-dependency is
 rejected; cycle warnings are advisory and do not modify the graph.

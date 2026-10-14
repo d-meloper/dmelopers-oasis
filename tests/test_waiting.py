@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import patch
 
 from oasis_harness import workflows
-from oasis_harness.common import read_json
+from oasis_harness.common import HarnessError, operation_lock, read_json
 from tests import test_workflows as fixtures
 
 
@@ -44,14 +44,69 @@ class WaitingContracts(unittest.TestCase):
         self.assertEqual(self.native.methods().count('thread/turns/list'), before)
         self.assertEqual(self.native.sent, 1)
 
+    def test_pending_observation_does_not_compete_for_the_foreground_writer_lock(self):
+        row = self.fixture.assign()
+        native, _ = self.fixture.pending_native_turn(row)
+        path = self.root / '.oasis/local/tasks/state.json'
+        lock = self.root / '.oasis/local/operations.lock'
+        for submitted in (False, True):
+            with self.subTest(submitted=submitted):
+                if submitted:
+                    self.fixture.complete(row)
+                before = path.read_bytes()
+                with operation_lock(lock):
+                    observed = workflows.notification_step(self.root, self.native)
+                self.assertTrue(observed['pending'])
+                self.assertIn(native['id'], {target['thread_id'] for target in observed['targets']})
+                self.assertEqual(path.read_bytes(), before)
+                self.assertEqual(self.native.sent, 1)
+
+    def test_terminal_observation_keeps_the_existing_writer_boundary(self):
+        row = self.fixture.assign()
+        native, turn = self.fixture.pending_native_turn(row)
+        self.fixture.complete(row)
+        self.fixture.finish_native_turn(native, turn)
+        path = self.root / '.oasis/local/tasks/state.json'
+        before = path.read_bytes()
+        with operation_lock(self.root / '.oasis/local/operations.lock'):
+            with self.assertRaisesRegex(HarnessError, 'Operation is already locked'):
+                workflows.notification_step(self.root, self.native)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(self.native.sent, 1)
+        workflows.notification_step(self.root, self.native)
+        self.assertEqual(self.native.sent, 2)
+
     def test_duplicate_accepted_completion_does_not_start_an_idle_observer(self):
         row = self.fixture.assign()
-        self.fixture.complete(row)
-        with patch.object(workflows.sessions, 'command_server', self.native), \
-                patch('oasis_harness.notifications.ensure_running') as launch:
-            self.fixture.complete(row)
+        accepted = self.fixture.complete(row)
+        path = self.root / '.oasis/local/tasks/state.json'
+        before = path.read_bytes()
+        with patch('oasis_harness.notifications.ensure_running', side_effect=AssertionError('Accepted duplicate must not launch an owner')) as launch, \
+                patch('oasis_harness.shared_runtime.connect', side_effect=AssertionError('Accepted duplicate must not enter the production native factory')) as connect:
+            # Actual default production factory: an injected NativeFixture masks
+            # the command_scope -> shared owner startup path under test.
+            actual = workflows.complete(self.root, row['id'])
         launch.assert_not_called()
+        connect.assert_not_called()
+        self.assertEqual(actual['completion']['delivery'], accepted['completion']['delivery'])
+        self.assertEqual(path.read_bytes(), before)
         self.assertEqual(self.native.sent, 2)
+
+    def test_duplicate_accepted_dependency_uses_default_factory_without_launch(self):
+        self.native.add('producer')
+        self.native.add('consumer')
+        dependency = workflows.dependency_wait(self.root, 'producer', 'consumer', 'accepted partial artifact', factory=self.native)
+        accepted = workflows.dependency_finish(self.root, dependency['id'], result='artifact', factory=self.native)
+        path = self.root / '.oasis/local/tasks/state.json'
+        before = path.read_bytes()
+        with patch('oasis_harness.notifications.ensure_running', side_effect=AssertionError('Accepted duplicate must not launch an owner')) as launch, \
+                patch('oasis_harness.shared_runtime.connect', side_effect=AssertionError('Accepted duplicate must not enter the production native factory')) as connect:
+            actual = workflows.dependency_finish(self.root, dependency['id'])
+        launch.assert_not_called()
+        connect.assert_not_called()
+        self.assertEqual(actual['delivery'], accepted['delivery'])
+        self.assertEqual(path.read_bytes(), before)
+        self.assertEqual(self.native.sent, 1)
 
     def test_waiting_consumer_is_not_missing_completion_and_partial_result_continues_same_cycle(self):
         row = self.fixture.assign()

@@ -51,8 +51,9 @@ scope and existing chat. They coordinate shared files or resources when needed
 and remain available across mode switches and unrelated role archival. See
 [independent sessions](seed/LocalGitWorkflow.md#independent-specialist-sessions).
 
-Observation uses the verified host path or one project/backend process only
-while registered work remains, without model requests or a new App Server.
+Observation uses the verified host path or one transient project/backend process
+that shares command connections and ends after work and a short idle period,
+without model polling or starting an App Server.
 Unsupported or expired observation leaves a bounded explicit recovery step;
 see [sessions](docs/sessions.md#workflow-observation).
 

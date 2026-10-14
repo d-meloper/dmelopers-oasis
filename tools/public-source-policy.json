@@ -9,11 +9,11 @@
       "sha256": "31a4c18d0d48f32609bc880e79e22a6f222fc3308d8d978a018d9cbe9b2158db"
     },
     "oasis_harness/sessions.py": {
-      "sha256": "8f87f89e9bf717247dc285d012d7e7f01ee444308868a1aa14153d9a5797841e",
+      "sha256": "0223e2ec1c4b328d0448e1e6a5dfbbd2d218de202c062ec678966713d36dceb6",
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
     },
     "oasis_harness/workflows.py": {
-      "sha256": "c05861411a724e5dbe43ab48c7c220e58f1db315dedafb6ed88aa8d0b181017d",
+      "sha256": "6b1719826b6ba2a2297eaca65fbf319dd89b5ffad51682ef801090e33c0bf27b",
       "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tests/test_public_source.py": {
@@ -31,6 +31,10 @@
     "tools/source_policy.py": {
       "sha256": "6e8603a8aac7f306cca63c7d6315197acf757bb50745cfbc982f3ead325be50d",
       "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload."
+    },
+    "tests/test_rpc_efficiency.py": {
+      "sha256": "f390532ace10bbbe6774bffbdab3d657f2d3607ddac9329865fca4cc35cb0bec",
+      "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain."
     }
   },
   "schema_version": 1

@@ -31,6 +31,7 @@ COMMAND_DELTAS = ("item/agentMessage/delta", "item/reasoning/summaryTextDelta", 
                   "item/commandExecution/outputDelta", "item/fileChange/outputDelta")
 CREATION_RETRYABLE = ("prepared", "creation_rejected")
 _operation_deadline = ContextVar("oasis_native_operation_deadline", default=None)
+_command_context = ContextVar("oasis_native_command_context", default=None)
 
 
 class DeadlineExceeded(HarnessError):
@@ -95,6 +96,7 @@ class NativeError(HarnessError):
 
     def __init__(self, method, error):
         self.method = method
+        self.error = dict(error)
         self.code = error.get("code")
         super().__init__(f"{method}: rejected ({self.code}): {error.get('message', 'native API error')}")
 
@@ -596,6 +598,7 @@ class _RpcInbox:
         self.event_error_reported = False
         self.unsupported = deque(maxlen=64)
         self.unmatched_responses = 0
+        self.calls_by_method = {}
 
     def register(self, method):
         with self.lock:
@@ -770,6 +773,10 @@ class AppServer:
             if deadline is not None and time.monotonic() >= deadline:
                 raise TimeoutError
             timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
+            if "id" in value and "method" in value:
+                with self._rpc.lock:
+                    method = value["method"]
+                    self._rpc.calls_by_method[method] = self._rpc.calls_by_method.get(method, 0) + 1
             self.transport.send(text, timeout=timeout)
         except TimeoutError:
             raise HarnessError("Native App Server send timed out; outcome uncertain") from None
@@ -834,6 +841,8 @@ class AppServer:
                      "pending_calls": len(self._rpc.pending), "buffered_events": len(self._rpc.events),
                      "buffered_event_bytes": self._rpc.event_bytes,
                      "unsupported_methods": list(self._rpc.unsupported), "unmatched_responses": self._rpc.unmatched_responses}
+            value["rpc_by_method"] = dict(self._rpc.calls_by_method)
+            value["rpc_by_method_complete"] = True
         value["stderr_tail"], value["stderr_truncated"] = self.transport.stderr_tail() if self.process is not None else ("", False)
         return value
 
@@ -884,8 +893,28 @@ class AppServer:
             error.add_note(f"Native connection cleanup failed: {type(cleanup).__name__}")
 
 
+@contextmanager
+def command_scope(root, *, channel=None):
+    """Opt a project command into its existing transient connection owner.
+
+    Explicit channels retain creation originators. Injected factories and bare
+    AppServer clients keep their existing transport and ownership contracts.
+    """
+    if channel is not None:
+        require_text(channel, "Native shared connection channel")
+    token = _command_context.set((str(Path(root).resolve()), channel))
+    try:
+        yield
+    finally:
+        _command_context.reset(token)
+
+
 def command_server(originator):
     """Command connections suppress unused deltas; general clients retain all events."""
+    scope = _command_context.get()
+    if scope is not None:
+        from . import shared_runtime
+        return shared_runtime.connect(scope[0], scope[1] or originator)
     return AppServer(originator, notification_profile="command")
 
 
@@ -1081,7 +1110,7 @@ def create_metadata(path, receipt, factory=command_server):
     if not receipt.get("thread_id") and receipt["phase"] not in CREATION_RETRYABLE:
         raise HarnessError("Creation response is uncertain; inspect this receipt instead of creating another chat")
     try:
-        with factory(receipt["originator"]) as server:
+        with command_scope(receipt["target"], channel=receipt["originator"]), factory(receipt["originator"]) as server:
             if not receipt.get("thread_id"):
                 receipt["phase"] = "creation_started"
                 write_json(path, receipt)
@@ -1127,7 +1156,7 @@ def create_metadata(path, receipt, factory=command_server):
 
 def inspect(path, factory=command_server):
     receipt = read_json(path)
-    with factory(receipt["originator"] + "_inspect") as server:
+    with command_scope(receipt["target"], channel=receipt["originator"]), factory(receipt["originator"] + "_inspect") as server:
         if receipt.get("thread_id"):
             identity = receipt["thread_id"]
         else:
@@ -1167,7 +1196,7 @@ def create(target, role, source_id, goal=None, *, title=None, apply=False, facto
     from .installation import target_root
     target = target_root(target)
     originator = "oasis_session_" + uuid.uuid4().hex
-    with factory(originator) as server:
+    with command_scope(target, channel=originator), factory(originator) as server:
         identity, settings, source = prepare(server, source_id, target)
         selected_title = title if title is not None else title_for(role, goal, source, discover(server, target, identity))
     require_text(selected_title, "Chat title")

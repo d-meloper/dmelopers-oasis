@@ -20,6 +20,19 @@ must not consume another call's response or a terminal event. Preserve accepted
 buffers after EOF or failure; report protocol/overflow failure once to the event
 reader and retain its diagnostic state.
 
+When several commands share a retained native client, preserve its creation
+originator and fan events out to bounded independent consumers. A caller's
+deadline must not become the upstream connection's lifetime or expire a peer's
+request. Publish endpoint readiness separately from process-running state;
+otherwise a startup race silently creates duplicate direct connections.
+An accepted repeated completion should return before acquiring a connection or
+starting an observer. Exercise that path with the actual default factory;
+injected factories can hide process-start effects.
+Native callbacks can belong to the client that loaded a chat. A successful send
+does not prove completion-event coverage. For an otherwise unsubscribed issued
+turn, verify its exact terminal ID once after idle before releasing usage;
+stale idle alone cannot release newer active work.
+
 For bounded history recovery, verify whether a cursor includes its anchor and
 include changes to an active turn. Reject older text matches; if paging becomes
 unsupported, use strong delivery identity or retain uncertainty.
@@ -29,7 +42,11 @@ turn, completed status, retained nonempty final-phase output and idle chat.
 A completion report or marker in a user prompt can arrive before that boundary.
 Use a scoped change notification to wake a fresh state read, not as proof of
 completion. Same-target change batches can each amplify history reads even when
-unrelated-watch filtering is correct; coalesce them and cap state-query frequency.
+unrelated-watch filtering is correct; coalesce them and cap state-query frequency
+per target. A native transition on another target must not release a deferred
+filesystem read early. Verified lifecycle coverage can ignore progress events;
+clear resolved targets during idle grace. Reuse observation reads only within
+their read phase, retaining fresh validation at the mutation boundary.
 Separate result submission from terminal-ready delivery. Observation must have a
 non-model owner that survives a waiting role's turn, with a finite lease/recovery
 path; release listeners when that owner ends. Preserve newer work or
@@ -54,6 +71,11 @@ Give disposable protocol servers separate handshake and connection lifetimes.
 An idle read timeout can close an initialized fixture during suite scheduling
 and masquerade as a client protocol failure. Let the fixture's explicit shutdown
 release application reads, and include an idle gap as a negative control.
+Treat normal owner expiry separately from a native request failure. Release
+owned handles with an independent bounded cleanup budget even after the request
+deadline expires. Count native sends at the actual writer, separately from local
+IPC requests and pre-send attempts; retain consumed source hashes with the run
+rather than reconstructing them from later files.
 
 Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
 they contain requests and conditions, not performed evidence or expected answers.

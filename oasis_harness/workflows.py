@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+import contextlib
 import functools
 import json
 import math
@@ -25,6 +26,19 @@ COMPLETION_REMINDER = ("Before reporting completion, review this task's reusable
 
 def _completion_prompt(text):
     return text + "\n\n" + COMPLETION_REMINDER
+
+
+@contextlib.contextmanager
+def _open(factory, root, originator, *, channel=None):
+    """Share production connections without changing injected factory contracts."""
+    scope = sessions.command_scope(root, channel=channel or originator) if factory is sessions.command_server else contextlib.nullcontext()
+    with scope, factory(originator) as server:
+        yield server
+
+
+def _task_channel(row):
+    receipt = read_json(row["session_receipt"])
+    return sessions.require_text(receipt.get("originator"), "Session originator")
 
 
 def _arm_notifications(function):
@@ -203,7 +217,7 @@ def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings
     if state.get("pending_operation"):
         return _read_receipt(state["pending_operation"])
     operation = "oasis_workflow_" + uuid.uuid4().hex
-    with factory(operation + "_plan") as server:
+    with _open(factory, root, operation + "_plan") as server:
         identity, settings, _ = sessions.prepare(server, source_id, root)
         owned = _bindings(server, root, identity, state["roles"] + (bindings or []))
     mode_roles = {role for roles in MODES.values() for role in roles}
@@ -331,7 +345,7 @@ def _advance(path, value, factory):
             receipt["thread_id"] = found["thread_id"]
         sessions.create_metadata(target_path, receipt, factory)
         new_roles.append({"role": row["role"], "thread_id": receipt["thread_id"], "parent_thread_id": None})
-        with factory(value["operation_id"]) as server:
+        with _open(factory, root, value["operation_id"], channel=row["originator"]) as server:
             delivery = sessions.send_once(path.parent / (row["role"] + "-assign.json"), receipt["thread_id"], row["prompt"], server,
                                           skill=_role_skill(root, row["role"]), expected_binding=_binding(root, value["project_id"]))
         if delivery["state"] != "accepted":
@@ -342,7 +356,7 @@ def _advance(path, value, factory):
     primary = next(row["thread_id"] for row in roles if row.get("role") == value["primary_role"])
     value["primary_thread_id"] = primary
     scoped = {row["thread_id"] for row in value["old_roles"]}
-    with factory(value["operation_id"]) as server:
+    with _open(factory, root, value["operation_id"]) as server:
         for row in value["old_roles"]:
             native = _thread(server, row["thread_id"], root, value["project_id"])
             if (native.get("status") or {}).get("type") not in (None, "idle", "notLoaded") and row["thread_id"] != value["source_thread_id"]:
@@ -369,7 +383,7 @@ def _advance(path, value, factory):
                  unrelated=value["unrelated"], pending_operation=str(path))
     write_json(_local(root, "state.json"), state)
     if value.get("follow_on_task"):
-        with factory(value["operation_id"]) as server:
+        with _open(factory, root, value["operation_id"]) as server:
             delivery = sessions.send_once(path.parent / "task.json", primary, value["follow_on_task"], server,
                                           expected_binding=_binding(root, value["project_id"]))
         if delivery["state"] != "accepted":
@@ -699,7 +713,7 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
         if row is None:
             identity = uuid.uuid4().hex
             originator = "oasis_session_" + identity
-            with factory(originator) as server:
+            with _open(factory, root, originator) as server:
                 project_id, settings, source = sessions.prepare(server, cameleer_id, root)
                 _thread(server, cameleer_id, root, project_id)
                 selected_title = title or sessions.title_for("Camel", goal, source, sessions.discover(server, root, project_id))
@@ -733,7 +747,7 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
             sessions.create_metadata(row["session_receipt"], receipt, factory)
             row["camel_thread_id"] = receipt["thread_id"]
             write_json(_task_path(root), state)
-            with factory("oasis_assign_" + row["id"]) as server:
+            with _open(factory, root, "oasis_assign_" + row["id"], channel=_task_channel(row)) as server:
                 _assign_delivery(root, row, server)
             row.pop("error", None)
         except Exception as exc:
@@ -860,6 +874,8 @@ def complete(target, task_id, message=None, *, result=None, checks=None, outcome
         row = _task(state, task_id)
         if not row.get("camel_thread_id"):
             raise HarnessError("Task has no resolved Camel chat ID")
+        if row.get("completion") and _notice(root, row)["state"] == "accepted":
+            return copy.deepcopy(row)
         if not row.get("completion"):
             text = message or f"Task {outcome}: {row['goal']}. Checks: {checks or 'see Camel result'}. Result: {result or row['camel_thread_id']}. Please review, collect, merge and archive the completed work."
             sessions.require_text(text, "Completion message")
@@ -867,7 +883,7 @@ def complete(target, task_id, message=None, *, result=None, checks=None, outcome
                        completion={"outcome": outcome, "text": text, "result_key": digest([row["id"], row.get("cycle", 0), outcome, result, checks, text])})
             write_json(_task_path(root), state)
         try:
-            with factory("oasis_complete_" + row["id"]) as server:
+            with _open(factory, root, "oasis_complete_" + row["id"], channel=_task_channel(row)) as server:
                 _thread(server, row["cameleer_thread_id"], root, _task_project(row))
                 snapshot, _ = _terminal_snapshot(root, row, server)
                 row["native_turn"] = snapshot
@@ -979,43 +995,50 @@ def _await_terminal(root, row, server, timeout):
     snapshot, native = _terminal_snapshot(root, row, server)
     if snapshot["state"] != "pending" or timeout == 0 or not callable(getattr(server, "wait_events", None)):
         return snapshot
+    covered = _event_covered(server, row["camel_thread_id"])
     path = sessions.require_text(native.get("path"), "Native rollout watch path")
-    if not Path(path).is_absolute():
+    if not covered and not Path(path).is_absolute():
         raise HarnessError("Native rollout watch requires an absolute path")
     watch_id, watching, failure = "oasis_collect_" + uuid.uuid4().hex, False, None
     try:
-        try:
-            response = server.call("fs/watch", {"watchId": watch_id, "path": path})
-        except sessions.NativeError as exc:
-            if exc.code != -32601:
-                raise
-            return snapshot
-        watching = True
-        if not isinstance(response, dict) or not isinstance(response.get("path"), str) or sessions.canonical_root(response["path"]) != sessions.canonical_root(path):
-            raise HarnessError("Native filesystem watch returned another rollout path")
-        # Close the registration race before waiting for filesystem changes.
-        snapshot, _ = _terminal_snapshot(root, row, server)
-        last_read, first_dirty, last_dirty = time.monotonic(), None, None
+        if not covered:
+            try:
+                response = server.call("fs/watch", {"watchId": watch_id, "path": path})
+            except sessions.NativeError as exc:
+                if exc.code != -32601:
+                    raise
+                return snapshot
+            watching = True
+            if not isinstance(response, dict) or not isinstance(response.get("path"), str) or sessions.canonical_root(response["path"]) != sessions.canonical_root(path):
+                raise HarnessError("Native filesystem watch returned another rollout path")
+            # Close the filesystem registration race for legacy connections only.
+            snapshot, _ = _terminal_snapshot(root, row, server)
+        last_read, first_dirty, last_dirty, terminal_event = time.monotonic(), None, None, False
         while snapshot["state"] == "pending" and time.monotonic() < deadline:
             now = time.monotonic()
             due = min(last_dirty + .25, first_dirty + 1) if first_dirty is not None else deadline
-            due = max(due, last_read + 1) if first_dirty is not None else due
+            due = max(due, last_read + (0 if terminal_event else 5)) if first_dirty is not None else due
             events = server.wait_events(max(0, min(deadline, due) - now))
-            changed = any(event.get("method") == "fs/changed" and isinstance(event.get("params"), dict)
+            changed = not covered and any(event.get("method") == "fs/changed" and isinstance(event.get("params"), dict)
                           and event["params"].get("watchId") == watch_id for event in events)
-            changed = changed or any(event.get("method") == "turn/completed"
+            terminal_event |= any(event.get("method") == "turn/completed"
                 and isinstance(event.get("params"), dict)
                 and event["params"].get("threadId") == row["camel_thread_id"]
                 and isinstance(event["params"].get("turn"), dict)
                 and event["params"]["turn"].get("id") == snapshot.get("id") for event in events)
+            terminal_event |= snapshot.get("status") in ("completed", "failed", "interrupted") and any(
+                event.get("method") == "thread/status/changed" and isinstance(event.get("params"), dict)
+                and event["params"].get("threadId") == row["camel_thread_id"]
+                and (event["params"].get("status") or {}).get("type") in ("idle", "notLoaded") for event in events)
+            changed = changed or terminal_event
             if changed:
                 now = time.monotonic()
                 first_dirty = first_dirty if first_dirty is not None else now
                 last_dirty = now
             now = time.monotonic()
-            if first_dirty is not None and now >= max(min(last_dirty + .25, first_dirty + 1), last_read + 1):
+            if first_dirty is not None and now >= max(min(last_dirty + .25, first_dirty + 1), last_read + (0 if terminal_event else 5)):
                 snapshot, _ = _terminal_snapshot(root, row, server)
-                last_read, first_dirty, last_dirty = time.monotonic(), None, None
+                last_read, first_dirty, last_dirty, terminal_event = time.monotonic(), None, None, False
             elif not events and first_dirty is None:
                 break
         # Persistence may have completed at the wait boundary without a delivered event.
@@ -1095,7 +1118,7 @@ def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_re
         identity, captured = _collection_identity(root, row), copy.deepcopy(row)
     # Native final output may arrive later. Independent task notices must retain
     # access to the project state throughout this connection-scoped I/O wait.
-    with factory("oasis_collect_" + captured["id"]) as server:
+    with _open(factory, root, "oasis_collect_" + captured["id"], channel=_task_channel(captured)) as server:
         snapshot = _await_terminal(root, captured, server, min(wait_timeout, max(0, sessions.remaining_timeout() - 1)))
         with operation_lock(lock):
             state = _tasks(root)
@@ -1190,7 +1213,7 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
         if message is not None and not row.get("archived") and previous_archive.exists():
             archive_record = read_json(previous_archive)
             if archive_record.get("state") in ("accepted", "started", "uncertain"):
-                with factory("oasis_restore_recover_" + row["id"]) as server:
+                with _open(factory, root, "oasis_restore_recover_" + row["id"], channel=_task_channel(row)) as server:
                     archive_result = _lifecycle_once(previous_archive, row["camel_thread_id"], server, root,
                                                      scoped={row["camel_thread_id"]}, expected_binding=_binding(root, _task_project(row)))
                 if archive_result["state"] != "accepted":
@@ -1209,7 +1232,7 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
             row["camel_thread_id"] = receipt["thread_id"]
             write_json(_task_path(root), state)
         if message is None:
-            with factory("oasis_resume_" + row["id"]) as server:
+            with _open(factory, root, "oasis_resume_" + row["id"], channel=_task_channel(row)) as server:
                 _assign_delivery(root, row, server)
         else:
             if row.get("followup_key") != request_key:
@@ -1221,7 +1244,7 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
                 for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn", "unsubmitted_notice", "dependency_continuations"):
                     row.pop(name, None)
                 write_json(_task_path(root), state)
-            with factory("oasis_resume_" + row["id"]) as server:
+            with _open(factory, root, "oasis_resume_" + row["id"], channel=_task_channel(row)) as server:
                 native = _thread(server, row["camel_thread_id"], root, _task_project(row))
                 if row.get("archived"):
                     lifecycle = _lifecycle_once(_delivery_path(root, row, "restore"), row["camel_thread_id"], server, root, restore=True,
@@ -1261,7 +1284,8 @@ def dependency_wait(target, producer_id, consumer_id, condition, *, request_id=N
             if "consumer_binding" in row and row["consumer_binding"] != binding:
                 raise HarnessError("Dependency request belongs to another task cycle; preserve its original action")
         if row is None:
-            with factory("oasis_dependency_register") as server:
+            producer_task = next((task for task in state["tasks"] if task.get("camel_thread_id") == producer_id), None)
+            with _open(factory, root, "oasis_dependency_register", channel=_task_channel(producer_task) if producer_task else None) as server:
                 project_id = sessions.project_id(server, root)
                 producer = _thread(server, producer_id, root, project_id)
                 _thread(server, consumer_id, root, project_id)
@@ -1294,12 +1318,15 @@ def dependency_finish(target, dependency_id, *, outcome="completed", result=None
             raise HarnessError("Unknown dependency ID")
         if not _dependency_current(state, row):
             return {**copy.deepcopy(row), "phase": "superseded", "instruction": "Preserve this previous task cycle; no notice was sent."}
+        if row["phase"] in ("completed", "failed", "cancelled") and _notice(root, row, dependency=True)["state"] == "accepted":
+            return copy.deepcopy(row)
         if row["phase"] == "waiting":
             row.update(phase=outcome, result=result, text=message or f"Dependency {outcome}: {row['condition']}. Result: {result or 'see producer chat ' + row['producer_thread_id']}.")
             write_json(_task_path(root), state)
         path = contained(root, f".oasis/local/tasks/dependencies/{row['id']}.json")
         try:
-            with factory("oasis_dependency_" + row["id"]) as server:
+            consumer_task = next((task for task in state["tasks"] if task.get("camel_thread_id") == row["consumer_thread_id"]), None)
+            with _open(factory, root, "oasis_dependency_" + row["id"], channel=_task_channel(consumer_task) if consumer_task else None) as server:
                 project_id = row.get("project_id") or sessions.project_id(server, root)
                 _thread(server, row["producer_thread_id"], root, project_id)
                 row["project_id"] = project_id
@@ -1356,6 +1383,28 @@ def _notification_pending(root, state):
                for row in state["dependencies"])
 
 
+class _ObservationReads:
+    """One read phase only; never crosses the subsequent writer boundary."""
+    def __init__(self, server):
+        self.server, self.reads = server, {}
+
+    def call(self, method, params):
+        if method not in ("thread/read", "thread/turns/list", "project/list"):
+            return self.server.call(method, params)
+        key = (method, digest(params))
+        if key not in self.reads:
+            self.reads[key] = self.server.call(method, params)
+        return copy.deepcopy(self.reads[key])
+
+    def __getattr__(self, name):
+        return getattr(self.server, name)
+
+
+def _event_covered(server, identity):
+    covered = getattr(server, "event_covered", None)
+    return bool(callable(covered) and covered(identity))
+
+
 def notification_step(root, server, *, changed_threads=None, cache=None):
     """Observe exact registered work, then reconcile one notice per transition.
 
@@ -1367,14 +1416,20 @@ def notification_step(root, server, *, changed_threads=None, cache=None):
     cache = cache if cache is not None else {}
     state = _tasks(root)
     observations, targets = {}, {}
+    reads = _ObservationReads(server)
 
-    def native(identity, project):
+    def native(identity, project, *, idle_only=False, turn_id=None):
         key = ("thread", identity, project)
         if key not in cache or changed_threads is None or identity in changed_threads:
-            cache[key] = _thread(server, identity, root, project)
+            cache[key] = _thread(reads, identity, root, project)
         thread = cache[key]
         if isinstance(thread.get("path"), str):
-            targets[identity] = {"thread_id": identity, "path": thread["path"]}
+            previous = targets.get(identity, {})
+            targets[identity] = {**previous, "thread_id": identity, "path": thread["path"],
+                                 "event_covered": _event_covered(server, identity),
+                                 "idle_only": previous.get("idle_only", False) or idle_only}
+            if turn_id and not previous.get("turn_id"):
+                targets[identity]["turn_id"] = turn_id
         return thread
 
     for row in state["tasks"]:
@@ -1391,30 +1446,49 @@ def notification_step(root, server, *, changed_threads=None, cache=None):
         signature = _collection_identity(root, row)
         key = ("task", row["id"], signature)
         if key not in cache or changed_threads is None or identity in changed_threads:
-            cache[key] = _terminal_snapshot(root, row, server)
+            cache[key] = _terminal_snapshot(root, row, reads)
         snapshot, thread = cache[key]
-        targets[identity] = {"thread_id": identity, "path": thread["path"], "turn_id": snapshot.get("id")}
+        cache[("thread", identity, _task_project(row))] = thread
+        targets[identity] = {"thread_id": identity, "path": thread["path"], "turn_id": snapshot.get("id"),
+                             "cycle": row.get("cycle", 0), "event_covered": _event_covered(server, identity),
+                             "awaiting_idle": snapshot.get("status") in ("completed", "failed", "interrupted")}
         observations[row["id"]] = (signature, snapshot)
-        if completion or snapshot["state"] in ("ready", "failed", "cancelled"):
-            native(row["cameleer_thread_id"], _task_project(row))
+        waiting_dependency = any(dependency.get("consumer_thread_id") == identity
+            and (dependency.get("phase") == "waiting" or dependency.get("delivery", {}).get("state") != "accepted")
+            and _dependency_current(state, dependency) for dependency in state["dependencies"])
+        if snapshot["state"] in ("failed", "cancelled") or snapshot["state"] == "ready" and (completion or not waiting_dependency):
+            native(row["cameleer_thread_id"], _task_project(row), idle_only=True)
     for row in state["dependencies"]:
         if not _dependency_current(state, row):
             continue
         if row.get("delivery", {}).get("state") == "accepted":
             continue
-        project = row.get("project_id") or sessions.project_id(server, root)
-        native(row["producer_thread_id"], project)
+        project = row.get("project_id") or sessions.project_id(reads, root)
+        native(row["producer_thread_id"], project, turn_id=row.get("producer_turn_id"))
         if row.get("phase") == "waiting" and row.get("producer_turn_id"):
             key = ("dependency", row["id"], row["producer_turn_id"])
             if key not in cache or changed_threads is None or row["producer_thread_id"] in changed_threads:
-                turns = sessions._history_page(server.call("thread/turns/list", {
+                turns = sessions._history_page(reads.call("thread/turns/list", {
                     "threadId": row["producer_thread_id"], "itemsView": "notLoaded", "sortDirection": "desc", "limit": 1}), "thread/turns/list")["data"]
                 cache[key] = turns[0] if turns else {}
             turn = cache[key]
             if turn.get("id") == row["producer_turn_id"] and turn.get("status") in ("failed", "interrupted"):
                 observations[row["id"]] = (digest(row), "failed" if turn["status"] == "failed" else "cancelled")
         if row.get("phase") != "waiting" or row["id"] in observations:
-            native(row["consumer_thread_id"], project)
+            native(row["consumer_thread_id"], project, idle_only=True)
+
+    needs_writer = any(not isinstance(observed[1], dict) or observed[1]["state"] != "pending"
+                       for observed in observations.values())
+    needs_writer |= any(_dependency_current(state, row) and row.get("phase") in ("completed", "failed", "cancelled")
+                        and row.get("delivery", {}).get("state") != "accepted" for row in state["dependencies"])
+    if not needs_writer:
+        # Pending native work changes no task intent and has no notice to send.
+        # In particular, do not compete with a foreground complete() just to
+        # persist a diagnostic pending snapshot. Its journal event will reconcile
+        # a real transition, still through the unchanged writer boundary below.
+        return {"pending": _notification_pending(root, state), "targets": list(targets.values()),
+                "journal_digest": digest(state),
+                "next_action": "Use workflow task-resume or dependency-finish for the retained operation; do not poll from a model."}
 
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         current = _tasks(root)
