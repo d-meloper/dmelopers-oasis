@@ -18,33 +18,37 @@ class DependencyContracts(unittest.TestCase):
         self.native.add("consumer", name="Arbitrary consumer name")
 
     def wait(self, **kwargs):
-        return workflows.dependency_wait(self.root, "producer", "consumer", "shared parser interface", **kwargs)
+        return workflows.dependency_wait(self.root, "producer", "consumer", "shared parser interface", **kwargs, factory=self.native)
 
-    def test_wait_is_local_and_ends_turn_without_messages_or_status_queries(self):
+    def test_wait_binds_scope_once_and_ends_turn_without_model_messages(self):
         first = self.wait()
+        before = list(self.native.calls)
         second = self.wait()
         self.assertEqual(first["id"], second["id"])
         self.assertTrue(first["end_turn"])
         self.assertEqual(first["phase"], "waiting")
-        self.assertEqual(self.native.calls, [])
+        self.assertEqual(self.native.calls, before)
+        self.assertNotIn("turn/start", self.native.methods())
         self.assertTrue((self.root / ".oasis/state/tasks.md").exists())
 
     def test_self_dependency_and_request_conflicts_are_local_errors(self):
         with self.assertRaisesRegex(HarnessError, "different producer"):
-            workflows.dependency_wait(self.root, "producer", "producer", "same-chat")
+            workflows.dependency_wait(self.root, "producer", "producer", "same-chat", factory=self.native)
         self.wait(request_id="fixed")
+        before = list(self.native.calls)
         with self.assertRaisesRegex(HarnessError, "different inputs"):
-            workflows.dependency_wait(self.root, "producer", "caller", "Different condition", request_id="fixed")
-        self.assertEqual(self.native.calls, [])
+            workflows.dependency_wait(self.root, "producer", "caller", "Different condition", request_id="fixed", factory=self.native)
+        self.assertEqual(self.native.calls, before)
 
     def test_cycle_is_an_advisory_summary_warning_without_native_queries(self):
         first = self.wait()
-        second = workflows.dependency_wait(self.root, "consumer", "producer", "second partial result")
+        second = workflows.dependency_wait(self.root, "consumer", "producer", "second partial result", factory=self.native)
+        before = list(self.native.calls)
         summary = workflows.task_status(self.root, summary=True)
         warning = summary["warnings"][0]
         self.assertTrue(warning["advisory_only"])
         self.assertEqual(set(warning["dependency_ids"]), {first["id"], second["id"]})
-        self.assertEqual(self.native.calls, [])
+        self.assertEqual(self.native.calls, before)
 
     def test_terminal_dependency_with_lost_notice_stays_in_compact_status(self):
         row = self.wait()
@@ -60,7 +64,7 @@ class DependencyContracts(unittest.TestCase):
 
     def test_cross_project_notice_is_not_sent_and_wait_table_updates(self):
         task = workflows.assign(self.root, "caller", "Use partial interface", factory=self.native)
-        row = workflows.dependency_wait(self.root, "producer", task["camel_thread_id"], "interface")
+        row = workflows.dependency_wait(self.root, "producer", task["camel_thread_id"], "interface", factory=self.native)
         table = self.root / ".oasis/state/tasks.md"
         self.assertIn("waiting for interface", table.read_text(encoding="utf-8"))
         self.native.threads[task["camel_thread_id"]]["projectId"] = "OTHER"
@@ -109,14 +113,14 @@ class DependencyContracts(unittest.TestCase):
         self.assertEqual(self.native.sent, 3)
 
     def test_notice_format_and_names_are_unrestricted(self):
-        row = workflows.dependency_wait(self.root, "producer", "caller", "필요한 인터페이스")
+        row = workflows.dependency_wait(self.root, "producer", "caller", "필요한 인터페이스", factory=self.native)
         actual = workflows.dependency_finish(self.root, row["id"], message="끝났습니다. 저장한 결과를 사용하세요.", factory=self.native)
         self.assertEqual(actual["delivery"]["thread_id"], "caller")
         self.assertEqual(self.native.sent, 1)
 
     def test_input_errors_and_removed_packet_cli(self):
         with self.assertRaises(HarnessError):
-            workflows.dependency_wait(self.root, "producer", "consumer", "")
+            workflows.dependency_wait(self.root, "producer", "consumer", "", factory=self.native)
         with self.assertRaises(HarnessError):
             workflows.dependency_finish(self.root, "unknown", factory=self.native)
         import sys

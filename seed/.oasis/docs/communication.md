@@ -13,20 +13,23 @@ Read the applicable skill experience before choosing an approach. Once before
 the final completion report, consolidate useful lessons in the existing owner
 under [knowledge policy](../manual/knowledge.md).
 
-Camel sends a short completion message directly to Cameleer, for example:
+Camel submits a short completion result for Cameleer, for example:
 
 > Completed. Main change: … / Related checks: …
 > Result: …
 > Please review, integrate and archive this work.
 
 The [role contract](../manual/identity.md) covers collection, integration,
-archival and corrections. Repeated completion delivery must not repeat integration.
+archival and corrections. Runtime delivers the whole-assignment notice when the
+assigned native turn is terminal-ready. Submission alone must not wake Cameleer
+to repeatedly check for final output. Repeated delivery must not repeat integration.
 
 Intermediate messages to Cameleer are useful for a material goal/scope change or
-a problem Camel cannot resolve. Keep routine progress local. For Camel-to-Camel
-dependencies, use the [one terminal notice](../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
+a problem Camel cannot resolve. Keep routine progress local. All roles use the
+[one terminal notice](../../LocalGitWorkflow.md#dependency-waiting-and-resumption)
 after the named portion completes, fails or is cancelled. Keep independent
-work moving and resume from that result.
+work moving, then end the turn and resume from that result. A partial result or
+resource release need not wait for the producer's whole assignment.
 
 Use [planning work](../../ProjectGuide.md#planning-work) for native Plan and
 the supplied request, preserving current model, reasoning and permissions.

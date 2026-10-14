@@ -31,7 +31,8 @@ that writer consolidates it with the relevant work once.
 If this work supplies no useful lesson, duplicate or invalidated advice, finish
 without a reference edit, placeholder or routine experience report. Interrupted
 or dependency-blocked work retains useful observations for continuation rather
-than repeating a closing pass. Read-only work proposes a useful change in its
+than repeating a closing pass. Ending a turn to wait does not complete the task
+or trigger consolidation. Read-only work proposes a useful change in its
 result instead of modifying files.
 
 Experience consolidation uses the task's existing scope. It needs no separate

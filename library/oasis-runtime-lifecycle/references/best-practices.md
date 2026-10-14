@@ -28,8 +28,17 @@ Before archiving a delivering worker, bind the assignment to its latest native
 turn, completed status, retained nonempty final-phase output and idle chat.
 A completion report or marker in a user prompt can arrive before that boundary.
 Use a scoped change notification to wake a fresh state read, not as proof of
-completion, and release the listener when the call ends. Preserve newer work or
+completion. Same-target change batches can each amplify history reads even when
+unrelated-watch filtering is correct; coalesce them and cap state-query frequency.
+Separate result submission from terminal-ready delivery. Observation must have a
+non-model owner that survives a waiting role's turn, with a finite lease/recovery
+path; release listeners when that owner ends. Preserve newer work or
 uncertain identity instead of archiving an arbitrary finished turn.
+An assigned worker can end a turn while its registered consumer dependency is
+unresolved; that is not missing result submission. Retain the dependency's
+verified delivery turn as a same-task/cycle continuation, preserving the original
+assignment receipt. Otherwise a valid resume looks like unrelated newer work,
+and stale dependency deliveries can wake a later assignment.
 Wait outside the project mutation lock. After reacquiring it, reload current
 state and verify the assignment/result binding before applying review or archive
 inputs; independent workers must remain able to complete during the wait.

@@ -40,9 +40,21 @@ it. See [workflows](docs/workflows.md).
 Cameleer records chat IDs, goals, useful context and results in
 `.oasis/state/tasks.md` at assignment, collection and resume. The suggested
 title is `camel_A_task`; renaming a Camel does not change its connection.
-Completion arrives directly; Cameleer reviews the relevant diff and performed
-checks, integrates and archives the Camel. Follow-up work restores the same
-chat. Dependencies use one notice when the named part ends.
+Runtime delivers a result notice after the assigned turn finishes; Cameleer
+reviews the relevant diff and performed checks, integrates and archives the
+Camel. Follow-up work restores the same chat. All roles finish independent work
+and end their turn while blocked, resuming from one meaningful notice. Named
+partial results can resume a consumer before the producer's whole task ends.
+
+Owner-established independent specialist sessions keep their own requested
+scope and existing chat. They coordinate shared files or resources when needed
+and remain available across mode switches and unrelated role archival. See
+[independent sessions](seed/LocalGitWorkflow.md#independent-specialist-sessions).
+
+Observation uses the verified host path or one project/backend process only
+while registered work remains, without model requests or a new App Server.
+Unsupported or expired observation leaves a bounded explicit recovery step;
+see [sessions](docs/sessions.md#workflow-observation).
 
 Planning enters native Plan mode where supported and starts the requested
 investigation immediately. Unsupported paths give the manual mode/start

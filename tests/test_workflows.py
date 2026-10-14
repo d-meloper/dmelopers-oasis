@@ -314,17 +314,18 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual(actual["completion"]["delivery"]["state"], "accepted")
         self.assertEqual(self.native.sent, 2)
 
-    def test_completion_is_direct_input_to_an_active_cameleer(self):
+    def test_completion_buffers_until_active_cameleer_becomes_idle(self):
         row = self.assign()
         self.native.threads["caller"]["status"] = {"type": "active"}
         self.native.threads["caller"]["turns"] = [{"id": "cameleer-current-turn", "status": "inProgress", "items": []}]
-        self.native.lose["turn/start"] = 1
-        with self.assertRaises(HarnessError):
-            self.complete(row)
         result = self.complete(row)
-        self.assertEqual(result["completion"]["delivery"]["turn_id"], "cameleer-current-turn")
+        self.assertEqual(result["completion"]["delivery"]["state"], "pending_recipient")
+        self.assertEqual(self.native.sent, 1)
+        self.native.threads["caller"]["status"] = {"type": "idle"}
+        result = self.complete(row)
+        self.assertEqual(result["completion"]["delivery"]["state"], "accepted")
         self.assertEqual(self.native.sent, 2)
-        self.assertEqual(len(self.native.threads["caller"]["turns"][0]["items"]), 1)
+        self.assertEqual(len(self.native.threads["caller"]["turns"][0]["items"]), 0)
 
     def test_merge_response_uncertainty_does_not_repeat_merge(self):
         row = self.assign()
@@ -409,7 +410,7 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual(self.native.watches, {})
         self.assertNotIn("thread/resume", self.native.methods())
         self.assertEqual(self.native.methods().count("thread/archive"), 1)
-        self.assertEqual(self.native.sent, 2)
+        self.assertEqual(self.native.sent, 1)  # Early submission never woke the manager.
 
     def test_pending_collection_preserves_manual_reference_until_actual_final(self):
         row = self.assign()

@@ -70,19 +70,58 @@ and relevant context, and updates `.oasis/state/tasks.md`. Actual IDs and result
 references connect work; `camel_A_task` is a naming convention.
 
 Camel implements and checks its assignment, consolidates useful experience before
-completion, and directly notifies Cameleer. Cameleer reviews, integrates, retains
+completion, and submits its result. Runtime notifies Cameleer when the assigned
+native turn is terminal-ready. Cameleer reviews, integrates, retains
 the result and archives the finished Camel. Follow-up restores that same chat.
 Successful collection binds the assigned latest turn to native `completed`
 status, nonempty `agentMessage.phase=final_answer` output and an `idle` or
 `notLoaded` chat. A direct completion notice or user-prompt marker alone does
-not establish that boundary. A scoped `fs/watch`/`fs/changed` wait can observe
-rollout changes during collection; fresh native reads determine the outcome.
-The call removes its watch before returning. See [collection](workflows.md#assign-collect-and-resume)
+not establish that boundary. Exact thread/turn lifecycle events wake a fresh
+state read; scoped `fs/watch`/`fs/changed` is the fallback. See
+[collection](workflows.md#assign-collect-and-resume)
 for pending, failed and unverifiable results.
 
 Dependencies name a blocked portion. After independent work, end the turn and
 resume from the producer's one terminal result on completion, failure or
 cancellation. Transport notifications alone are not a role workflow or task result.
+
+## Workflow observation
+
+Registered work uses a verified host notification path where available. Otherwise
+one non-model observer per project/backend owns its client connection and scoped
+watches. It connects to the existing App Server; it does not start a host service,
+install a scheduler or change global settings. `thread/read` alone does not
+subscribe to events or prove that a backend supplies lifecycle notifications.
+
+The observer binds events and delivery to actual task/thread/turn, cycle, recipient
+and result identity. A submitted result remains distinct from native terminal
+readiness. Failed and interrupted turns retain their own outcome; missing result
+submission is visible without inventing successful output or checks. A registered
+consumer dependency makes an ended waiting turn distinct from a missing result.
+Its verified delivery can continue the same task/cycle on a new native turn,
+retaining both the continuation identity and original assignment receipt. Partial
+dependency readiness concerns its named artifact/resource, not producer shutdown.
+Delivery to an active recipient is retained until the recipient is idle; an
+unverified native queue is not used. Collection and review remain the role's work.
+
+Fallback filesystem alerts are coalesced: debounce 250 ms, maximum delay one
+second and at most one state snapshot per second per target. No-change waiting
+does not make periodic history or model requests. Initial registration and
+terminal-boundary checks still verify actual native state.
+
+Ownership includes project/backend, generation and actual process identity.
+The observer exits when work is resolved or its lease ends; an unspecified wait
+expires after 24 hours. Connection loss permits one reconnect and reconciliation.
+Unsupported observation, exhausted recovery or an expired lease retains state and
+an exact explicit resume step. The next requested workflow operation can restore
+observation. No unknown native send is automatically repeated, and duplicate
+events or old task cycles do not authorize another notice or integration.
+
+The whole collection budget is 30 seconds by default, including connection, RPC,
+I/O and cleanup. Its optional event-wait budget cannot exceed the remaining whole
+deadline. Observer waits do not hold the project's mutation lock. Watches and
+owned connections are released at their owner boundary; cleanup failures remain
+visible with retained recovery state.
 
 ## Actual Plan mode
 
@@ -105,8 +144,9 @@ anchor or a full baseline. Recovery reads newer turns/items; unsupported paging
 falls back within the retained evidence boundary, preserving each receipt's form.
 Weak text matches outside the retained boundary remain uncertain, with no replay.
 
-Transport I/O and buffered events do not provide a managed server, cross-process
-lease/IPC bridge, automatic terminal collection or model polling. Protocol schema,
+Transport I/O and buffered events do not provide a managed server, approval UI
+or automatic result review/integration. The scoped workflow observer supplies
+terminal notification without model polling. Protocol schema,
 local fixtures, live backend effects, visible UI and descendant archive effects
 have separate evidence boundaries. See [validation](validation.md) and recorded
 observations in [CHANGELOG](CHANGELOG.md).

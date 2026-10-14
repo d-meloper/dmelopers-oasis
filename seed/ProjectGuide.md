@@ -55,9 +55,14 @@ collection, archival and corrections.
 Required deployment follows this project's request and configured workflow.
 Reuse passing checks while their code, tests and consumed inputs still match;
 version labels or handoffs alone do not require repeating functional checks.
+Reuse unchanged source/result reads for the same purpose; inspect changed inputs
+or a concrete concern and briefly state why a check is repeated in the existing
+result. Independent review still examines the relevant original inputs.
 Verify changed inputs and the final deliverable's actual bytes separately.
 See [communication](.oasis/docs/communication.md) for concise handoffs and
 [dependencies](LocalGitWorkflow.md#dependency-waiting-and-resumption) for waits.
+Every role ends its turn after independent work when only such a dependency
+remains. Runtime observes it without model requests; waiting is not task completion.
 
 ## Engineering knowledge
 

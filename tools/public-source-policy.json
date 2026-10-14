@@ -9,11 +9,11 @@
       "sha256": "31a4c18d0d48f32609bc880e79e22a6f222fc3308d8d978a018d9cbe9b2158db"
     },
     "oasis_harness/sessions.py": {
-      "sha256": "2747d542b79f94ba59fe69edcefbf10ef600ceb052eefe3255843d235171d5b6",
+      "sha256": "8f87f89e9bf717247dc285d012d7e7f01ee444308868a1aa14153d9a5797841e",
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
     },
     "oasis_harness/workflows.py": {
-      "sha256": "380649b776784d93acb695318fcdcfeae2a626fc88beddd66cb82a7571354fd3",
+      "sha256": "c05861411a724e5dbe43ab48c7c220e58f1db315dedafb6ed88aa8d0b181017d",
       "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tests/test_public_source.py": {
@@ -25,7 +25,7 @@
       "sha256": "3e7da971dc997d88218b7203976980434740270e5a19e5189ffab27decca0f5f"
     },
     "tests/test_workflows.py": {
-      "sha256": "6982d977276781e1804350d4a1a961dff83d10be645ad60413b2a3c2b66a0eed",
+      "sha256": "f345365f4c5fbbbe19480f758b4b46317144be0e89d603880a221e2e76f708ac",
       "reason": "Reviewed synthetic session/task fixtures, new-input reminders and legacy retry recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tools/source_policy.py": {

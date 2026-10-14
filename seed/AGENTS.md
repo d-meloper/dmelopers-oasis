@@ -16,9 +16,10 @@ On `계획작업으로 진행해`, use [planning work](ProjectGuide.md#planning-
 set actual native Plan mode and begin the supplied planning request. If that
 interface is unavailable, explain the manual mode-and-start step once.
 
-Keep active Camel links and results in `.oasis/state/tasks.md`. For a dependency,
-name the blocked portion, finish independent work and end the turn; the other
-Camel sends one terminal notice. Retain operational evidence in `.oasis/local/`
+Keep active Camel links and results in `.oasis/state/tasks.md`. Every role uses
+[scoped dependency waiting](LocalGitWorkflow.md#dependency-waiting-and-resumption):
+register the blocked portion, finish independent work and end the turn until its
+meaningful terminal notice. Retain operational evidence in `.oasis/local/`
 and useful experience in its existing project owner. Before the final completion
 report, consolidate it once under [the knowledge policy](.oasis/manual/knowledge.md).
 A project's canonical policy stays in its actual file; bootstrap links to it.
