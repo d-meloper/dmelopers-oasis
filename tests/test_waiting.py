@@ -44,6 +44,69 @@ class WaitingContracts(unittest.TestCase):
         self.assertEqual(self.native.methods().count('thread/turns/list'), before)
         self.assertEqual(self.native.sent, 1)
 
+    def test_full_assignment_wait_reuses_notice_and_never_adds_confirmation_turn(self):
+        row = self.fixture.assign()
+        native, turn = self.fixture.pending_native_turn(row)
+        before = list(self.native.calls)
+        wait = workflows.dependency_wait(self.root, native['id'], row['cameleer_thread_id'], 'whole assignment', factory=self.native)
+        self.assertEqual(self.native.calls, before)
+        self.assertEqual(wait['subscription'], 'assignment')
+        self.fixture.complete(row)
+        self.fixture.finish_native_turn(native, turn)
+        workflows.notification_step(self.root, self.native)
+        self.assertEqual(self.native.sent, 2)
+        workflows.collect(self.root, row['id'], factory=self.native)
+        before = list(self.native.calls)
+        for _ in range(2):
+            result = workflows.dependency_finish(self.root, wait['id'], result='same completed assignment', factory=self.native)
+            self.assertFalse(result['end_turn'])
+        workflows.notification_step(self.root, self.native)
+        self.assertEqual(self.native.calls, before)
+        self.assertEqual(self.native.sent, 2)
+
+    def test_partial_parent_wait_other_consumer_and_new_cycle_remain_distinct(self):
+        row = self.fixture.assign()
+        partial = workflows.dependency_wait(self.root, row['camel_thread_id'], row['cameleer_thread_id'], 'resource released', purpose='partial', factory=self.native)
+        workflows.dependency_finish(self.root, partial['id'], result='partial artifact', factory=self.native)
+        self.assertEqual(self.native.sent, 2)
+        self.native.add('another-consumer')
+        other = workflows.dependency_wait(self.root, row['camel_thread_id'], 'another-consumer', 'whole assignment', factory=self.native)
+        workflows.dependency_finish(self.root, other['id'], result='another result', factory=self.native)
+        self.assertEqual(self.native.sent, 3)
+        old = workflows.dependency_wait(self.root, row['camel_thread_id'], row['cameleer_thread_id'], 'whole assignment', factory=self.native)
+        followup = workflows.resume_task(self.root, row['id'], 'new result', factory=self.native)
+        before = self.native.sent
+        self.assertEqual(workflows.dependency_finish(self.root, old['id'], factory=self.native)['phase'], 'superseded')
+        self.assertEqual(self.native.sent, before)
+        current = workflows.dependency_wait(self.root, followup['camel_thread_id'], followup['cameleer_thread_id'], 'whole assignment', factory=self.native)
+        self.assertNotEqual(old['id'], current['id'])
+
+    def test_shared_assignment_failure_cancel_and_distinct_partial_results_are_preserved(self):
+        for outcome in ('failed', 'cancelled'):
+            row = self.fixture.assign(request_id=outcome)
+            alias = workflows.dependency_wait(self.root, row['camel_thread_id'], row['cameleer_thread_id'], 'entire assignment', factory=self.native)
+            completed = self.fixture.complete(row, outcome=outcome)
+            before = self.native.sent
+            mirrored = workflows.dependency_finish(self.root, alias['id'], factory=self.native)
+            self.assertEqual(mirrored['phase'], outcome)
+            self.assertEqual(mirrored['result_key'], completed['completion']['result_key'])
+            self.assertEqual(self.native.sent, before)
+            for name in ('first distinct result', 'new distinct result'):
+                part = workflows.dependency_wait(self.root, row['camel_thread_id'], row['cameleer_thread_id'], name, purpose='partial', factory=self.native)
+                workflows.dependency_finish(self.root, part['id'], result=name, factory=self.native)
+            self.assertEqual(self.native.sent, before + 2)
+
+    def test_explicit_assignment_for_another_consumer_binds_producer_cycle(self):
+        row = self.fixture.assign()
+        self.native.add('another-consumer')
+        old = workflows.dependency_wait(self.root, row['camel_thread_id'], 'another-consumer', 'entire assignment', purpose='assignment', factory=self.native)
+        workflows.resume_task(self.root, row['id'], 'new producer cycle', factory=self.native)
+        before = self.native.sent
+        self.assertEqual(workflows.dependency_finish(self.root, old['id'], factory=self.native)['phase'], 'superseded')
+        self.assertEqual(self.native.sent, before)
+        new = workflows.dependency_wait(self.root, row['camel_thread_id'], 'another-consumer', 'entire assignment', purpose='assignment', factory=self.native)
+        self.assertNotEqual(old['id'], new['id'])
+
     def test_pending_observation_does_not_compete_for_the_foreground_writer_lock(self):
         row = self.fixture.assign()
         native, _ = self.fixture.pending_native_turn(row)

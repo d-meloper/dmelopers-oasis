@@ -13,7 +13,7 @@
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
     },
     "oasis_harness/workflows.py": {
-      "sha256": "6b1719826b6ba2a2297eaca65fbf319dd89b5ffad51682ef801090e33c0bf27b",
+      "sha256": "bb5cc4600decd07087de65e748d87bb2cdf2f35a86bc673f5719e914b26830be",
       "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tests/test_public_source.py": {
@@ -33,7 +33,7 @@
       "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload."
     },
     "tests/test_rpc_efficiency.py": {
-      "sha256": "f390532ace10bbbe6774bffbdab3d657f2d3607ddac9329865fca4cc35cb0bec",
+      "sha256": "17e742eff2513efd6e95277b3ecae2594f26a438f9c852236ef7495d85e09547",
       "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain."
     }
   },

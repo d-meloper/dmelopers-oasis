@@ -2093,6 +2093,72 @@
         "Wake the transient observer after its final issued-turn verifier releases usage; Core remains 2.0.0."
       ],
       "version": "1.2.8"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Inspect the ordinary three-way upgrade. Preserve existing project knowledge, untyped pending dependencies and settings; new whole-assignment waits need no closing dependency-finish.",
+          "change": "Alias whole-assignment waiting to its existing notification, bind task/cycle/result and recipient, and keep explicit partial/resource and other-consumer paths.",
+          "checks": [
+            "An installed CLI scenario with different request IDs sends one manager notice and no third turn after collection/archive.",
+            "Partial/resource, other-consumer, failure/cancellation, current/new result and cycle boundaries remain covered."
+          ],
+          "name": "Assignment and partial dependency intent",
+          "paths": [
+            "oasis_harness/workflows.py",
+            "seed/LocalGitWorkflow.md",
+            "seed/.agents/skills/oasis-cameleer"
+          ]
+        },
+        {
+          "apply": "No runner is installed or auto-enabled. Preserve project test commands and existing sufficient evidence; use optional automatic checking only with a complete declared boundary.",
+          "change": "Record unique local JUnit evidence with before/after source and declared dependency/runtime fingerprints; query exact passed cases without running tests or promoting the failed whole run.",
+          "checks": [
+            "Normal exit-1 runs retain passed-case reuse and all nonpassing cases.",
+            "Changed or missing inputs/runtime/environment/purpose, report/log drift, ambiguous cases, fixture errors and abnormal exits reject automatic reuse.",
+            "A real isolated pytest run preserves its failed exit while a passed subset invokes no second test command."
+          ],
+          "name": "Optional testcase subset evidence",
+          "paths": [
+            "oasis_harness/check_results.py",
+            "oasis_harness/build.py",
+            "oasis_harness/installation.py",
+            "docs/validation.md",
+            "seed/ProjectGuide.md"
+          ]
+        }
+      ],
+      "files": [
+        "README.md",
+        "docs/CHANGELOG.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "library/oasis-review/references/best-practices.md",
+        "oasis_harness/build.py",
+        "oasis_harness/check_results.py",
+        "oasis_harness/installation.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-camel/references/best-practices.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-cameleer/references/best-practices.md",
+        "seed/.agents/skills/oasis-github-publication/references/best-practices.md",
+        "seed/LocalGitWorkflow.md",
+        "seed/ProjectGuide.md",
+        "tests/test_check_results.py",
+        "tests/test_distribution.py",
+        "tests/test_rpc_efficiency.py",
+        "tests/test_waiting.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py"
+      ],
+      "previous": "1.2.8",
+      "source_only": [
+        "Relevant focused/installed tests precede one final integrated run because the source selector changed. Retain measured fingerprint cost and do not infer task-time savings. Routine scoped commit, private backup and exact reviewed source-only PR/squash delivery; no tag, assets or adopter rollout."
+      ],
+      "summary": [
+        "Reuse whole-assignment notices and individually passed testcase evidence without weakening terminal or publication boundaries; Core remains 2.0.0."
+      ],
+      "version": "1.2.9"
     }
   ],
   "schema_version": 1

@@ -80,6 +80,15 @@ Follow-up uses the existing task ID with `task-resume`.
 
 ## Waiting and resumption
 
+`assign` already subscribes its Cameleer to whole-assignment completion. End the
+turn, resume from that notice, review and collect/archive; no second whole-task
+dependency, confirmation turn or dependency-finish is needed. A dependency from
+the assigned Camel to that Cameleer reuses this task/cycle/result subscription by
+default. `--purpose assignment` makes the intent explicit; `--purpose partial`
+keeps a distinct partial result or resource notice, including while the producer
+continues. Other consumers retain their own notices. Existing untyped records
+keep their original scope and are not reinterpreted from free-form text.
+
 All roles, including Developer and independent specialists, register the blocked
 portion and its producer/consumer IDs, finish independent work, and end their
 turn. Resume from its meaningful result, failure or cancellation notice. Do not

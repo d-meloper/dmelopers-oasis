@@ -54,7 +54,9 @@ Follow the [role contract](.oasis/manual/identity.md) for direct completion,
 collection, archival and corrections.
 Required deployment follows this project's request and configured workflow.
 Reuse passing checks while their code, tests and consumed inputs still match;
-version labels or handoffs alone do not require repeating functional checks.
+individually recorded passing cases can cover a subset even when other cases in
+the same run failed. See [testcase evidence](.oasis/manual/validation.md#reusing-a-testcase-subset).
+Version labels or handoffs alone do not require repeating functional checks.
 Reuse unchanged source/result reads for the same purpose; inspect changed inputs
 or a concrete concern and briefly state why a check is repeated in the existing
 result. Independent review still examines the relevant original inputs.

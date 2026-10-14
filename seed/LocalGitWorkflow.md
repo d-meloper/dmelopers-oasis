@@ -20,6 +20,14 @@ portion, producer/consumer IDs and outcome needed to resume. Finish independentl
 possible work, retain its reference and end the turn. Do not keep a model turn
 open to inspect status, result files or elapsed time; runtime handles observation.
 
+An assigned Camel already has a whole-assignment completion subscription to its
+Cameleer. End the waiting turn and use that notice; do not register a second
+dependency on the same whole assignment or finish one after collection/archive.
+`dependency-wait` from that Camel to its assigning Cameleer reuses the assignment
+subscription by default (`--purpose assignment` is explicit). For a distinct
+partial result or resource, use `--purpose partial`; other consumers keep their
+own notices. Prior untyped dependency records keep their original meaning.
+
 Resume once from a meaningful result, failure or cancellation notice, using its
 reference and current affected inputs. A whole-assignment notice waits for the
 assigned native turn to finish; a named partial result or resource release can

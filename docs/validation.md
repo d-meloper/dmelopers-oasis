@@ -24,6 +24,42 @@ Exact final export, privacy and identity checks still apply to the candidate.
 Source delivery accepts a retained verified build receipt explicitly; a bare
 log or failed run cannot become a pass.
 
+## Reusing a testcase subset
+
+Passing cases from a normally completed test run remain usable when other cases
+failed. Cite the original receipt and exact testcase IDs; keep its overall exit
+status and all nonpassing cases visible. A changed input, new verification purpose
+or concrete doubt still needs a new check. Independent review remains separate.
+
+For optional machine-checked reuse, `check run` wraps an explicitly selected
+JUnit-producing command without installing a runner or modifying its settings:
+
+```powershell
+python -B -X utf8 oasis.py check run --root <project> --input src --input tests --input pyproject.toml --runtime-input <consumed-runtime-and-dependency-directory> -- python -m pytest --junitxml={report}
+python -B -X utf8 oasis.py check reuse --receipt <recorded-receipt.json> --case 'module.Class::test_name'
+```
+
+Declare the complete consumed source/test/configuration and external
+dependency/runtime files or directories. Repeat `--input`/`--runtime-input` as
+needed; without inputs the project directory is inventoried. Hashes are taken
+before and after execution and checked again at reuse, together with the actual
+runner executable, command, cwd, host runtime and inherited environment. Raw
+environment values are not stored. Generated reports/logs use unique private
+`.oasis/local/checks/` runs. `--purpose` distinguishes a new verification purpose.
+
+`check reuse` only reads evidence and returns `reusable` or `needs_check` with
+reasons; it executes no test or automatic retry. Missing dependency/runtime scope,
+changed inputs, infrastructure errors, abnormal exits, skipped/missing/failed or
+ambiguous cases prevent automatic reuse. Test exit 1 remains failure; its individually
+passed cases may be cited. A raw old report cannot acquire a retrospective
+fingerprint. This optional subset evidence never replaces a verified build
+receipt or a required publication status and introduces no completion gate.
+Keep this optional boundary proportional to the check: hashing an entire runtime
+directory can cost more than a tiny subset. Prefer citing already sufficient
+case evidence; a broad new fingerprint pass is not a required closing routine.
+
+## Verification surfaces
+
 | Surface | Local verification | Separate live evidence |
 |---|---|---|
 | Install/update | All 24 active skills, three-way conflicts, recovery and preserved project knowledge/settings | Actual adopter conflicts, discovery and chat adoption |
