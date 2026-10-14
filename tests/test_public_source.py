@@ -4,7 +4,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from oasis_harness.common import HarnessError, digest
+from oasis_harness.common import HarnessError, digest, run
+from tools import check_public_source
 from tools.source_policy import (
     NEUTRAL_PROJECT, README_SVGS, review_policy, scan_harness_file,
     validate_harness_directory, validate_harness_distribution,
@@ -37,6 +38,23 @@ def fixture():
 
 
 class PublicSourceContracts(unittest.TestCase):
+    def test_index_candidate_batch_preserves_binary_unicode_and_empty_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            run(["git", "-C", str(root), "init", "--quiet"])
+            payload = {".gitattributes": b"* -text\n", "empty.txt": b"",
+                       "sample.bin": bytes(range(256)), "메모 😶.txt": "한글\r\n".encode("utf-8")}
+            for name, data in payload.items():
+                (root / name).write_bytes(data)
+            run(["git", "-C", str(root), "add", "--", *payload])
+            import subprocess
+            with patch("subprocess.run", wraps=subprocess.run) as invoked:
+                files, modes = check_public_source.candidate(root, index=True)
+            self.assertEqual(files, payload)
+            self.assertEqual(set(modes.values()), {"100644"})
+            object_reads = [call for call in invoked.call_args_list if "cat-file" in call.args[0]]
+            self.assertLess(len(object_reads), len(payload))
+
     def scan_pinned_svg_fixture(self, data, *, reviewed=None):
         name = "assets/readme-title.svg"
         with patch.dict("tools.source_policy.README_SVGS", {name: digest(data)}):
@@ -240,13 +258,14 @@ class PublicSourceContracts(unittest.TestCase):
             with self.subTest(extra=extra), self.assertRaises(HarnessError):
                 validate_harness_distribution({**files, **extra}, reviewed)
 
-    def test_missing_or_renamed_skill_metadata_cannot_claim_25_definitions(self):
+    def test_missing_or_renamed_skill_metadata_cannot_claim_24_definitions(self):
         files, reviewed = fixture()
+        validate_harness_distribution(files, reviewed)
         for name in ("seed/.agents/skills/oasis-camel/agents/openai.yaml",
-                     "library/oasis-review/capability.json"):
+                     "library/oasis-review/agents/openai.yaml"):
             changed = dict(files)
             del changed[name]
-            with self.subTest(name=name), self.assertRaisesRegex(HarnessError, "required skill"):
+            with self.subTest(name=name), self.assertRaisesRegex(HarnessError, "skill"):
                 validate_harness_distribution(changed, reviewed)
         changed = dict(files)
         name = "library/oasis-review/SKILL.md"

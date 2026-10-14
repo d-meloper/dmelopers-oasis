@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Review"
-  short_description: "Review for the requested project work"
+  short_description: "Review changed contracts and verify in-scope causal defects"
   default_prompt: "Use $oasis-review for the requested project scope."

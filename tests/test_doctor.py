@@ -10,6 +10,15 @@ PACKAGE = Path(__file__).resolve().parents[1]
 
 
 class UpgradeGuidanceTests(unittest.TestCase):
+    def test_source_paths_project_to_installed_areas(self):
+        self.data["releases"][0]["areas"][0]["paths"] = ["seed/.agents/skills/", "library/", "oasis_harness/sessions.py", "docs/knowledge.md", "docs/development.md", "tools/source_delivery.py"]
+        write_json(self.index, self.data)
+        paths = [".agents/skills/oasis-camel/SKILL.md", ".agents/skills/oasis-review/SKILL.md",
+                 ".oasis/runtime/oasis_harness/sessions.py", ".oasis/manual/knowledge.md", ".oasis/manual/development.md"]
+        value = doctor.upgrade_guidance(self.package, "1.0.0", "1.0.2", self.differences(*paths))
+        self.assertEqual(value["affected_areas"][0]["actual_paths"], sorted(paths[:-1]))
+        self.assertEqual(value["unmapped_paths"], [paths[-1]])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-deltas-")
         self.addCleanup(self.temp.cleanup)
@@ -72,6 +81,13 @@ class UpgradeGuidanceTests(unittest.TestCase):
 
 
 class DoctorTests(unittest.TestCase):
+    def test_request_reads_donor_once_without_apply(self):
+        from unittest.mock import patch
+        with patch.object(installation, "package_files", wraps=installation.package_files) as reads:
+            report = doctor.audit(self.root, self.package)
+        self.assertEqual(reads.call_count, 1)
+        self.assertFalse(report["applied"])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-doctor-")
         self.base = Path(self.temp.name).resolve()

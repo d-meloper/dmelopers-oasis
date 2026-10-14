@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Overlapping motion arrives before prior pulse ends
+## Scenario 1
 
-Expected behavior: Preserve position/velocity continuity and discard expired state.
+Request/state: Overlapping motion arrives before prior pulse ends.
 
-## Negative: Old epoch returns after asynchronous pointer normalization
+## Scenario 2
 
-Expected behavior: Reject it at the final consumer.
+Request/state: Old epoch returns after asynchronous pointer normalization.
 
-## Ambiguous: Unit pose tests pass but native input was not observed
+## Scenario 3
 
-Expected behavior: Report deterministic proof only, not installed feel.
+Request/state: Unit pose tests pass but native input was not observed.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

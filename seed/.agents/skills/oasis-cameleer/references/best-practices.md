@@ -25,6 +25,8 @@ settings only for its first input, current saved settings thereafter, and resume
 only a cold recipient while explicitly preserving current selections.
 The [native adapter](../../../../.oasis/manual/sessions.md) defines transport,
 RPC and recovery limits.
+For cursor and deadline mechanics, use the
+[lifecycle experience](../../oasis-runtime-lifecycle/references/best-practices.md#concurrent-protocol-dispatch).
 
 Name the blocked portion, finish independent work and use the
 [terminal dependency notice](../../../../LocalGitWorkflow.md#dependency-waiting-and-resumption).

@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Published Content"
-  short_description: "Published Content for the requested project work"
+  short_description: "Update release content from verified facts and saved readback"
   default_prompt: "Use $oasis-published-content for the requested project scope."

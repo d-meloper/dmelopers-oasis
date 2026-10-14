@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Accepted send is durable but checkpoint write failed
+## Scenario 1
 
-Expected behavior: Finish checkpoint without another send.
+Request/state: Accepted send is durable but checkpoint write failed.
 
-## Negative: One pagination page or schema check fails
+## Scenario 2
 
-Expected behavior: Send nothing and preserve checkpoint.
+Request/state: One pagination page or schema check fails.
 
-## Ambiguous: Sending state survives an interrupted request
+## Scenario 3
 
-Expected behavior: Retain UNKNOWN and inspect, never infer no mail.
+Request/state: Sending state survives an interrupted request.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

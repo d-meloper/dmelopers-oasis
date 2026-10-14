@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Small changed default breaks an unchanged consumer
+## Scenario 1
 
-Expected behavior: Identify causal contract and test a complete fix.
+Request/state: Small changed default breaks an unchanged consumer.
 
-## Negative: Unchanged old defect is unrelated to requested diff
+## Scenario 2
 
-Expected behavior: Separate it from new regression findings; do not silently fix.
+Request/state: Unchanged old defect is unrelated to requested diff.
 
-## Ambiguous: Baseline artifact lacks producer proof
+## Scenario 3
 
-Expected behavior: Pause dependent parity claims and retain independent findings.
+Request/state: Baseline artifact lacks producer proof.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import stat
 import subprocess
 import tempfile
@@ -15,6 +16,20 @@ import uuid
 
 class HarnessError(RuntimeError):
     """An actionable boundary failure; never permission to bypass that boundary."""
+
+
+class ProcessTimeout(HarnessError):
+    """Private partial output for an owned command that did not finish."""
+    def __init__(self, timeout, stdout=b"", stderr=b""):
+        super().__init__(f"Process timed out after {timeout} seconds; partial output is private evidence")
+        self.stdout = stdout.decode("utf-8", errors="replace") if isinstance(stdout, bytes) else stdout or ""
+        self.stderr = stderr.decode("utf-8", errors="replace") if isinstance(stderr, bytes) else stderr or ""
+
+
+def json_object(value, label):
+    if not isinstance(value, dict):
+        raise HarnessError(f"{label} must be a JSON object")
+    return value
 
 
 def canonical(value):
@@ -75,6 +90,23 @@ def write_json(path, value):
     atomic_write(path, json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n")
 
 
+def write_new_json(path, value):
+    """Create new evidence exclusively; ongoing journals use write_json."""
+    path = Path(path).absolute()
+    if any(candidate.is_symlink() or is_reparse(candidate) for candidate in (path, *path.parents)):
+        raise HarnessError("Linked evidence destination is not supported")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if any(candidate.is_symlink() or is_reparse(candidate) for candidate in path.parents):
+        raise HarnessError("Linked evidence ancestor is not supported")
+    try:
+        with path.open("xb") as stream:
+            stream.write(json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2).encode("utf-8") + b"\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+    except FileExistsError as exc:
+        raise HarnessError("Evidence output already exists; preserve it and select a new file") from exc
+
+
 def is_reparse(path):
     try:
         return bool(getattr(Path(path).lstat(), "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
@@ -126,7 +158,9 @@ def run(argv, *, cwd=None, input_text=None, input_bytes=None, env=None, check=Tr
         result = subprocess.run([str(arg) for arg in argv], cwd=cwd, input=payload,
                                 capture_output=True,
                                 env=clean_environment(env), timeout=timeout, check=False)
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except subprocess.TimeoutExpired as exc:
+        raise ProcessTimeout(timeout, exc.output, exc.stderr) from exc
+    except OSError as exc:
         raise HarnessError(f"Process could not complete: {type(exc).__name__}: {exc}") from exc
     result.stdout = result.stdout.decode("utf-8", errors="replace")
     result.stderr = result.stderr.decode("utf-8", errors="replace")
@@ -137,6 +171,76 @@ def run(argv, *, cwd=None, input_text=None, input_bytes=None, env=None, check=Tr
 
 def git(root, *args, check=True, input_text=None):
     return run(["git", "-C", str(root), *args], check=check, input_text=input_text).stdout.strip()
+
+
+def git_objects(root, identities):
+    """Read exact binary objects in bounded batches without checkout filters."""
+    identities = list(identities)
+    if any(not isinstance(oid, str) or not re.fullmatch(r"[0-9a-f]{40}|[0-9a-f]{64}", oid) for oid in identities):
+        raise HarnessError("Git object identities must be complete hexadecimal IDs")
+    for offset in range(0, len(identities), 128):
+        requested = identities[offset:offset + 128]
+        try:
+            metadata = subprocess.run(["git", "-C", str(root), "cat-file", "--batch-check"],
+                                    input=("\n".join(requested) + "\n").encode("ascii"),
+                                    capture_output=True, env=clean_environment(), timeout=120)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise HarnessError("Cannot read complete Git object batch") from exc
+        if metadata.returncode:
+            raise HarnessError("Cannot read complete Git object batch")
+        try:
+            lines = metadata.stdout.splitlines(keepends=True)
+            if len(lines) != len(requested):
+                raise ValueError("Incomplete metadata inventory")
+            records = []
+            for expected, line in zip(requested, lines):
+                if not line.endswith(b"\n") or line.endswith(b"\r\n"):
+                    raise ValueError("Incomplete metadata framing")
+                fields = line[:-1].split(b" ")
+                if len(fields) != 3 or fields[0].decode("ascii") != expected or not re.fullmatch(rb"0|[1-9][0-9]*", fields[2]):
+                    raise ValueError("Object identity/type header differs")
+                kind = fields[1].decode("ascii")
+                size = int(fields[2])
+                if kind not in {"blob", "tree", "commit", "tag"}:
+                    raise ValueError("Invalid object header")
+                records.append((expected, kind, size))
+            groups, group, byte_count = [], [], 0
+            for record in records:
+                if group and byte_count + record[2] > GIT_OBJECT_BATCH_BYTES:
+                    groups.append(group)
+                    group, byte_count = [], 0
+                group.append(record)
+                byte_count += record[2]
+            if group:
+                groups.append(group)
+            for group in groups:
+                try:
+                    result = subprocess.run(["git", "-C", str(root), "cat-file", "--batch"],
+                                            input=("\n".join(row[0] for row in group) + "\n").encode("ascii"),
+                                            capture_output=True, env=clean_environment(), timeout=120)
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    raise HarnessError("Cannot read complete Git object batch") from exc
+                if result.returncode:
+                    raise HarnessError("Cannot read complete Git object batch")
+                cursor = 0
+                for expected, kind, size in group:
+                    end = result.stdout.index(b"\n", cursor)
+                    if result.stdout[cursor:end] != f"{expected} {kind} {size}".encode("ascii"):
+                        raise ValueError("Object changed since metadata inspection")
+                    cursor = end + 1
+                    data = result.stdout[cursor:cursor + size]
+                    cursor += size
+                    if len(data) != size or result.stdout[cursor:cursor + 1] != b"\n":
+                        raise ValueError("Truncated object framing")
+                    cursor += 1
+                    yield expected, kind, data
+                if cursor != len(result.stdout):
+                    raise ValueError("Unexpected trailing object bytes")
+        except (ValueError, UnicodeError, IndexError) as exc:
+            raise HarnessError("Git object batch framing is incomplete or invalid") from exc
+
+
+GIT_OBJECT_BATCH_BYTES = 16 * 1024 * 1024
 
 
 @contextlib.contextmanager

@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Verified bytes and current save acknowledgement reach handoff
+## Scenario 1
 
-Expected behavior: Launch the allowed updater once with bound operation identity.
+Request/state: Verified bytes and current save acknowledgement reach handoff.
 
-## Negative: Cross-channel metadata or bytes change after verification
+## Scenario 2
 
-Expected behavior: Reject before handoff.
+Request/state: Cross-channel metadata or bytes change after verification.
 
-## Ambiguous: Launcher returns without successor readback
+## Scenario 3
 
-Expected behavior: Report attempted handoff, not installed success.
+Request/state: Launcher returns without successor readback.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

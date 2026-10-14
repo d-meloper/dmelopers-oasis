@@ -19,9 +19,12 @@ class SkillContracts(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="oasis-skills-")
         self.root = Path(self.temp.name) / "project"
-        shutil.copytree(PACKAGE / "seed", self.root)
-        for name in skills.OPTIONAL_NAMES:
-            shutil.copytree(PACKAGE / "library" / name, self.root / ".agents/skills" / name)
+        from oasis_harness.installation import package_files
+        self.root.mkdir()
+        for name, data in package_files(PACKAGE).items():
+            path = self.root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
         write_json(self.root / ".oasis/install-manifest.json", {"schema_version": 1, "package_version": "1", "managed": {}, "enabled_capabilities": []})
 
     def tearDown(self):
@@ -66,6 +69,46 @@ class SkillContracts(unittest.TestCase):
         self.assertEqual(len(optional), 15)
         self.assertTrue(all(row["selected"] and row["installed"] for row in optional))
         self.assertEqual(skills.validate_skills(self.root)["semantic_review"], "not performed")
+
+    def test_project_catalog_reads_actual_customized_skill_and_reports_missing_or_invalid(self):
+        path = self.root / ".agents/skills/oasis-camel/SKILL.md"
+        original = path.read_text(encoding="utf-8")
+        changed = original.replace("description: Investigate, implement and check an assigned task, coordinate its dependencies, and send completion directly to Cameleer.",
+                                   "description: Work on this project's customized storage contract.")
+        self.assertNotEqual(changed, original)
+        path.write_text(changed, encoding="utf-8")
+        missing = self.root / ".agents/skills/oasis-pioneer/SKILL.md"
+        missing.unlink()
+        invalid = self.root / ".agents/skills/oasis-review/SKILL.md"
+        invalid.write_text("not valid skill metadata", encoding="utf-8")
+        malformed = self.root / ".agents/skills/oasis-asset-pipeline/SKILL.md"
+        malformed.write_bytes(b"\xff")
+        result = {row["name"]: row for row in skills.list_skills(self.root)["skills"]}
+        self.assertEqual(len(result), 24)
+        self.assertEqual(result["oasis-camel"]["description"], "Work on this project's customized storage contract.")
+        self.assertEqual(result["oasis-camel"]["files"]["SKILL.md"], file_hash(path))
+        self.assertEqual(result["oasis-camel"]["file_status"], "present")
+        self.assertEqual(result["oasis-pioneer"]["file_status"], "missing")
+        self.assertFalse(result["oasis-pioneer"]["installed"])
+        self.assertIsNone(result["oasis-pioneer"]["description"])
+        self.assertEqual(result["oasis-review"]["file_status"], "invalid")
+        self.assertTrue(result["oasis-review"]["installed"])
+        self.assertIsNone(result["oasis-review"]["description"])
+        self.assertEqual(result["oasis-asset-pipeline"]["file_status"], "invalid")
+        self.assertEqual((PACKAGE / "seed/.agents/skills/oasis-camel/SKILL.md").read_text(encoding="utf-8"), original)
+
+    def test_summary_cli_preserves_catalog_and_omits_resource_inventory(self):
+        complete = skills.list_skills(self.root)
+        command = [sys.executable, "-B", "-X", "utf8", str(PACKAGE / "oasis.py"),
+                   "skills", "list", "--project", str(self.root), "--summary"]
+        result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        summary = json.loads(result.stdout)
+        self.assertFalse(summary["discovery_verified"])
+        self.assertEqual([(row["name"], row["description"], row["file_status"]) for row in summary["skills"]],
+                         [(row["name"], row["description"], row["file_status"]) for row in complete["skills"]])
+        self.assertTrue(all("files" not in row for row in summary["skills"]))
+        self.assertTrue(all(row["files"] for row in complete["skills"]))
 
     def test_doctor_is_required_default(self):
         self.assertEqual(len(skills.CORE_NAMES), 7)
@@ -144,6 +187,33 @@ class SkillContracts(unittest.TestCase):
         with self.assertRaisesRegex(HarnessError, "Broken installed"):
             skills.validate_skills(self.root)
 
+    def test_reference_body_and_heading_are_checked(self):
+        path = self.root / ".agents/skills/oasis-camel/references/best-practices.md"
+        original = path.read_text(encoding="utf-8")
+        for extra in ("\n[missing](missing.md)\n", "\n[missing heading](../../../../ProjectGuide.md#missing-section)\n"):
+            with self.subTest(extra=extra):
+                path.write_text(original + extra, encoding="utf-8")
+                with self.assertRaisesRegex(HarnessError, "Broken installed skill resource"):
+                    skills.inspect_skill(path.parent.parent)
+        path.write_text(original, encoding="utf-8")
+
+    def test_markdown_fragments_unicode_duplicates_explicit_anchors_and_code_examples(self):
+        files = {"guide (local).md": b"# Save\n\n# Save\n\n<a id='custom'></a>\n\n## \xed\x98\x84\xec\x9e\xac \xeb\xb3\xb5\xea\xb5\xac\n"}
+        text = ("[duplicate](<../guide (local).md#save-1>)\n"
+                "[unicode](<../guide (local).md#현재-복구>)\n"
+                "[anchor](<../guide (local).md#custom>)\n"
+                "`[example](missing.md)`\n\n```markdown\n[example](missing.md)\n# Phantom\n```\n")
+        skills.validate_markdown_links("refs/tips.md", text, files.get)
+        for fragment in ("absent", "phantom"):
+            with self.subTest(fragment=fragment), self.assertRaisesRegex(HarnessError, "Missing Markdown heading"):
+                skills.validate_markdown_links("refs/tips.md", "[bad](<../guide (local).md#" + fragment + ">)", files.get)
+        with self.assertRaisesRegex(HarnessError, "escapes its project"):
+            skills.validate_markdown_links("refs/tips.md", "[outside](../../outside.md)", files.get)
+        reference = "[restore][Policy]\n\n[policy]: <../guide (local).md#save-1>\n"
+        skills.validate_markdown_links("refs/tips.md", reference, files.get)
+        with self.assertRaisesRegex(HarnessError, "Missing Markdown heading"):
+            skills.validate_markdown_links("refs/tips.md", reference.replace("#save-1", "#absent"), files.get)
+
     def test_installed_runtime_resolves_library_without_seed(self):
         from oasis_harness import installation
         target = Path(self.temp.name) / "installed"
@@ -192,15 +262,22 @@ class SkillContracts(unittest.TestCase):
         self.assertNotIn("source_path", serialized)
         self.assertNotIn("C:\\", serialized)
 
-    def test_all_optional_workflows_have_distinct_evaluation_cases(self):
+    def test_evaluator_expectations_are_separate_from_installed_inputs(self):
+        from tests.skill_evaluation_cases import DOMAIN_EXPECTATIONS, EVALUATION_EXPECTATIONS
+        from oasis_harness.installation import package_files
+        payload = package_files(PACKAGE)
         for name in skills.OPTIONAL_NAMES:
             skill = PACKAGE / "library" / name
-            value = read_json(skill / "capability.json")
-            self.assertEqual(value["name"], name)
-            self.assertEqual(value["execution"], "tool-guided")
-            self.assertEqual({row["kind"] for row in value["scenarios"]}, {"positive", "negative", "ambiguous"})
-            self.assertEqual(len({row["trigger"] for row in value["scenarios"]}), 3)
+            cases = DOMAIN_EXPECTATIONS[name]
+            self.assertEqual({row["kind"] for row in cases}, {"positive", "negative", "ambiguous"})
+            self.assertEqual(len({row["trigger"] for row in cases}), 3)
+            self.assertFalse((skill / "capability.json").exists())
+            model_input = payload[f".agents/skills/{name}/references/acceptance.md"].decode("utf-8")
+            for row in cases:
+                self.assertNotIn(row["expected"], model_input)
             skills.inspect_skill(skill)
+        self.assertEqual(set(EVALUATION_EXPECTATIONS), {"worker", "no_lesson", "read_only", "integrator"})
+        self.assertFalse(any("skill_evaluation_cases" in name for name in payload))
 
 
 if __name__ == "__main__":

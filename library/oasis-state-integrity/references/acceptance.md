@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Committed deletion followed by failed asset cleanup
+## Scenario 1
 
-Expected behavior: Load the committed catalog and retry only owned unreferenced cleanup.
+Request/state: Committed deletion followed by failed asset cleanup.
 
-## Negative: Omitted field is treated as an explicit clear
+## Scenario 2
 
-Expected behavior: Preserve the reader contract and reject stale overwrite.
+Request/state: Omitted field is treated as an explicit clear.
 
-## Ambiguous: Both recovery baseline and current collection changed
+## Scenario 3
 
-Expected behavior: Stop rather than choose by timestamp or matching members.
+Request/state: Both recovery baseline and current collection changed.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Interface Design"
-  short_description: "Interface Design for the requested project work"
+  short_description: "Refine interfaces with existing semantics and components"
   default_prompt: "Use $oasis-interface-design for the requested project scope."

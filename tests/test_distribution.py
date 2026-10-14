@@ -91,6 +91,68 @@ class DistributionBoundary(unittest.TestCase):
             with self.assertRaisesRegex(HarnessError, "Broken installed skill resource"):
                 skills.inspect_skill(source.parent)
 
+    def test_source_reference_validation_uses_exact_candidate_heading_bytes(self):
+        from tools.source_policy import _skill
+        link_files = installation.package_files(PACKAGE)
+        prefix = "seed/.agents/skills/oasis-camel"
+        logical = ".agents/skills/oasis-camel/"
+        files = {prefix + "/" + name.removeprefix(logical): data.replace(b"\r\n", b"\n")
+                 for name, data in link_files.items() if name.startswith(logical)}
+        files[prefix + "/references/best-practices.md"] += b"\n[Current policy](../../../../.oasis/manual/knowledge.md#project-experience)\n"
+        _skill(files, prefix, "oasis-camel", link_files)
+        link_files[".oasis/manual/knowledge.md"] = link_files[".oasis/manual/knowledge.md"].replace(
+            b"# Project experience", b"# Candidate-only replacement")
+        with self.assertRaisesRegex(HarnessError, "missing or invalid required skill reference"):
+            _skill(files, prefix, "oasis-camel", link_files)
+        self.assertIn(b"# Project experience", (PACKAGE / "docs/knowledge.md").read_bytes())
+
+    def test_retired_capability_metadata_preserves_customization_and_releases_owner(self):
+        for state in ("unchanged", "modified", "missing"):
+            with self.subTest(state=state), tempfile.TemporaryDirectory(prefix="oasis-retired-cap-") as tmp:
+                parent = Path(tmp)
+                old = guide_package(parent / "old")
+                new = guide_package(parent / "new")
+                name = "oasis-state-integrity"
+                for package in (old, new):
+                    directory = package / "library" / name
+                    directory.mkdir()
+                    (directory / "SKILL.md").write_bytes(b"# Existing active skill\n")
+                original = b'{"schema_version": 1, "name": "oasis-state-integrity", "execution": "tool-guided"}\n'
+                (old / "library" / name / "capability.json").write_bytes(original)
+                target = parent / "project"; target.mkdir()
+                journal_root = parent / "journals"
+                installation.apply(installation.plan(target, old), state_root=journal_root)
+                relative = f".agents/skills/{name}/capability.json"
+                metadata = target / relative
+                customized = original + b"\nProject-owned supplemental notes\n"
+                if state == "modified":
+                    metadata.write_bytes(customized)
+                elif state == "missing":
+                    metadata.unlink()
+                plan = installation.plan(target, new, upgrade=True)
+                self.assertEqual(plan["conflicts"], [])
+                if state == "modified":
+                    self.assertFalse(any(row["path"] == relative for row in plan["operations"]))
+                    with self.assertRaisesRegex(HarnessError, "Injected interruption"):
+                        installation.apply(plan, state_root=journal_root, interrupt_after=1)
+                    customized += b"Later project edit while recovery was pending\n"
+                    metadata.write_bytes(customized)
+                    journal = next(path for path in journal_root.glob("*/journal.json")
+                                   if read_json(path)["state"] == "applying")
+                    installation.recover(journal)
+                else:
+                    installation.apply(plan, state_root=journal_root)
+                self.assertNotIn(relative, read_json(target / installation.MANIFEST)["managed"])
+                if state == "modified":
+                    self.assertEqual(metadata.read_bytes(), customized)
+                else:
+                    self.assertFalse(metadata.exists())
+                repeated = installation.plan(target, new, upgrade=True)
+                self.assertFalse(any(row["path"] == relative for row in repeated["operations"]))
+                installation.apply(repeated, state_root=journal_root)
+                if state == "modified":
+                    self.assertEqual(metadata.read_bytes(), customized)
+
     def test_fresh_install_refuses_existing_same_name_guide_without_writes(self):
         with tempfile.TemporaryDirectory(prefix="oasis-guide-collision-") as tmp:
             parent = Path(tmp)
@@ -195,8 +257,9 @@ class DistributionBoundary(unittest.TestCase):
                              (PACKAGE / "docs/CHANGELOG.md").read_bytes())
 
     def test_impact_selection_keeps_expensive_suites_scoped_and_unknowns_full(self):
-        docs = select(["docs/development.md", "oasis_harness/__init__.py"])
+        docs = select(["docs/development.md", "oasis_harness/__init__.py"], version_literal_only=True)
         self.assertFalse(docs["full"])
+        self.assertTrue(select(["oasis_harness/__init__.py"])["full"])
         self.assertNotIn("tests.test_backup", docs["modules"])
         self.assertIn("tests.test_installation", select(["oasis_harness/installation.py"])["modules"])
         self.assertIn("tests.test_backup", select(["oasis_harness/backup.py"])["modules"])

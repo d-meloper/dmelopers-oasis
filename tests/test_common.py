@@ -8,6 +8,63 @@ from oasis_harness.common import HarnessError, atomic_write, operation_lock, rea
 
 
 class PrimitiveContracts(unittest.TestCase):
+    def test_new_evidence_never_replaces_another_writer(self):
+        from oasis_harness.common import write_new_json
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "new.json"
+            write_new_json(path, {"owner": "first"})
+            before = path.read_bytes()
+            with self.assertRaises(HarnessError):
+                write_new_json(path, {"owner": "second"})
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_timeout_keeps_private_partial_output_without_echo(self):
+        import subprocess
+        from oasis_harness.common import ProcessTimeout
+        partial = b"private fixture compiler diagnostic"
+        with patch("oasis_harness.common.subprocess.run", side_effect=subprocess.TimeoutExpired(["fixture"], 1, output=partial, stderr=b"fixture error")):
+            with self.assertRaises(ProcessTimeout) as failure:
+                run(["fixture"], timeout=1)
+        self.assertEqual(failure.exception.stdout, partial.decode())
+        self.assertEqual(failure.exception.stderr, "fixture error")
+        self.assertNotIn(partial.decode(), str(failure.exception))
+
+    def test_binary_git_batch_identity_and_framing(self):
+        import subprocess
+        from oasis_harness.common import git_objects
+        oid = "a" * 40
+        data = b"\x00\r\n\xff fixture bytes"
+        metadata = oid.encode() + b" blob " + str(len(data)).encode() + b"\n"
+        response = metadata + data + b"\n"
+        with patch("oasis_harness.common.subprocess.run", side_effect=[subprocess.CompletedProcess([], 0, metadata, b""), subprocess.CompletedProcess([], 0, response, b"")]):
+            self.assertEqual(list(git_objects("fixture", [oid])), [(oid, "blob", data)])
+        for malformed in (response[:-1], response + b"extra", b"missing\n"):
+            with self.subTest(response=malformed), patch("oasis_harness.common.subprocess.run", side_effect=[subprocess.CompletedProcess([], 0, metadata, b""), subprocess.CompletedProcess([], 0, malformed, b"")]):
+                with self.assertRaises(HarnessError):
+                    list(git_objects("fixture", [oid]))
+        for malformed in (metadata[:-1], metadata + b"extra\n", b"missing\n", oid.encode() + b" invalid 1\n"):
+            with self.subTest(metadata=malformed), patch("oasis_harness.common.subprocess.run", return_value=subprocess.CompletedProcess([], 0, malformed, b"")):
+                with self.assertRaises(HarnessError):
+                    list(git_objects("fixture", [oid]))
+
+    def test_git_batches_bound_aggregate_bytes_and_keep_large_single_objects(self):
+        import subprocess
+        from oasis_harness.common import git_objects
+        bodies = {"a" * 40: b"\x00\r\n", "b" * 40: b"xyz", "c" * 40: b"", "d" * 40: b"large"}
+        groups = []
+        def transport(argv, **kwargs):
+            ids = kwargs["input"].decode("ascii").splitlines()
+            headers = {oid: f"{oid} blob {len(bodies[oid])}\n".encode("ascii") for oid in ids}
+            if argv[-1] == "--batch-check":
+                data = b"".join(headers.values())
+            else:
+                groups.append(ids)
+                data = b"".join(headers[oid] + bodies[oid] + b"\n" for oid in ids)
+            return subprocess.CompletedProcess([], 0, data, b"")
+        with patch("oasis_harness.common.GIT_OBJECT_BATCH_BYTES", 4), patch("oasis_harness.common.subprocess.run", side_effect=transport):
+            self.assertEqual(list(git_objects("fixture", bodies)), [(oid, "blob", data) for oid, data in bodies.items()])
+        self.assertEqual(groups, [["a" * 40], ["b" * 40, "c" * 40], ["d" * 40]])
+
     @unittest.skipUnless(os.name == "nt", "Requires native Windows handle sharing")
     def test_atomic_write_recovers_after_real_windows_reader_releases(self):
         import ctypes

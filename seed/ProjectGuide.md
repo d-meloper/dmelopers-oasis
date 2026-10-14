@@ -50,10 +50,8 @@ work location/result reference and final result/check summary. Update this short
 list when assigning, collecting or resuming work. Focus reads on active tasks or
 the relevant entry; completed entries keep a brief result and link.
 
-Camel sends completion directly to Cameleer. Cameleer reviews the requested
-result, diff and checks, integrates it, performs additional checks only where
-integration changes behavior or evidence is doubtful, and archives the completed
-Camel with its result link retained. Restore that same chat for corrections.
+Follow the [role contract](.oasis/manual/identity.md) for direct completion,
+collection, archival and corrections.
 Required deployment follows this project's request and configured workflow.
 Reuse passing checks while their code, tests and consumed inputs still match;
 version labels or handoffs alone do not require repeating functional checks.

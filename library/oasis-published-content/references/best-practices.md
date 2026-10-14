@@ -12,5 +12,5 @@ Fetch the exact target and parent before composing the narrow update. Preserve u
 
 Re-resolve release/body/assets before mutation. Drift invalidates the prepared payload; download counters alone do not. Update only the matched region, then read back its actual nesting, facts and links. Already matching content is NOOP. Reconcile uncertain writes by reading before retrying. Retain a non-sensitive local receipt; no scheduled posting or upstream follow-up is implied.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

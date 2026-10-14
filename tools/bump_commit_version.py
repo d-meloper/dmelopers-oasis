@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import ast
+import argparse
 import json
 import os
 from pathlib import Path
@@ -11,7 +12,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-from oasis_harness.common import HarnessError, atomic_write, contained, operation_lock
+from oasis_harness.common import HarnessError, atomic_write, contained, operation_lock, write_new_json
 
 VERSION_PATH = "oasis_harness/__init__.py"
 HISTORY_PATH = "docs/upgrade-index.json"
@@ -80,6 +81,40 @@ def version_delta(expected, previous):
     return staged.stdout
 
 
+def selected_version(head_version, stage_version):
+    override = git("config", "--show-scope", "--get", "oasis.versionBase", check=False)
+    target = git("config", "--show-scope", "--get", "oasis.versionTarget", check=False)
+    base = head_version
+    if override.returncode == 0:
+        scope, separator, base = override.stdout.decode("utf-8").strip().partition("\t")
+        if scope != "command" or not separator or not VERSION.fullmatch(base):
+            raise HarnessError("Version base must use command-local git -c oasis.versionBase=X.Y.Z; preserve persistent settings and resolve them explicitly")
+    if target.returncode == 0:
+        scope, separator, expected = target.stdout.decode("utf-8").strip().partition("\t")
+        if scope != "command" or not separator or not VERSION.fullmatch(expected) or override.returncode == 0 or expected == head_version:
+            raise HarnessError("An exact owner-selected version needs command-local oasis.versionTarget=X.Y.Z, a changed target and no versionBase")
+        allowed = {expected}
+    else:
+        major, minor, patch = map(int, base.split("."))
+        expected = f"{major}.{minor}.{patch + 1}"
+        if base.split(".")[:2] == head_version.split(".")[:2] and patch < int(head_version.split(".")[2]):
+            raise HarnessError("Version base is stale; patch must advance from HEAD")
+        allowed = {base, expected}
+    if stage_version not in allowed:
+        raise HarnessError("Version change needs the owner's explicit base or exact command-local target")
+    return expected, allowed
+
+
+def delta_draft():
+    if Path(git("rev-parse", "--show-toplevel").stdout.decode("utf-8").strip()).resolve() != ROOT:
+        raise HarnessError("Version draft root differs from the actual checkout")
+    previous = literal(git("show", "HEAD:" + VERSION_PATH).stdout)[0]
+    staged = literal(git("show", ":" + VERSION_PATH).stdout)[0]
+    expected, _ = selected_version(previous, staged)
+    files = set(git("diff", "--cached", "--name-only", "-z").stdout.decode("utf-8").split("\0")) - {"", HISTORY_PATH, VERSION_PATH}
+    return {"version": expected, "previous": previous, "summary": [], "areas": [], "source_only": [], "files": sorted(files)}
+
+
 def bump():
     root = Path(git("rev-parse", "--show-toplevel").stdout.decode("utf-8").strip()).resolve()
     if root != ROOT:
@@ -99,25 +134,7 @@ def bump():
         head_version = literal(head.stdout)[0]
         staged = git("show", ":" + VERSION_PATH).stdout
         stage_version = literal(staged)[0]
-        override = git("config", "--get", "oasis.versionBase", check=False)
-        target = git("config", "--show-scope", "--get", "oasis.versionTarget", check=False)
-        if target.returncode == 0:
-            scope, separator, expected = target.stdout.decode("utf-8").strip().partition("\t")
-            if (scope != "command" or not separator or not VERSION.fullmatch(expected)
-                    or override.returncode == 0 or expected == head_version):
-                raise HarnessError("An exact owner-selected version needs command-local oasis.versionTarget=X.Y.Z, a changed target and no versionBase")
-            allowed = {expected}
-        else:
-            base = override.stdout.decode("utf-8").strip() if override.returncode == 0 else head_version
-            if not VERSION.fullmatch(base):
-                raise HarnessError("Explicit version base must be X.Y.Z")
-            major, minor, patch = map(int, base.split("."))
-            expected = f"{major}.{minor}.{patch + 1}"
-            if base.split(".")[:2] == head_version.split(".")[:2] and patch < int(head_version.split(".")[2]):
-                raise HarnessError("Version base is stale; patch must advance from HEAD")
-            allowed = {base, expected}
-        if stage_version not in allowed:
-            raise HarnessError("Version change needs the owner's explicit base or exact command-local target")
+        expected, allowed = selected_version(head_version, stage_version)
         history = version_delta(expected, head_version)
         path = contained(ROOT, VERSION_PATH)
         before = path.read_bytes()
@@ -150,8 +167,24 @@ def bump():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--delta-draft", action="store_true", help="Read staged scope and print an unfinished release-row draft")
+    parser.add_argument("--output", type=Path, help="New external file for the draft; no index or version writes")
+    args = parser.parse_args()
+    if args.output and not args.delta_draft:
+        parser.error("--output requires --delta-draft")
     try:
-        print("Oasis package version: " + bump())
+        if args.delta_draft:
+            draft = delta_draft()
+            if args.output:
+                output = args.output.absolute()
+                if output.resolve().is_relative_to(ROOT):
+                    raise HarnessError("Version draft output must be outside the source checkout")
+                write_new_json(output, draft)
+            else:
+                print(json.dumps(draft, ensure_ascii=True, indent=2))
+        else:
+            print("Oasis package version: " + bump())
     except (HarnessError, OSError, ValueError, SyntaxError) as exc:
         print("Oasis version hook: " + str(exc), file=sys.stderr)
         raise SystemExit(1)

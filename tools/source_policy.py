@@ -9,12 +9,12 @@ from __future__ import annotations
 import ast
 import json
 from pathlib import Path, PurePosixPath
-import posixpath
 import re
 import xml.etree.ElementTree as ET
 
 from oasis_harness.common import HarnessError, digest, is_reparse, safe_relative
-from oasis_harness.skills import DEFAULT_NAMES, OPTIONAL_NAMES
+from oasis_harness.skills import DEFAULT_NAMES, OPTIONAL_NAMES, validate_markdown_links
+from oasis_harness.installation import ADOPTER_MANUALS
 
 
 NEUTRAL_PROJECT = {
@@ -137,7 +137,7 @@ def _classify(name):
             return "default-skill-template"
     if len(parts) >= 3 and parts[0] == "library" and parts[1] in OPTIONAL_NAMES:
         tail = "/".join(parts[2:])
-        if tail in {"SKILL.md", "agents/openai.yaml", "capability.json"} or (tail.startswith("references/") and name.endswith(".md")):
+        if tail in {"SKILL.md", "agents/openai.yaml"} or (tail.startswith("references/") and name.endswith(".md")):
             return "optional-skill-template"
     if any(part in {".oasis", ".agents"} for part in folded):
         _fail("active or unknown template namespace")
@@ -319,10 +319,21 @@ def _inventory(paths):
         _fail("file occupies a source directory prefix")
 
 
-def _skill(files, prefix, name, optional):
+def _skill_link_files(files):
+    """Project-local links use only the exact candidate's adopter bytes."""
+    result = {}
+    for name, data in files.items():
+        if name.startswith("seed/"):
+            result[name.removeprefix("seed/")] = data
+        elif name.startswith("library/"):
+            result[".agents/skills/" + name.removeprefix("library/")] = data
+        elif name.startswith("docs/") and name.removeprefix("docs/") in ADOPTER_MANUALS:
+            result[".oasis/manual/" + name.removeprefix("docs/")] = data
+    return result
+
+
+def _skill(files, prefix, name, link_files):
     required = [prefix + "/SKILL.md", prefix + "/agents/openai.yaml"]
-    if optional:
-        required += [prefix + "/capability.json"]
     if any(path not in files for path in required):
         _fail("missing required skill entry or metadata")
     text = files[required[0]].decode("utf-8")
@@ -333,22 +344,13 @@ def _skill(files, prefix, name, optional):
     if (not metadata.startswith("interface:\n") or any(key not in metadata for key in
             ("display_name:", "short_description:", "default_prompt:")) or "$" + name not in metadata):
         _fail("missing skill display or invocation metadata")
-    if optional:
-        capability = _json(files[required[2]], "invalid optional capability JSON")
-        if (not isinstance(capability, dict) or capability.get("schema_version") != 1
-                or capability.get("name") != name or capability.get("execution") != "tool-guided"):
-            _fail("optional capability identity or execution drift")
-    for target in re.findall(r"\[[^\]]*\]\(([^)]+)\)", text):
-        if "://" in target or target.startswith("#"):
-            continue
-        target = target.split("#", 1)[0]
-        if not target:
-            continue
-        resolved = posixpath.normpath(posixpath.join(prefix, target))
-        if resolved.startswith("seed/.oasis/manual/"):
-            resolved = "docs/" + resolved.removeprefix("seed/.oasis/manual/")
-        if resolved not in files:
-            _fail("missing required skill reference")
+    for path, data in files.items():
+        if path.startswith(prefix + "/") and path.endswith(".md"):
+            logical = ".agents/skills/" + name + "/" + path.removeprefix(prefix + "/")
+            try:
+                validate_markdown_links(logical, data.decode("utf-8"), link_files.get)
+            except (HarnessError, UnicodeError):
+                _fail("missing or invalid required skill reference")
 
 
 def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None, modes=None):
@@ -397,10 +399,11 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
             raise ValueError
     except (SyntaxError, ValueError, TypeError):
         _fail("invalid literal source package version")
+    link_files = _skill_link_files(files)
     for name in DEFAULT_NAMES:
-        _skill(files, "seed/.agents/skills/" + name, name, False)
+        _skill(files, "seed/.agents/skills/" + name, name, link_files)
     for name in OPTIONAL_NAMES:
-        _skill(files, "library/" + name, name, True)
+        _skill(files, "library/" + name, name, link_files)
     inventory = {name: {"sha256": digest(data), **({"mode": modes[name]} if modes is not None else {})}
                  for name, data in sorted(files.items())}
     return {"status": "bounded_source_check_pass", "package_version": versions[0],

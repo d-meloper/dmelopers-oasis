@@ -12,6 +12,10 @@ Prevent stale whole-state overwrites; acknowledge frontend-owned changes in dura
 
 For multi-file state separate staging, commit and cleanup. Commit catalog removal before deleting assets; report cleanup failure separately from committed success. Preserve ordering and newer state during recovery, and stop if both old/new copies changed ambiguously. Exercise interruptions around the actual commit point. Use the current writer's recovery semantics and disposable data for interruption checks.
 
+New immutable evidence needs exclusive creation: checking existence and then
+atomically replacing still permits a competing writer to be overwritten. Refuse
+collisions; reserve atomic replacement for intentionally mutable state and journals.
+
 ## Releasing project knowledge ownership
 
 When an installer relinquishes canonical knowledge ownership, exclude those paths
@@ -20,5 +24,5 @@ manifest entry alone is sufficient; unchanged, modified, missing and later edits
 must remain project-owned. Local installer/Doctor fixtures verify these states
 and a project edit after interrupted apply, so recovery cannot replace it.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

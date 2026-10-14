@@ -12,5 +12,5 @@ Persist intent before sending and accepted outcome before checkpoint advancement
 
 Keep user content and contact data out of diagnostics; encode untrusted HTML and spreadsheet values safely. Preview must not advance checkpoints or send. Use offline adapters for fault tests, not synthetic production inquiries. Source upload, actual trigger registration, scheduled execution, provider acceptance and delivery are distinct proofs. Pause only the requested trigger and preserve unrelated automation. No perpetual Harness monitor is created.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from . import installation
-from .common import HarnessError, digest, file_hash, read_json, write_json
+from .common import HarnessError, digest, file_hash, read_json, write_json, write_new_json
 from .skills import OPTIONAL_NAMES, check_core, validate_core
 
 
@@ -54,7 +54,8 @@ def upgrade_guidance(package, installed, incoming, differences):
         result["releases"] = [{"version": r["version"], "previous": r["previous"], "summary": r["summary"], "source_only": r.get("source_only", [])} for r in chain]
         for release in chain:
             for area in release["areas"]:
-                paths = [p for p in changed if any(p == prefix or prefix.endswith("/") and p.startswith(prefix) for prefix in area["paths"])]
+                prefixes = [mapped for prefix in area["paths"] for mapped in _installed_prefixes(prefix)]
+                paths = [p for p in changed if any(p == prefix or prefix.endswith("/") and p.startswith(prefix) for prefix in prefixes)]
                 if paths:
                     mapped.update(paths)
                     result["affected_areas"].append({**area, "version": release["version"], "actual_paths": paths})
@@ -71,6 +72,23 @@ def upgrade_guidance(package, installed, incoming, differences):
     return result
 
 
+def _installed_prefixes(path):
+    # Historical notes can name installed paths or source distribution paths.
+    if path.startswith("seed/"):
+        return [path[5:]]
+    if path.startswith("library/"):
+        return [".agents/skills/" + path[8:]]
+    if path.startswith("docs/"):
+        member = path[5:]
+        return [".oasis/manual/" + member] if not member or member in installation.ADOPTER_MANUALS else []
+    if path.startswith("oasis_harness/"):
+        member = path[len("oasis_harness/"):]
+        return [".oasis/runtime/oasis_harness/" + member] if not member or member in installation.ADOPTER_MODULES else []
+    if path in {"README.md", "LICENSE", "NOTICE"} or path.startswith(("tools/", "tests/", ".githooks/")):
+        return []
+    return [path]
+
+
 def _prepare(target, package, *, calf_migration=None):
     root = installation.target_root(target)
     donor = installation.target_root(package)
@@ -79,8 +97,9 @@ def _prepare(target, package, *, calf_migration=None):
     manifest_path = installation.checked_path(root, installation.MANIFEST)
     if not manifest_path.is_file():
         raise HarnessError("No installed manifest; inspect source Git or request an installation plan explicitly")
-    manifest = read_json(manifest_path)
-    incoming, _ = installation.upgrade_files(donor, manifest)
+    manifest = installation.validate_manifest(read_json(manifest_path))
+    incoming, owners = installation.upgrade_files(donor, manifest)
+    cases = {}
     issues = []
     for name in incoming:
         if any(name == prefix or name.startswith(prefix + "/") for prefix in (".git", ".codex", ".oasis/local")):
@@ -98,13 +117,14 @@ def _prepare(target, package, *, calf_migration=None):
     except (HarnessError, OSError, ValueError, KeyError) as exc:
         verification = {"status": "blocked", "detail": str(exc)}
         issues.append({"kind": "installed_integrity", "detail": str(exc)})
-    value = installation.plan(root, donor, upgrade=True, calf_migration=calf_migration)
+    value = installation._plan_prepared(root, donor, manifest, incoming, owners, upgrade=True,
+                                        calf_migration=calf_migration, case_inventory=cases)
     differences = []
     for name in sorted(set(incoming) | set(manifest["managed"])):
         prior = manifest["managed"].get(name)
         expected = digest(incoming[name]) if name in incoming else None
         try:
-            path = installation.checked_path(root, name)
+            path = installation.checked_path(root, name, case_inventory=cases)
             current = file_hash(path) if path.is_file() else None
         except (HarnessError, OSError) as exc:
             issues.append({"kind": "destination", "path": name, "detail": str(exc)})
@@ -160,6 +180,6 @@ def register(subparsers):
             if args.output:
                 if args.output.exists():
                     raise HarnessError("Doctor output already exists; retain previous evidence")
-                write_json(args.output, result)
+                write_new_json(args.output, result)
             return result
         child.set_defaults(func=command)

@@ -24,6 +24,8 @@ Source operators use `oasis.py`. These helpers inspect a complete donor distinct
 from the target; they do not fetch upstream or initialize chats. `current`
 means saved bases match the donor, with specializations shown separately.
 It does not establish remote freshness or model adoption.
+One request reuses its donor and knowledge-case inventory. Apply and recovery
+reread expected current bytes instead of trusting that earlier inventory.
 
 Preserve mode, settings, user skills, project knowledge and task links. File
 collisions, missing/corrupt bases and material binding changes need concrete

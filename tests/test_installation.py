@@ -11,6 +11,26 @@ from oasis_harness.common import HarnessError, canonical, digest, file_hash, rea
 
 
 class InstallationTests(unittest.TestCase):
+    def test_plan_preview_is_read_only_and_bad_shapes_are_actionable(self):
+        before = b"Owner's first line\n"
+        value = {"schema_version": 1, "target": str(self.target), "operations": [
+            {"path": "preview.txt", "before": install._encode(before), "after": install._encode(b"Reviewed second line\n")},
+            {"path": "binary.dat", "before": None, "after": install._encode(b"\x00\xff")}], "conflicts": []}
+        value["plan_sha256"] = digest(value)
+        original = sorted(self.target.iterdir())
+        result = install.plan_diff(value)
+        self.assertIn("-Owner's first line", result)
+        self.assertIn("+Reviewed second line", result)
+        self.assertIn("2 bytes; SHA-256", result)
+        self.assertEqual(sorted(self.target.iterdir()), original)
+        for invalid in (None, [], "text", {"schema_version": 1, "operations": "bad"}):
+            with self.subTest(invalid=invalid), self.assertRaises(HarnessError):
+                install._validate_plan(invalid)
+        malformed = dict(value, operations=[False])
+        malformed["plan_sha256"] = digest({key: val for key, val in malformed.items() if key != "plan_sha256"})
+        with self.assertRaises(HarnessError):
+            install._validate_plan(malformed)
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(prefix="oasis-install-")
         self.base = Path(self.temporary.name).resolve()

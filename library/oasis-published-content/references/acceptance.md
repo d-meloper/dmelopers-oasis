@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Exact page contains one managed region with older release
+## Scenario 1
 
-Expected behavior: Replace only that region and verify readback.
+Request/state: Exact page contains one managed region with older release.
 
-## Negative: Page parent or artifact identity differs
+## Scenario 2
 
-Expected behavior: Stop before mutation with the mismatch.
+Request/state: Page parent or artifact identity differs.
 
-## Ambiguous: Manual edits create two possible managed regions
+## Scenario 3
 
-Expected behavior: Prepare options and request the actual deletion/scope decision.
+Request/state: Manual edits create two possible managed regions.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

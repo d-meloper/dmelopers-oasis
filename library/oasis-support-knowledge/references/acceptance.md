@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Current consumer confirms a renamed UI action
+## Scenario 1
 
-Expected behavior: Update paired facts and source mapping with actual labels.
+Request/state: Current consumer confirms a renamed UI action.
 
-## Negative: Old locale key exists but no UI uses it
+## Scenario 2
 
-Expected behavior: Do not present it as a current action.
+Request/state: Old locale key exists but no UI uses it.
 
-## Ambiguous: Local checks pass but live model has not been queried
+## Scenario 3
 
-Expected behavior: Report live answer evaluation NOT RUN.
+Request/state: Local checks pass but live model has not been queried.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

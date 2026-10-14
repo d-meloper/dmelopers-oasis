@@ -36,6 +36,10 @@ filesystem collision/link protection, concurrency, saved settings and native
 errors. Inspect experience flows through relevant task scenarios; resource
 presence or a completion reminder does not prove that useful advice was applied.
 [Knowledge policy](knowledge.md) requires no wording, length or completion gate.
+Resource checks cover local links and headings in skill bodies/references using
+source candidate or actual installed bytes. They do not fetch external links or
+validate general YAML. Selected model evaluations use input-only project artifacts;
+their expectations remain outside the installed payload and model context.
 
 `빠른 작업으로 진행해` selects brief relevant checks and exact deferred commands
 under installed `ProjectGuide.md`'s fast-work rule. Report not-run coverage.

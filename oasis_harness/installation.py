@@ -17,7 +17,7 @@ import tempfile
 import uuid
 
 from .common import (HarnessError, atomic_write, canonical, contained, digest,
-                     file_hash, is_reparse, operation_lock, read_json, safe_relative, write_json)
+                     file_hash, is_reparse, json_object, operation_lock, read_json, safe_relative, write_json, write_new_json)
 
 MANIFEST = ".oasis/install-manifest.json"
 # Source development instructions are never adopter instructions. New manuals
@@ -61,12 +61,18 @@ def target_root(value):
     return root.resolve()
 
 
-def checked_path(root, relative):
+def checked_path(root, relative, *, case_inventory=None):
     path = contained(root, relative)
     current = Path(root)
     for part in relative.split("/"):
         if current.is_dir():
-            matches = [p.name for p in current.iterdir() if p.name.casefold() == part.casefold()]
+            if case_inventory is None:
+                names = [p.name for p in current.iterdir()]
+            else:
+                if current not in case_inventory:
+                    case_inventory[current] = [p.name for p in current.iterdir()]
+                names = case_inventory[current]
+            matches = [name for name in names if name.casefold() == part.casefold()]
             if any(name != part for name in matches):
                 raise HarnessError(f"Case-colliding installation path: {relative}")
         current /= part
@@ -504,14 +510,41 @@ def _workflow_selection(root, incoming, *, installed, upgrade, mode):
     return result
 
 
+def validate_manifest(value):
+    value = json_object(value, "Installed manifest")
+    if type(value.get("schema_version")) is not int or value["schema_version"] != 1 or not isinstance(value.get("managed"), dict):
+        raise HarnessError("Unsupported installed manifest")
+    for path, record in value["managed"].items():
+        if not isinstance(path, str) or not isinstance(record, dict):
+            raise HarnessError("Managed manifest entries must have text paths and object records")
+        for key in ("base_sha256", "sha256"):
+            if not isinstance(record.get(key), str) or not re.fullmatch(r"[0-9a-f]{64}", record[key]):
+                raise HarnessError(f"Managed manifest {key} must be SHA-256 text")
+        if "owner" in record and not isinstance(record["owner"], str):
+            raise HarnessError("Managed manifest owner must be text")
+    if not isinstance(value.get("retained_specializations", []), list) or any(not isinstance(p, str) for p in value.get("retained_specializations", [])):
+        raise HarnessError("Retained specializations must be a list of paths")
+    return value
+
+
 def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, calf_migration=None):
     root = target_root(target)
     package = Path(package) if package else Path(__file__).resolve().parents[1]
     manifest_path = checked_path(root, MANIFEST)
-    previous = read_json(manifest_path) if manifest_path.exists() else {"schema_version": 1, "managed": {}}
-    if previous.get("schema_version") != 1 or not isinstance(previous.get("managed"), dict):
-        raise HarnessError("Unsupported installed manifest")
+    previous = validate_manifest(read_json(manifest_path)) if manifest_path.exists() else {"schema_version": 1, "managed": {}}
     incoming, active_owners = upgrade_files(package, previous)
+    return _plan_prepared(root, package, previous, incoming, active_owners, upgrade=upgrade,
+                          resolutions=resolutions, mode=mode, calf_migration=calf_migration)
+
+
+def _plan_prepared(root, package, previous, incoming, active_owners, *, upgrade=False,
+                   resolutions=None, mode=None, calf_migration=None, case_inventory=None):
+    # One planning request may share donor bytes and directory-name observations.
+    # Apply/recover always use the ordinary uncached boundary checks.
+    incoming, active_owners = dict(incoming), dict(active_owners)
+    manifest_path = checked_path(root, MANIFEST)
+    case_inventory = {} if case_inventory is None else case_inventory
+    check = lambda relative: checked_path(root, relative, case_inventory=case_inventory)
     version = package_version(incoming)
     workflow = _workflow_selection(root, incoming, installed=manifest_path.exists(), upgrade=upgrade, mode=mode)
     resolved = _initial_resolutions(resolutions, root, incoming, previous,
@@ -541,7 +574,7 @@ def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, ca
     for relative in sorted(set(previous["managed"]) | set(incoming) | retire):
         try:
             managed_path(relative)
-            current = _bytes(checked_path(root, relative))
+            current = _bytes(check(relative))
             new = incoming.get(relative)
             prior = previous["managed"].get(relative)
             resolution = resolved.get(relative)
@@ -555,20 +588,20 @@ def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, ca
             if prior and prior.get("owner", "").startswith("capability:") and relative not in incoming and prior["owner"] not in refreshed_owners:
                 if current is None:
                     raise HarnessError(f"Activated capability file is missing: {relative}")
-                base = _bytes(checked_path(root, ".oasis/base/" + prior["base_sha256"]))
+                base = _bytes(check(".oasis/base/" + prior["base_sha256"]))
                 if base is None or digest(base) != prior["base_sha256"]:
                     raise HarnessError(f"Missing/corrupt capability base: {relative}")
                 records[relative] = dict(prior, sha256=digest(current))
                 continue
             if prior and prior.get("owner") == "migration:calf" and new is None:
-                base = _bytes(checked_path(root, ".oasis/base/" + prior["base_sha256"]))
+                base = _bytes(check(".oasis/base/" + prior["base_sha256"]))
                 if base is None or digest(base) != prior["base_sha256"]:
                     raise HarnessError(f"Missing/corrupt migration base: {relative}")
                 if current is not None:
                     records[relative] = dict(prior, sha256=digest(current))
                 continue
             if prior:
-                base_path = checked_path(root, ".oasis/base/" + prior["base_sha256"])
+                base_path = check(".oasis/base/" + prior["base_sha256"])
                 base = _bytes(base_path)
                 if base is None or digest(base) != prior["base_sha256"]:
                     raise HarnessError(f"Missing/corrupt installation base: {relative}")
@@ -617,7 +650,7 @@ def plan(target, package=None, *, upgrade=False, resolutions=None, mode=None, ca
     for content in incoming.values():
         relative = ".oasis/base/" + digest(content)
         try:
-            current = _bytes(checked_path(root, relative))
+            current = _bytes(check(relative))
             if current is not None and current != content:
                 raise HarnessError(f"Corrupt installation base blob: {relative}")
             if current is None and not any(item["path"] == relative for item in operations):
@@ -677,16 +710,27 @@ def _retire_empty_calf_dirs(root, value):
                 pass
 
 
-def _validate_plan(value):
+def _validate_plan(value, *, preview=False):
+    value = json_object(value, "Installation plan")
+    if (not isinstance(value.get("target"), str) or not value["target"] or
+            not isinstance(value.get("operations"), list) or not isinstance(value.get("conflicts"), list) or
+            any(not isinstance(item, str) for item in value["conflicts"]) or
+            not isinstance(value.get("plan_sha256"), str) or
+            ("migration" in value and not isinstance(value["migration"], dict))):
+        raise HarnessError("Installation plan has invalid consumed fields")
     expected = value.get("plan_sha256")
     body = {key: item for key, item in value.items() if key != "plan_sha256"}
-    if value.get("schema_version") != 1 or expected != digest(body) or value.get("conflicts"):
+    if type(value.get("schema_version")) is not int or value["schema_version"] != 1 or expected != digest(body) or (value.get("conflicts") and not preview):
         raise HarnessError("Installation plan is invalid or has unresolved conflicts")
-    if value.get("migration", {}).get("status") == "waiting":
+    if value.get("migration", {}).get("status") == "waiting" and not preview:
         raise HarnessError("Role migration is waiting for unfinished Camel/Calf work; finish it and create a fresh plan")
     root = target_root(value["target"])
     seen = set()
     for op in value["operations"]:
+        if not isinstance(op, dict) or not {"path", "before", "after"}.issubset(op):
+            raise HarnessError("Installation operation must contain path, before and after")
+        if any(op[side] is not None and not isinstance(op[side], str) for side in ("before", "after")):
+            raise HarnessError("Installation payloads must be Base64 text or null")
         path = managed_path(op["path"])
         if path.casefold() in seen:
             raise HarnessError("Duplicate transaction path")
@@ -694,6 +738,40 @@ def _validate_plan(value):
         _decode(op["before"]); _decode(op["after"])
         checked_path(root, path)
     return root
+
+
+def plan_diff(value):
+    """Render local reviewed bytes; this preview never applies operations."""
+    _validate_plan(value, preview=True)
+    lines = [f"Target: {value['target']}"]
+    lines.extend("Conflict: " + item for item in value["conflicts"])
+    if value.get("migration", {}).get("status") == "waiting":
+        lines.append("Role migration: waiting; no upgrade operations")
+    for op in value["operations"]:
+        name = op["path"]
+        if name.startswith(".oasis/base/"):
+            continue
+        before, after = _decode(op["before"]), _decode(op["after"])
+        action = "create" if before is None else "delete" if after is None else "update" if before != after else "review unchanged"
+        lines.append(f"\n{name}: {action}")
+        if name == MANIFEST:
+            old = json.loads(before.decode("utf-8")) if before else {"managed": {}}
+            new = json.loads(after.decode("utf-8")) if after else {"managed": {}}
+            lines.append(f"Package: {old.get('package_version', 'none')} -> {new.get('package_version', 'none')}")
+            lines.extend("Release ownership: " + path for path in sorted(set(old["managed"]) - set(new["managed"])))
+            lines.append(f"Managed paths: {len(old['managed'])} -> {len(new['managed'])}")
+            continue
+        try:
+            texts = [(data or b"").decode("utf-8") for data in (before, after)]
+            if any(any(ord(c) < 32 and c not in "\n\r\t" for c in text) for text in texts):
+                raise UnicodeError()
+            lines.extend(line.rstrip("\n") for line in difflib.unified_diff(
+                texts[0].splitlines(keepends=True), texts[1].splitlines(keepends=True),
+                fromfile=name + " (before)", tofile=name + " (after)"))
+        except UnicodeError:
+            lines.extend(f"{side}: {len(data)} bytes; SHA-256 {digest(data)}" if data is not None else side + ": absent"
+                         for side, data in (("before", before), ("after", after)))
+    return "\n".join(lines) + "\n"
 
 
 def _state_root(root):
@@ -780,7 +858,7 @@ def recover(journal_path, *, action="resume"):
 
 def verify(target):
     root = target_root(target)
-    manifest = read_json(checked_path(root, MANIFEST))
+    manifest = validate_manifest(read_json(checked_path(root, MANIFEST)))
     missing, specialized = [], []
     for relative, record in manifest["managed"].items():
         path = checked_path(root, managed_path(relative))
@@ -821,7 +899,7 @@ def register(subparsers):
             if args.output:
                 if args.output.exists():
                     raise HarnessError("Plan output already exists")
-                write_json(args.output, result)
+                write_new_json(args.output, result)
             return result
         child.set_defaults(func=make)
     child = commands.add_parser("apply")
@@ -830,6 +908,9 @@ def register(subparsers):
     child = commands.add_parser("verify")
     child.add_argument("--target", type=Path, required=True)
     child.set_defaults(func=lambda args: verify(args.target))
+    child = commands.add_parser("diff", help="Read a plan and preview its changes without applying them")
+    child.add_argument("--plan", type=Path, required=True)
+    child.set_defaults(func=lambda args: print(plan_diff(read_json(args.plan))))
     child = commands.add_parser("recover")
     child.add_argument("--journal", type=Path, required=True)
     child.add_argument("--action", choices=("resume", "rollback"), default="resume")

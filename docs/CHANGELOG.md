@@ -6,6 +6,62 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 1.2.2
+
+Core remains 2.0.0. Reused request keys compare original input fingerprints
+before native mutations; legacy records keep their original prompts, receipts
+and identifiers. Definite creation rejection and uncertain delivery have separate
+recovery paths. Project/root checks cover completion and restoration, mode changes
+preserve independent roles, and new transition plans reject stale starting state.
+Consumed state fields and actual write deadlines receive explicit validation.
+
+Skill and task listings support concise summaries. Installed skill listings use
+actual target files. Follow-ups retain the original goal and track current work;
+managed task rows reflect result and notice state without overwriting user notes.
+Assignments carry the requested location without changing native working folders.
+Self-dependencies fail at input; dependency cycles remain advisory warnings.
+
+Shared experience uses one existing writer and one useful closing pass. Identity
+guidance links to its canonical manual. Acceptance inputs contain no answer keys;
+evaluation expectations remain in source-only tests. Owned local file/heading
+links are checked. Fifteen unused capability descriptors leave the new payload:
+upgrades remove unchanged copies, preserve edited copies without management and
+do not restore missing copies. All 24 skills remain active.
+
+New send baselines retain a latest-turn/item anchor; recovery reads subsequent
+history, including input added to the same active turn. Command connections omit
+only selected output deltas. Git objects use verified binary batches with a byte
+budget, Doctor shares planning reads, and downloads enforce approved sizes.
+Fresh and reused validation share impact selection, installation/fixture consumers
+and verified literal-only version handling. Receipts retain minimal environment
+inputs; historical evidence keeps its original runner and unknown environment.
+Timeouts preserve partial failure logs, new evidence does not overwrite another
+run, and publication reloads state after locking. Initial PR bodies explain the
+change. Local status, installation diff and version-delta draft commands add
+inspection without automatic commits or delivery.
+
+Four isolated model exercises verified a State Integrity repair with eight
+passing product tests and lesson handoff, a small UI edit without a knowledge
+change, read-only Review, and consolidation that preserved existing valid project
+knowledge. A native chat trial exposed premature archive interrupting the final
+Camel response. Collection now verifies the actual completed assignment turn and
+final agent output before merge/archive, using a bounded connection-local file
+event subscription while necessary. Unsupported event support leaves an explicit
+resumable pending result; failed/interrupted turns are not successful integration.
+The same-ID retry verified completion arriving during an active parent turn,
+final output preservation, archive/restoration and unrelated chat preservation.
+Desktop APIs independently read the actual messages and archived test chats.
+The owned temporary test server was stopped and existing configuration preserved.
+Native descendant cascade remains fixture coverage; no pixel-level UI claim or
+model speed/usage guarantee follows from these trials.
+
+Source validation fixtures inspect the current skill UI metadata rather than
+retired descriptors. The loopback fixture keeps its bounded handshake and uses
+explicit shutdown for initialized connections, with an idle-gap regression;
+ordinary suite scheduling must not masquerade as a native protocol failure.
+Source-only correction commits retain their hook-generated versions in the
+machine index; the reviewed public package remains the owner-selected 1.2.2.
+
 ## 1.2.1
 
 All 24 skills read applicable experience before choosing an approach and

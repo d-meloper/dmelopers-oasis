@@ -33,6 +33,14 @@ class LocalProvider:
 
 
 class BackupTests(GitFixture):
+    def test_new_binding_export_preserves_existing_evidence(self):
+        output = self.root.parent / "binding.json"
+        backup.export_binding(self.root, output)
+        before = output.read_bytes()
+        with self.assertRaises(HarnessError):
+            backup.export_binding(self.root, output)
+        self.assertEqual(output.read_bytes(), before)
+
     def setUp(self):
         super().setUp()
         self.activate("main-test")

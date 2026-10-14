@@ -36,7 +36,7 @@ Use command help for current IDs and inputs.
 | `workflow complete` | Send the short terminal result directly to Cameleer |
 | `workflow collect` | Record reviewed/integrated result and archive the finished Camel |
 | `workflow task-resume` | Restore the same Camel for follow-up or unfinished work |
-| `workflow tasks` | Show active work or a requested task; finished history is available |
+| `workflow tasks` | Show active work or a requested task; `--summary` adds dependencies, pending handoffs and warnings |
 | `workflow dependency-wait` | Retain the blocked part and producer/consumer IDs |
 | `workflow dependency-finish` | Send its terminal result once |
 
@@ -51,10 +51,31 @@ completed, failed or cancelled outcome. Cameleer checks the request, diff and
 performed checks, rerunning only checks affected by integration or a concrete
 concern. `collect` retains the result/check summary and merged reference.
 Duplicate notices do not repeat integration. Incomplete work stays available.
+For a successful result, `collect` verifies the assigned turn is still latest,
+has native `completed` status and nonempty `agentMessage.phase=final_answer`
+output, and its chat is `idle` or `notLoaded`, before integration and again
+before archival. A completion notice can arrive earlier. A scoped native
+filesystem event wait is bounded to 30 seconds and returns `awaiting_terminal`
+if still pending or watch support is unavailable. Unverified assignment identity
+returns `terminal_unverified`; native failure/interruption returns failed or
+cancelled. These boundaries leave the chat available without marking successful
+collection. The watch is removed when this call ends; no model polling or
+background listener is added.
+Waiting leaves the project mutation lock free. Collection then reloads current
+state under the lock; a changed assignment returns `collection_changed` without
+applying the caller's review, merging or archiving.
+Location is assignment context and does not silently change the native cwd.
+Reused request IDs must match their retained meaning; existing delivery keys and
+message text are preserved.
 
 Follow-up uses the existing task ID with `task-resume`. Dependencies name one
 blocked portion. Finish independent work, end the turn and resume from the
 producer's notice when that portion completes, fails or is cancelled.
+Partial dependency notices still concern only their named portion, without
+waiting for the producer's whole assignment to end.
+The table updates after completion and dependency changes. Follow-up displays its
+current goal while retaining the original goal and history. Self-dependency is
+rejected; cycle warnings are advisory and do not modify the graph.
 
 ## Planning and fast work
 
@@ -79,6 +100,8 @@ and archive only linked finished scope. Preserve independent and unfinished
 work. Parent archive may cascade: inspect concrete descendant IDs and verify
 each affected ID. Mode changes after the requested transition completes.
 Interrupted operations retain target IDs and outcomes for reconciliation.
+Transition plans bind their reviewed basis. A changed basis needs a fresh plan;
+waiting and independent bindings remain visible rather than being replaced.
 
 ## Recovery and evidence
 

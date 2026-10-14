@@ -1,4 +1,4 @@
 interface:
   display_name: "Oasis Distribution Reputation"
-  short_description: "Distribution Reputation for the requested project work"
+  short_description: "Diagnose download warnings and prepare factual vendor reports"
   default_prompt: "Use $oasis-distribution-reputation for the requested project scope."

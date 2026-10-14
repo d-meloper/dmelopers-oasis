@@ -6,6 +6,7 @@ from collections import deque
 import hashlib
 import ipaddress
 import json
+import math
 import os
 from pathlib import Path
 import queue
@@ -19,11 +20,14 @@ import time
 import uuid
 from urllib.parse import urlsplit
 
-from .common import HarnessError, clean_environment, contained, operation_lock, read_json, write_json
+from .common import HarnessError, clean_environment, contained, digest, operation_lock, read_json, write_json
 from . import __version__
 
 SOURCES = ["cli", "vscode", "exec", "appServer", "subAgent", "subAgentReview", "subAgentCompact", "subAgentThreadSpawn", "subAgentOther", "unknown"]
 ROLES = ("Oasis", "Cameleer", "Camel", "Pioneer", "Developer")
+COMMAND_DELTAS = ("item/agentMessage/delta", "item/reasoning/summaryTextDelta", "item/reasoning/textDelta",
+                  "item/commandExecution/outputDelta", "item/fileChange/outputDelta")
+CREATION_RETRYABLE = ("prepared", "creation_rejected")
 
 
 class NativeError(HarnessError):
@@ -40,7 +44,12 @@ class MissingSavedSettings(HarnessError):
 
 
 def canonical_root(path):
-    return os.path.normcase(os.path.realpath(path))
+    resolved = os.path.realpath(path)
+    if resolved.startswith("\\\\?\\UNC\\"):
+        resolved = "\\\\" + resolved[8:]
+    elif resolved.startswith("\\\\?\\"):
+        resolved = resolved[4:]
+    return os.path.normcase(resolved)
 
 
 class _WebSocketEOF(Exception):
@@ -166,7 +175,11 @@ class _LoopbackWebSocket:
         else:
             header += bytes((0x80 | 127,)) + struct.pack("!Q", length)
         mask = os.urandom(4)
-        encoded = bytes(byte ^ mask[index % 4] for index, byte in enumerate(payload))
+        encoded = bytearray()
+        for offset in range(0, length, 16384):
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Native WebSocket write deadline expired")
+            encoded.extend(byte ^ mask[(offset + index) % 4] for index, byte in enumerate(payload[offset:offset + 16384]))
         finished = threading.Event()
         errors = []
 
@@ -178,6 +191,8 @@ class _LoopbackWebSocket:
                     raise TimeoutError("Native WebSocket write deadline expired")
                 if self.closed:
                     raise OSError("WebSocket connection is closed")
+                if time.monotonic() >= deadline:
+                    raise TimeoutError("Native WebSocket write deadline expired")
                 if opcode != 8 or not self.sent_close:
                     self.socket.sendall(header + mask + encoded)
                     if opcode == 8:
@@ -200,7 +215,11 @@ class _LoopbackWebSocket:
             raise errors[0]
 
     def send(self, text, *, timeout=30):
-        self._frame(1, text.encode("utf-8"), timeout=timeout)
+        deadline = time.monotonic() + timeout
+        payload = text.encode("utf-8")
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Native WebSocket write deadline expired")
+        self._frame(1, payload, timeout=max(0, deadline - time.monotonic()))
 
     def _close_frame(self, payload):
         try:
@@ -345,10 +364,12 @@ class _ProxyTransport:
             raise HarnessError("Native stdio message is not valid UTF-8") from None
 
     def send(self, text, *, timeout=30):
+        deadline = time.monotonic() + timeout
         payload = text.encode("utf-8")
         if len(payload) > self.MAX_MESSAGE:
             raise HarnessError("Native stdio outgoing message exceeds the supported size")
-        deadline = time.monotonic() + timeout
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Native stdio write deadline expired")
         finished, errors = threading.Event(), []
 
         def write():
@@ -361,6 +382,8 @@ class _ProxyTransport:
                     raise OSError("Native stdio connection is closed")
                 data, offset = payload + b"\n", 0
                 while offset < len(data):
+                    if time.monotonic() >= deadline:
+                        raise TimeoutError("Native stdio write deadline expired")
                     count = self.process.stdin.write(data[offset:])
                     if not count:
                         raise OSError("Native stdio write ended")
@@ -432,6 +455,7 @@ class _RpcInbox:
 
     def __init__(self):
         self.lock = threading.RLock()
+        self.changed = threading.Condition(self.lock)
         self.sequence = 0
         self.pending = {}
         self.events = deque()
@@ -466,6 +490,7 @@ class _RpcInbox:
                 raise HarnessError("Native App Server event buffer overflow")
             self.events.append(value)
             self.event_bytes += size
+            self.changed.notify_all()
 
     def end(self, reason, *, failed=False, event_error=False):
         with self.lock:
@@ -478,6 +503,7 @@ class _RpcInbox:
             for waiter in self.pending.values():
                 if not waiter.full():
                     waiter.put_nowait(HarnessError(reason))
+            self.changed.notify_all()
 
     def drain(self):
         with self.lock:
@@ -489,9 +515,17 @@ class _RpcInbox:
             self.event_bytes = 0
             return values
 
+    def wait(self, timeout):
+        with self.changed:
+            if not self.events and self.state == "connected":
+                self.changed.wait_for(lambda: bool(self.events) or self.state != "connected", timeout=timeout)
+            return self.drain()
+
 
 class AppServer:
-    def __init__(self, originator):
+    def __init__(self, originator, *, notification_profile="all"):
+        if notification_profile not in ("all", "command"):
+            raise HarnessError("Unknown native notification profile")
         self.process = None
         self.transport = None
         self.closing = False
@@ -512,7 +546,17 @@ class AppServer:
         self.reader = threading.Thread(target=self._read, daemon=True)
         self.reader.start()
         try:
-            self.call("initialize", {"clientInfo": {"name": originator, "version": __version__}, "capabilities": {"experimentalApi": True}})
+            capabilities = {"experimentalApi": True}
+            if notification_profile == "command":
+                capabilities["optOutNotificationMethods"] = list(COMMAND_DELTAS)
+            parameters = {"clientInfo": {"name": originator, "version": __version__}, "capabilities": capabilities}
+            try:
+                self.call("initialize", parameters)
+            except NativeError as exc:
+                if (notification_profile != "command" or exc.code != -32602
+                        or "optoutnotificationmethods" not in str(exc).casefold()):
+                    raise
+                self.call("initialize", {**parameters, "capabilities": {"experimentalApi": True}})
             self._send({"method": "initialized"})
         except Exception as exc:
             self.close()
@@ -583,6 +627,8 @@ class AppServer:
     def _send(self, value, *, deadline=None):
         text = json.dumps(value, ensure_ascii=False)
         try:
+            if deadline is not None and time.monotonic() >= deadline:
+                raise TimeoutError
             timeout = 30 if deadline is None else max(0, deadline - time.monotonic())
             self.transport.send(text, timeout=timeout)
         except TimeoutError:
@@ -591,6 +637,8 @@ class AppServer:
             raise HarnessError("Native App Server send failed; outcome uncertain") from None
 
     def call(self, method, params, timeout=30):
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
+            raise HarnessError("Native RPC timeout must be finite and nonnegative")
         deadline = time.monotonic() + timeout
         sequence, waiter = self._rpc.register(method)
         self.sequence = self._rpc.sequence
@@ -628,6 +676,12 @@ class AppServer:
         """
         return self._rpc.drain()
 
+    def wait_events(self, timeout=30):
+        """Bounded I/O wait on this connection's notifications, without model requests."""
+        if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
+            raise HarnessError("Native event wait timeout must be finite and nonnegative")
+        return self._rpc.wait(timeout)
+
     def diagnostics(self):
         """Connection information including a PRIVATE bounded stderr tail."""
         with self._rpc.lock:
@@ -643,6 +697,7 @@ class AppServer:
         seen = set()
         while True:
             page = self.call(method, params)
+            _history_page(page, method)
             yield from page["data"]
             cursor = page.get("nextCursor")
             if not cursor:
@@ -667,6 +722,11 @@ class AppServer:
 
     def __exit__(self, *_):
         self.close()
+
+
+def command_server(originator):
+    """Command connections suppress unused deltas; general clients retain all events."""
+    return AppServer(originator, notification_profile="command")
 
 
 def latest_settings(path):
@@ -695,12 +755,28 @@ def latest_settings(path):
 
 
 def inherited_settings(settings):
+    if not isinstance(settings, dict):
+        raise HarnessError("Saved native settings must be an object")
+    for field in ("active_permission_profile", "sandbox_policy", "permission_profile"):
+        if settings.get(field) is not None and not isinstance(settings[field], dict):
+            raise HarnessError(f"Saved {field} must be an object")
+    for field in ("reasoning_effort", "effort", "model"):
+        if settings.get(field) is not None and (not isinstance(settings[field], str) or not settings[field].strip()):
+            raise HarnessError(f"Saved {field} must be nonempty text")
     efforts = {settings[key] for key in ("reasoning_effort", "effort") if settings.get(key) is not None}
     if len(efforts) > 1:
         raise HarnessError("Saved reasoning fields disagree; inspect actual caller settings")
     reasoning = next(iter(efforts), None)
     profile = (settings.get("active_permission_profile") or {}).get("id")
     sandbox = settings.get("sandbox_policy") or {}
+    if profile is not None and (not isinstance(profile, str) or not profile.strip()):
+        raise HarnessError("Saved permission profile ID must be nonempty text")
+    for field in ("network_access", "exclude_tmpdir_env_var", "exclude_slash_tmp"):
+        if field in sandbox and not isinstance(sandbox[field], bool):
+            raise HarnessError(f"Saved sandbox {field} must be a boolean")
+    if "writable_roots" in sandbox and (not isinstance(sandbox["writable_roots"], list)
+            or any(not isinstance(root, str) or not root for root in sandbox["writable_roots"])):
+        raise HarnessError("Saved writable roots must be text paths")
     # Current saved settings can omit the legacy sandbox_policy. Accept only
     # the observed exact disabled representation with matching built-in
     # provenance; never infer broad access from a missing or custom policy.
@@ -713,7 +789,7 @@ def inherited_settings(settings):
     policy_type = sandbox.get("type")
     known = {"danger-full-access": (":danger-full-access", "dangerFullAccess"),
              "workspace-write": (":workspace", "workspaceWrite"), "read-only": (":read-only", "readOnly")}
-    if policy_type not in known:
+    if not isinstance(policy_type, str) or policy_type not in known:
         raise HarnessError("Unsupported effective caller permission policy; preserve it and use a verified adapter")
     if profile in {row[0] for row in known.values()} and profile != known[policy_type][0]:
         raise HarnessError("Saved built-in profile disagrees with effective policy")
@@ -809,6 +885,10 @@ def title_for(role, goal, source=None, threads=(), receipts=(), *, pioneer_id=No
 def verify_response(response, receipt):
     """Check the creation result once so permission inheritance is not widened."""
     expected = receipt["settings"]
+    if (not isinstance(response, dict) or not isinstance(response.get("thread"), dict)
+            or not isinstance(response.get("cwd"), str)
+            or response.get("activePermissionProfile") is not None and not isinstance(response["activePermissionProfile"], dict)):
+        raise HarnessError("Created native settings response has invalid consumed fields")
     if (response.get("activePermissionProfile") or {}).get("id") != expected["permissions"]:
         raise HarnessError("Created permission profile differs from the caller")
     for key in ("approvalPolicy", "approvalsReviewer"):
@@ -824,7 +904,9 @@ def verify_response(response, receipt):
         raise HarnessError("Reasoning selection was not preserved")
 
 
-def create_metadata(path, receipt, factory=AppServer):
+def create_metadata(path, receipt, factory=command_server):
+    if not isinstance(receipt, dict) or not isinstance(receipt.get("settings"), dict):
+        raise HarnessError("Native creation receipt/settings must be objects")
     if receipt.get("role") == "Calf":
         return retired_role()
     if receipt.get("phase") == "ready" and receipt.get("thread_id"):
@@ -836,14 +918,23 @@ def create_metadata(path, receipt, factory=AppServer):
         options["model"] = settings["model"]
     if settings.get("reasoning"):
         options["config"] = {"model_reasoning_effort": settings["reasoning"]}
-    if not receipt.get("thread_id") and receipt["phase"] != "prepared":
+    if not receipt.get("thread_id") and receipt["phase"] not in CREATION_RETRYABLE:
         raise HarnessError("Creation response is uncertain; inspect this receipt instead of creating another chat")
     try:
         with factory(receipt["originator"]) as server:
             if not receipt.get("thread_id"):
                 receipt["phase"] = "creation_started"
                 write_json(path, receipt)
-                response = server.call("thread/start", options)
+                try:
+                    response = server.call("thread/start", options)
+                except NativeError as exc:
+                    if exc.code in (-32601, -32602, -32001):
+                        receipt["phase"] = "creation_rejected"
+                        write_json(path, receipt)
+                    raise
+                if not isinstance(response, dict) or not isinstance(response.get("thread"), dict):
+                    raise HarnessError("Creation returned an invalid native thread response; preserve uncertainty")
+                require_text(response["thread"].get("id"), "Created native thread ID")
                 receipt.update(thread_id=response["thread"]["id"], phase="created", creation_verified=False)
                 write_json(path, receipt)
                 verify_response(response, receipt)
@@ -874,7 +965,7 @@ def create_metadata(path, receipt, factory=AppServer):
         raise
 
 
-def inspect(path, factory=AppServer):
+def inspect(path, factory=command_server):
     receipt = read_json(path)
     with factory(receipt["originator"] + "_inspect") as server:
         if receipt.get("thread_id"):
@@ -892,9 +983,11 @@ def inspect(path, factory=AppServer):
                 "target": thread.get("cwd"), "receipt": str(path)}
 
 
-def resume(path, authority=None, factory=AppServer):
+def resume(path, authority=None, factory=command_server):
     receipt = read_json(path)
     with operation_lock(contained(receipt["target"], ".oasis/local/operations.lock")):
+        if receipt.get("phase") == "creation_rejected" and not receipt.get("thread_id"):
+            return create_metadata(path, receipt, factory)
         result = inspect(path, factory)
         if not result.get("thread_id"):
             raise HarnessError("Creation identity is unresolved; preserve the receipt without retrying creation")
@@ -905,7 +998,7 @@ def resume(path, authority=None, factory=AppServer):
         return create_metadata(path, receipt, factory)
 
 
-def create(target, role, source_id, goal=None, *, title=None, apply=False, factory=AppServer, **_legacy):
+def create(target, role, source_id, goal=None, *, title=None, apply=False, factory=command_server, **_legacy):
     if role == "Calf":
         return retired_role()
     if role not in ROLES:
@@ -930,32 +1023,185 @@ def create(target, role, source_id, goal=None, *, title=None, apply=False, facto
         return {**create_metadata(path, receipt, factory), "receipt": str(path)}
 
 
-def read_turns(server, thread_id):
-    """A requested reconciliation read, never a monitoring loop."""
+def _history_page(page, method):
+    if not isinstance(page, dict) or not isinstance(page.get("data"), list):
+        raise HarnessError(f"{method}: invalid native page")
+    for key in ("nextCursor", "backwardsCursor"):
+        if page.get(key) is not None and (not isinstance(page[key], str) or not page[key]):
+            raise HarnessError(f"{method}: invalid native cursor")
+    if any(not isinstance(row, dict) for row in page["data"]):
+        raise HarnessError(f"{method}: native page entries must be objects")
+    return page
+
+
+def _history_pages(server, method, params):
+    seen = set()
+    while True:
+        page = _history_page(server.call(method, params), method)
+        yield page
+        cursor = page.get("nextCursor")
+        if not cursor:
+            return
+        if cursor in seen:
+            raise HarnessError("Repeated Codex pagination cursor; history is incomplete")
+        seen.add(cursor)
+        params = {**params, "cursor": cursor}
+
+
+def _full_turns(server, thread_id):
     thread = server.call("thread/read", {"threadId": thread_id, "includeTurns": True})["thread"]
+    check_thread_binding(thread, thread_id)
     turns = thread.get("turns")
     if isinstance(turns, list) and thread.get("turnsView", "full") == "full":
         return turns
     return list(server.pages("thread/turns/list", {"threadId": thread_id, "itemsView": "full", "limit": 100}))
 
 
+def read_turns(server, thread_id):
+    """A requested reconciliation read; return the existing list facade."""
+    try:
+        return [turn for page in _history_pages(server, "thread/turns/list", {
+            "threadId": thread_id, "itemsView": "full", "sortDirection": "asc", "limit": 100}) for turn in page["data"]]
+    except NativeError as exc:
+        if exc.code != -32601:
+            raise
+        return _full_turns(server, thread_id)
+
+
+def check_thread_binding(thread, thread_id, binding=None):
+    if not isinstance(thread, dict) or thread.get("id") != thread_id:
+        raise HarnessError("Native read returned another thread ID")
+    if binding is not None:
+        if (not isinstance(binding, dict) or not isinstance(binding.get("target"), str)
+                or not isinstance(binding.get("project_id"), str)):
+            raise HarnessError("Expected native binding requires target and project ID")
+        if (not isinstance(thread.get("cwd"), str)
+                or canonical_root(thread["cwd"]) != canonical_root(binding["target"])
+                or thread.get("projectId") != binding["project_id"]):
+            raise HarnessError("Native thread belongs to another project/root")
+
+
+def _legacy_baseline(server, value):
+    before = read_turns(server, value["thread_id"])
+    value["before_turn_ids"] = [turn.get("id") for turn in before]
+    value["before_user_item_ids"] = [item["id"] for turn in before for item in turn.get("items", [])
+                                      if item.get("type") == "userMessage" and item.get("id")]
+
+
+def _capture_anchor(server, value):
+    try:
+        page = _history_page(server.call("thread/turns/list", {"threadId": value["thread_id"],
+            "itemsView": "notLoaded", "sortDirection": "desc", "limit": 1}), "thread/turns/list")
+        if not page["data"]:
+            value["history_anchor"] = {"empty": True}
+            return
+        if not page.get("backwardsCursor"):
+            _legacy_baseline(server, value)
+            return
+        turn_id = require_text(page["data"][0].get("id"), "Native history turn ID")
+        items = _history_page(server.call("thread/items/list", {"threadId": value["thread_id"],
+            "turnId": turn_id, "sortDirection": "desc", "limit": 1}), "thread/items/list")
+        last = None
+        if items["data"]:
+            entry = items["data"][0]
+            if entry.get("turnId") != turn_id or not isinstance(entry.get("item"), dict):
+                raise HarnessError("Native history item belongs to another turn")
+            last = entry["item"]
+        value["history_anchor"] = {"turn_id": turn_id, "backwards_cursor": page["backwardsCursor"],
+                                   "last_item_id": require_text(last.get("id"), "Native history item ID") if last else None}
+    except NativeError as exc:
+        if exc.code != -32601:
+            raise
+        _legacy_baseline(server, value)
+
+
+def _anchored_items(server, value):
+    anchor = value["history_anchor"]
+    params = {"threadId": value["thread_id"], "itemsView": "notLoaded", "sortDirection": "asc", "limit": 100}
+    if not anchor.get("empty"):
+        params["cursor"] = anchor["backwards_cursor"]
+    for page in _history_pages(server, "thread/turns/list", params):
+        for turn in page["data"]:
+            identity = require_text(turn.get("id"), "Native history turn ID")
+            item_params = {"threadId": value["thread_id"], "turnId": identity, "sortDirection": "asc", "limit": 100}
+            boundary = anchor.get("last_item_id") if identity == anchor.get("turn_id") else None
+            if boundary:
+                item_params["cursor"] = {"type": "item", "itemId": boundary}
+            for items in _history_pages(server, "thread/items/list", item_params):
+                for entry in items["data"]:
+                    if entry.get("turnId") != identity or not isinstance(entry.get("item"), dict):
+                        raise HarnessError("Native history item belongs to another turn")
+                    yield turn, entry["item"], True
+
+
+def _anchored_turn_items(server, value):
+    anchor = value["history_anchor"]
+    params = {"threadId": value["thread_id"], "itemsView": "full", "sortDirection": "asc", "limit": 100}
+    if not anchor.get("empty"):
+        params["cursor"] = anchor["backwards_cursor"]
+    for page in _history_pages(server, "thread/turns/list", params):
+        for turn in page["data"]:
+            if not isinstance(turn.get("items"), list):
+                raise HarnessError("Native history turn items are unavailable")
+            boundary = anchor.get("last_item_id") if turn.get("id") == anchor.get("turn_id") else None
+            allowed = boundary is None
+            for item in turn["items"]:
+                if not isinstance(item, dict):
+                    raise HarnessError("Native history item must be an object")
+                if allowed:
+                    yield turn, item, True
+                elif item.get("id") == boundary:
+                    allowed = True
+            if not allowed:
+                raise HarnessError("Native history item anchor is unavailable; preserve uncertainty")
+
+
+def _delivery_items(server, value):
+    for turn in read_turns(server, value["thread_id"]):
+        for item in turn.get("items", []):
+            allowed = (item.get("id") not in value.get("before_user_item_ids", [])
+                       if item.get("id") else turn.get("id") not in value.get("before_turn_ids", []))
+            yield turn, item, allowed
+
+
 def _message_text(item):
     return "\n".join(part.get("text", "") for part in item.get("content", []) if part.get("type") == "text")
 
 
+def _delivery_matches(items, value):
+    matches, first = 0, None
+    for turn, item, allowed in items:
+        if item.get("type") == "userMessage" and (item.get("clientId") == value["message_id"] or (
+                not item.get("clientId") and allowed and _message_text(item) == value["text"])):
+            matches += 1
+            first = first or turn.get("id")
+    return matches, first
+
+
 def reconcile_delivery(server, value):
-    matches = []
-    for turn in read_turns(server, value["thread_id"]):
-        for item in turn.get("items", []):
-            if item.get("type") != "userMessage":
-                continue
-            if item.get("clientId") == value["message_id"] or (
-                    not item.get("clientId") and (item.get("id") not in value.get("before_user_item_ids", [])
-                    if item.get("id") else turn.get("id") not in value.get("before_turn_ids", []))
-                    and _message_text(item) == value["text"]):
-                matches.append(turn)
+    if "history_anchor" in value:
+        anchor = value["history_anchor"]
+        if (not isinstance(anchor, dict) or (anchor.get("empty") is not True and
+                (not isinstance(anchor.get("turn_id"), str) or not isinstance(anchor.get("backwards_cursor"), str)
+                 or (anchor.get("last_item_id") is not None and not isinstance(anchor["last_item_id"], str))))):
+            raise HarnessError("Invalid retained history anchor; preserve delivery")
+        try:
+            matches, first = _delivery_matches(_anchored_items(server, value), value)
+        except NativeError as exc:
+            if exc.code != -32601:
+                raise
+            try:
+                matches, first = _delivery_matches(_anchored_turn_items(server, value), value)
+            except NativeError as fallback:
+                if fallback.code != -32601:
+                    raise
+                # Full read cannot prove a text-only boundary from a small receipt.
+                matches, first = _delivery_matches(((turn, item, False)
+                    for turn in _full_turns(server, value["thread_id"]) for item in turn.get("items", [])), value)
+    else:
+        matches, first = _delivery_matches(_delivery_items(server, value), value)
     if matches:
-        value.update(state="accepted", turn_id=matches[0].get("id"), duplicate_observed=len(matches) > 1)
+        value.update(state="accepted", turn_id=first, duplicate_observed=matches > 1)
         value.pop("error", None)
         return True
     return False
@@ -1006,6 +1252,7 @@ def _actual_settings(server, thread_id, *, thread=None):
     thread = thread if thread is not None else server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
     if thread.get("id") != thread_id:
         raise HarnessError("Native settings lookup returned another thread ID")
+    require_text(thread.get("path"), "Native saved settings path")
     try:
         saved = latest_settings(thread["path"])
     except MissingSavedSettings:
@@ -1049,7 +1296,7 @@ def _plan_route(server, thread_id, settings):
         raise
 
 
-def send_once(path, thread_id, text, server, *, planning=False, execution=False, skill=None):
+def send_once(path, thread_id, text, server, *, planning=False, execution=False, skill=None, expected_binding=None):
     """Send one native user message and retain an ambiguous attempt for recovery.
 
     A client ID identifies this delivery; it imposes no format on role messages.
@@ -1057,6 +1304,8 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
     """
     require_text(thread_id, "Recipient thread ID")
     require_text(text, "Message")
+    if not isinstance(planning, bool) or not isinstance(execution, bool) or planning and execution:
+        raise HarnessError("Choose either planning or implementation delivery")
     path = Path(path)
     value = read_json(path) if path.exists() else {
         "schema_version": 1, "thread_id": thread_id, "text": text, "message_id": str(uuid.uuid4()),
@@ -1065,15 +1314,27 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
         raise HarnessError("Invalid delivery record; preserve it for recovery")
     if value.get("thread_id") != thread_id or value.get("text") != text:
         raise HarnessError("Delivery path already belongs to another message; preserve it and use its existing action")
+    if any(value.get(key, False) != choice for key, choice in (("planning", planning), ("execution", execution))):
+        raise HarnessError("Delivery path has different mode inputs; preserve its existing action")
+    if value.get("expected_binding") is not None:
+        if expected_binding is not None and value["expected_binding"] != expected_binding:
+            raise HarnessError("Delivery belongs to another project binding")
+        expected_binding = value["expected_binding"]
     if value["state"] == "accepted":
         return value
+    native = server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
+    check_thread_binding(native, thread_id, expected_binding)
+    if native.get("status") is not None and (not isinstance(native["status"], dict)
+            or not isinstance(native["status"].get("type"), str)):
+        raise HarnessError("Native thread status must contain type text")
+    if expected_binding is not None:
+        value["expected_binding"] = expected_binding
     if value["state"] in ("started", "uncertain"):
         reconcile_delivery(server, value)
         write_json(path, value)
         return value
     settings = saved = None
     collaboration = None
-    native = server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
     if (native.get("status") or {}).get("type") == "notLoaded":
         settings, saved = _actual_settings(server, thread_id, thread=native)
         _resume_current(server, native, settings)
@@ -1095,11 +1356,8 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
     elif execution:
         # Only an explicit implementation follow-up requests this mode change.
         collaboration = _collaboration(settings, "default")
-    if "before_turn_ids" not in value:
-        before = read_turns(server, thread_id)
-        value["before_turn_ids"] = [turn.get("id") for turn in before]
-        value["before_user_item_ids"] = [item["id"] for turn in before for item in turn.get("items", [])
-                                         if item.get("type") == "userMessage" and item.get("id")]
+    if "before_turn_ids" not in value and "history_anchor" not in value:
+        _capture_anchor(server, value)
     params = {"threadId": thread_id, "input": [{"type": "text", "text": text}],
               "clientUserMessageId": value["message_id"]}
     if skill:
@@ -1159,7 +1417,7 @@ def register(subparsers):
     p = commands.add_parser("discovery")
     p.add_argument("--target", required=True)
     def discovery(args):
-        with AppServer("oasis_discovery") as server:
+        with command_server("oasis_discovery") as server:
             identity = project_id(server, args.target)
             result = server.call("skills/list", {"cwds": [str(Path(args.target).resolve())], "forceReload": True})
             return {"project_id": identity, "skills": result, "adoption_verified": False}

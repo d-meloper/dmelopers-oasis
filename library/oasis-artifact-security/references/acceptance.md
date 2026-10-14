@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Acknowledged analysis finishes for identical bytes
+## Scenario 1
 
-Expected behavior: Reuse its report under current configured freshness/criteria.
+Request/state: Acknowledged analysis finishes for identical bytes.
 
-## Negative: Artifact changed after authorization
+## Scenario 2
 
-Expected behavior: Stop before upload or acceptance and bind a new candidate.
+Request/state: Artifact changed after authorization.
 
-## Ambiguous: POST timed out before analysis ID persisted
+## Scenario 3
 
-Expected behavior: Inspect existing service state; never automatically POST again.
+Request/state: POST timed out before analysis ID persisted.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

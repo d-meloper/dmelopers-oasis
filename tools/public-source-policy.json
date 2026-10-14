@@ -2,34 +2,34 @@
   "reviewed": {
     "oasis_harness/knowledge.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "cea327f37fad424e9d95ba0561b2cfe3642f466fbe7ba2b6ac1432c15b2a88f0"
+      "sha256": "ae3d0c63e2f791b0075778704e28fb981958076121b6392a405f71c9698a5037"
     },
     "oasis_harness/publication.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "9fea40429cbf5bf2110d8dce163de2b13aec37c4a342986b9dfe6b9c2f48528a"
+      "sha256": "31a4c18d0d48f32609bc880e79e22a6f222fc3308d8d978a018d9cbe9b2158db"
     },
     "oasis_harness/sessions.py": {
-      "sha256": "0dd88531234ae635fb5e9cdabb6055586c17036ad1992f8120a0adb151ed56b4",
+      "sha256": "2747d542b79f94ba59fe69edcefbf10ef600ceb052eefe3255843d235171d5b6",
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
     },
     "oasis_harness/workflows.py": {
-      "sha256": "68a60ad114f1b9d621da7e0300ab5e194d69dd67273e050e716a7fcde79e6642",
+      "sha256": "380649b776784d93acb695318fcdcfeae2a626fc88beddd66cb82a7571354fd3",
       "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tests/test_public_source.py": {
       "reason": "Reviewed complete synthetic privacy/XML negatives and 24-skill distribution fixtures. No live private payload; exact artwork and hard secret/path checks remain.",
-      "sha256": "9152c46e697ba085a8e83978716c25c78abad2db485aa7ad168a8ad41e50d802"
+      "sha256": "57fcaae042c1ae12581d39bfe6ffdcb04116a4e87fa377ffa7b8c4293c95cae6"
     },
     "tests/test_sessions.py": {
       "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "0e52fb0ebaccce1db9ba93cb8ce02a1ef7d3a0222f05a0a6e0ebe29a03ac80e6"
+      "sha256": "3e7da971dc997d88218b7203976980434740270e5a19e5189ffab27decca0f5f"
     },
     "tests/test_workflows.py": {
-      "sha256": "993bd3bdabf4c3eb6fb6d6727c754c7350029b033e64e18b9e3965b992473863",
+      "sha256": "6982d977276781e1804350d4a1a961dff83d10be645ad60413b2a3c2b66a0eed",
       "reason": "Reviewed synthetic session/task fixtures, new-input reminders and legacy retry recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
     },
     "tools/source_policy.py": {
-      "sha256": "5bdf11a527ba533834dfe4e4b8229a0745d2ecfa6a86d9b1ee17e5ef9ed750fd",
+      "sha256": "6e8603a8aac7f306cca63c7d6315197acf757bb50745cfbc982f3ead325be50d",
       "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload."
     }
   },

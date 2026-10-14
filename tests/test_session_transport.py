@@ -107,6 +107,10 @@ class LoopbackServer:
             if self.coalesced:
                 response += server_frame(b'{"method":"fixture/ready","params":{}}')
             connection.sendall(response)
+            # The handshake has a deadline; an initialized connection remains
+            # alive until peer close or this fixture's explicit shutdown. A
+            # suite scheduling pause must not turn into an unrelated EOF.
+            connection.settimeout(None)
             while not self.stop.is_set():
                 first, second = exact(connection, 2)
                 if not second & 0x80:
@@ -225,6 +229,68 @@ class SessionTransportContracts(unittest.TestCase):
         self.addCleanup(client.close)
         return client
 
+    def test_command_profile_opts_out_only_deltas_and_preserves_terminal_events(self):
+        wire = InjectedTransport()
+        with patch.dict(os.environ, {}, clear=True), patch("oasis_harness.sessions.shutil.which", return_value="fixture"), \
+                patch("oasis_harness.sessions._ProxyTransport", return_value=wire):
+            with sessions.command_server("command_fixture") as client:
+                capabilities = wire.sent[0]["params"]["capabilities"]
+                self.assertEqual(capabilities["optOutNotificationMethods"], list(sessions.COMMAND_DELTAS))
+                wire.feed({"method": "turn/completed", "params": {"turn": {"id": "final"}}})
+                wire.feed(None)
+                client.reader.join(timeout=1)
+                self.assertEqual(client.drain_events()[0]["method"], "turn/completed")
+        wire = InjectedTransport()
+        client = self.injected_client(wire)
+        self.assertNotIn("optOutNotificationMethods", wire.sent[0]["params"]["capabilities"])
+
+    def test_command_profile_falls_back_only_for_explicit_capability_rejection(self):
+        for message, retries in (("Unknown optOutNotificationMethods capability", 2), ("Bad client information", 1)):
+            wire = InjectedTransport()
+            original = wire.send
+            def send(text, *, timeout=30):
+                request = json.loads(text)
+                if request.get("method") == "initialize" and not wire.sent:
+                    wire.sent.append(request)
+                    wire.feed({"id": request["id"], "error": {"code": -32602, "message": message}})
+                else:
+                    original(text, timeout=timeout)
+            wire.send = send
+            with patch.dict(os.environ, {}, clear=True), patch("oasis_harness.sessions.shutil.which", return_value="fixture"), \
+                    patch("oasis_harness.sessions._ProxyTransport", return_value=wire):
+                if retries == 2:
+                    with sessions.command_server("fixture"):
+                        pass
+                else:
+                    with self.assertRaises(sessions.NativeError):
+                        sessions.command_server("fixture")
+            requests = [row for row in wire.sent if row.get("method") == "initialize"]
+            self.assertEqual(len(requests), retries)
+            if retries == 2:
+                self.assertNotIn("optOutNotificationMethods", requests[-1]["params"]["capabilities"])
+
+    def test_expired_encoding_or_masking_never_writes_to_transport(self):
+        from unittest.mock import Mock
+        socket_wire = object.__new__(sessions._LoopbackWebSocket)
+        socket_wire.closed = socket_wire.sent_close = False
+        socket_wire.socket = Mock()
+        with patch("oasis_harness.sessions.time.monotonic", side_effect=[0, 2]):
+            with self.assertRaises(TimeoutError):
+                socket_wire._frame(1, b"payload", timeout=1)
+        socket_wire.socket.sendall.assert_not_called()
+        proxy = object.__new__(sessions._ProxyTransport)
+        proxy.process = Mock()
+        with patch("oasis_harness.sessions.time.monotonic", side_effect=[0, 2]):
+            with self.assertRaises(TimeoutError):
+                proxy.send("payload", timeout=1)
+        proxy.process.stdin.write.assert_not_called()
+        client = object.__new__(sessions.AppServer)
+        client.transport = Mock()
+        with patch("oasis_harness.sessions.time.monotonic", return_value=2):
+            with self.assertRaisesRegex(HarnessError, "send timed out"):
+                client._send({"method": "mutation"}, deadline=1)
+        client.transport.send.assert_not_called()
+
     def test_rpc_dispatches_reversed_concurrent_responses_and_preserves_events_at_eof(self):
         wire = InjectedTransport()
         client = self.injected_client(wire)
@@ -301,6 +367,34 @@ class SessionTransportContracts(unittest.TestCase):
             client.call("after_eof", {}, timeout=1)
         self.assertEqual(len(wire.sent), count)
         self.assertEqual(client.drain_events(), [{"method": "turn/completed", "params": {"status": "failed"}}])
+
+    def test_event_wait_wakes_on_notification_and_eof_without_model_requests(self):
+        wire = InjectedTransport()
+        client = self.injected_client(wire)
+        calls = len(wire.sent)
+        event = {"method": "fs/changed", "params": {"watchId": "scoped", "changedPaths": []}}
+        timer = threading.Timer(0.02, lambda: wire.feed(event))
+        timer.start()
+        self.addCleanup(timer.join, 1)
+        self.assertEqual(client.wait_events(1), [event])
+        self.assertEqual(client.wait_events(0), [])
+        wire.feed(None)
+        client.reader.join(timeout=1)
+        self.assertEqual(client.wait_events(1), [])
+        self.assertEqual(len(wire.sent), calls)
+        for timeout in (-1, True, float("nan"), "1"):
+            with self.subTest(timeout=timeout), self.assertRaises(HarnessError):
+                client.wait_events(timeout)
+
+    def test_event_wait_retains_protocol_error_and_buffered_notifications(self):
+        client = object.__new__(sessions.AppServer)
+        client._rpc = sessions._RpcInbox()
+        event = {"method": "fs/changed", "params": {"watchId": "scoped", "changedPaths": []}}
+        client._rpc.notification(event, 1)
+        client._rpc.end("Actual protocol failure", failed=True, event_error=True)
+        with self.assertRaisesRegex(HarnessError, "Actual protocol failure"):
+            client.wait_events(0)
+        self.assertEqual(client.wait_events(0), [event])
 
     def test_bad_envelopes_are_protocol_errors_and_native_rejection_stays_distinct(self):
         nested = '{"id":2,"result":' + '[' * 20000 + '0' + ']' * 20000 + '}'
@@ -633,8 +727,17 @@ class SessionTransportContracts(unittest.TestCase):
             with self.subTest(code=code, header=raw[:2]), LoopbackServer(invalid=raw) as server, self.connect(server) as client:
                 with self.assertRaises(HarnessError):
                     client.call("bad_frame", {}, timeout=2)
-                self.assertTrue(server.close_received.wait(1))
+                self.assertTrue(server.close_received.wait(1), f"Fixture errors: {server.errors}; client: {client.diagnostics()}")
                 self.assertEqual(struct.unpack("!H", server.closes[0][:2])[0], code)
+
+    def test_loopback_fixture_stays_open_between_requests_until_explicit_shutdown(self):
+        with LoopbackServer() as server, self.connect(server) as client:
+            # Previously the server itself closed after two idle seconds,
+            # racing a later protocol assertion when the suite was delayed.
+            client.reader.join(timeout=2.1)
+            self.assertTrue(client.reader.is_alive(), f"Fixture errors: {server.errors}")
+            self.assertEqual(client.call("echo", {"after_idle": True}, timeout=1), {"after_idle": True})
+            self.assertEqual(server.errors, [])
 
     def test_peer_close_is_echoed_once_and_disconnect_is_an_uncertain_rpc(self):
         with LoopbackServer() as server, self.connect(server) as client:

@@ -12,5 +12,5 @@ Define cancellation before the explicit commit/handoff boundary and serialize co
 
 A failed launch keeps the old running state where the project contract permits; a lost reply remains uncertain. Preserve rollback/repair evidence and avoid inventing automatic restoration of user state. Test source and native transitions with disposable fixtures. Actual installed upgrade, downgrade, cancellation, restart and publication are separately claimed and authorized boundaries.
 
-Use the [acceptance scenarios](acceptance.md) for a relevant later evaluation;
-their expected results are inputs, not performed evidence.
+Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
+they contain requests and conditions, not performed evidence or expected answers.

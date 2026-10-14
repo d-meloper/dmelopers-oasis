@@ -7,6 +7,48 @@ from oasis_harness.common import HarnessError, git, run, write_json, read_json
 
 
 class BuildContracts(unittest.TestCase):
+    def test_timeout_retains_partial_log_and_failed_receipt(self):
+        from unittest.mock import patch
+        from oasis_harness.common import ProcessTimeout
+        with tempfile.TemporaryDirectory() as tmp:
+            parent = Path(tmp)
+            def snapshot(root, revision, destination):
+                destination.mkdir(parents=True)
+                return {"commit": "a" * 40, "tree": "b" * 40, "files": {}, "modes": {}, "object_format": "sha1", "state": "committed"}
+            adapter = {"schema_version": 1, "purpose": "source", "build": [], "checks": [["fixture-check"]], "artifacts": []}
+            with patch("oasis_harness.build.committed_snapshot", side_effect=snapshot), patch("oasis_harness.build.execution_environment", return_value={}), patch("oasis_harness.build.run", side_effect=ProcessTimeout(1, b"partial compiler output", b"private fixture diagnostic")):
+                with self.assertRaises(HarnessError):
+                    execute(parent, "HEAD", adapter, parent / "timeout", "1")
+            receipt = read_json(parent / "timeout/build.json")
+            self.assertEqual(receipt["phase"], "failed")
+            self.assertTrue(receipt["commands"][0]["timed_out"])
+            self.assertIn("partial compiler output", (parent / "timeout/command-1.log").read_text(encoding="utf-8"))
+            self.assertNotIn("private fixture diagnostic", receipt["error"])
+            with self.assertRaises(HarnessError):
+                verify_evidence(parent / "timeout/build.json")
+
+    def test_receipt_and_adapter_consumed_shapes_fail_before_io(self):
+        from unittest.mock import patch
+        for invalid in (None, [], "text"):
+            with self.subTest(invalid=invalid), patch("oasis_harness.build.read_json", return_value=invalid):
+                with self.assertRaises(HarnessError):
+                    verify_evidence("virtual.json")
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "not-created"
+            with self.assertRaises(HarnessError):
+                execute(tmp, "HEAD", [], destination, "1")
+            self.assertFalse(destination.exists())
+
+    def test_fingerprint_tracks_only_minimal_declared_inputs(self):
+        from unittest.mock import patch
+        from oasis_harness.build import execution_environment
+        with patch("oasis_harness.build.git", return_value="git version fixture"), patch.dict("os.environ", {"OASIS_FIXTURE_INPUT": "private-fixture-value", "UNRELATED_FIXTURE_INPUT": "other"}):
+            first = execution_environment("fixture", ["OASIS_FIXTURE_INPUT"])
+            with patch.dict("os.environ", {"UNRELATED_FIXTURE_INPUT": "changed"}):
+                self.assertEqual(first, execution_environment("fixture", ["OASIS_FIXTURE_INPUT"]))
+        self.assertNotIn("private-fixture-value", str(first))
+        self.assertEqual(set(first["env"]), {"OASIS_FIXTURE_INPUT"})
+
     def test_private_source_cannot_be_renamed_into_public_export(self):
         from oasis_harness.publication import prepare
         from tests.test_publication import GitHubFixture

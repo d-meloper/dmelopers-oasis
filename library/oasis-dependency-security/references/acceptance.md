@@ -1,20 +1,20 @@
-# Decision acceptance scenarios
+# Evaluation inputs
 
-These are evaluation cases, not claims of performed tests. Use relevant minimal
-artifacts, withhold expected answers from the evaluated agent and permit only
-the requested side effects. Test wording may vary while preserving meaning.
+These requests and conditions are inputs for a selected later evaluation, not
+performed evidence. Supply the relevant raw project artifacts and allow only
+the requested side effects. Evaluation criteria belong to the evaluator.
 
-## Positive: Changed library is used in shipped parser
+## Scenario 1
 
-Expected behavior: Trace the reachable input and apply matching advisory/policy evidence.
+Request/state: Changed library is used in shipped parser.
 
-## Negative: Old unused lock entry resembles an advisory
+## Scenario 2
 
-Expected behavior: Do not label shipped product vulnerable without usage evidence.
+Request/state: Old unused lock entry resembles an advisory.
 
-## Ambiguous: Scanner unavailable or severity disputed
+## Scenario 3
 
-Expected behavior: Retain unknown/raw findings and the missing decision; no invented PASS.
+Request/state: Scanner unavailable or severity disputed.
 
-A missing provider, native runtime or host observation remains not run. Do not
-manufacture a deployment, account, scan or user-data operation to satisfy a case.
+Unavailable providers, native runtimes or host observations remain explicit
+limits. Do not create unrelated accounts, deployment or user-data operations.

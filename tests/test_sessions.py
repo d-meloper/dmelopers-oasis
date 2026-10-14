@@ -1,6 +1,7 @@
 """Native protocol fixtures: no real chats, turns or global settings writes."""
 import copy
 import json
+import queue
 from pathlib import Path
 import tempfile
 import unittest
@@ -32,7 +33,13 @@ class NativeFixture:
         self.active_start_same_turn = True
         self.echo_client_id = True
         self.no_settings_on_start = False
+        self.history_paging = True
+        self.item_paging = True
         self.on_turn = None
+        self.on_watch = None
+        self.watch_supported = False
+        self.watch_events = queue.Queue()
+        self.watches = {}
         if not (self.root / ".oasis/project.json").exists():
             write_json(self.root / ".oasis/project.json", {"name": "Fixture", "extensions": {"workflow": {"mode": "oasis"}}, "git": {"profile": "unmanaged"}})
         self.add("caller", name="Owner")
@@ -43,6 +50,12 @@ class NativeFixture:
 
     def __enter__(self): return self
     def __exit__(self, *_): pass
+
+    def wait_events(self, timeout=30):
+        try:
+            return [self.watch_events.get(timeout=timeout)]
+        except queue.Empty:
+            return []
 
     def add(self, identity, *, name=None, parent=None, archived=False, status="idle", saved=None):
         path = self.root / ".oasis/local/native-fixture" / (identity + ".jsonl")
@@ -97,6 +110,47 @@ class NativeFixture:
             row = self.add("created-" + str(self.started))
             if self.no_settings_on_start:
                 Path(row["path"]).write_text(json.dumps({"type": "session_meta", "payload": {"id": row["id"]}}) + "\n", encoding="utf-8")
+        elif method in ("thread/turns/list", "thread/items/list"):
+            if not self.history_paging or method == "thread/items/list" and not self.item_paging:
+                raise sessions.NativeError(method, {"code": -32601, "message": "Method not found"})
+            turns = self.threads[params["threadId"]]["turns"]
+            if method == "thread/turns/list":
+                entries = copy.deepcopy(turns)
+                key = "id"
+            else:
+                turn = next((row for row in turns if row["id"] == params["turnId"]), None)
+                if turn is None:
+                    raise sessions.NativeError(method, {"code": -32602, "message": "Unknown turn anchor"})
+                entries = [{"turnId": turn["id"], "item": copy.deepcopy(item)} for item in turn["items"]]
+                key = "item"
+            identity = lambda entry: entry["id"] if key == "id" else entry["item"]["id"]
+            if params.get("sortDirection", "desc" if key == "id" else "asc") == "desc":
+                entries.reverse()
+            cursor = params.get("cursor")
+            if cursor:
+                anchor = cursor["itemId"] if isinstance(cursor, dict) else cursor.split(":", 1)[1]
+                positions = [i for i, entry in enumerate(entries) if identity(entry) == anchor]
+                if not positions:
+                    raise sessions.NativeError(method, {"code": -32602, "message": "Unknown history anchor"})
+                inclusive = isinstance(cursor, str) and cursor.startswith("anchor:")
+                entries = entries[positions[0] + (0 if inclusive else 1):]
+            data = entries[:params.get("limit", 100)]
+            response = {"data": data, "nextCursor": "next:" + identity(data[-1]) if len(entries) > len(data) else None,
+                        "backwardsCursor": "anchor:" + identity(data[0]) if data else None}
+            if key == "id" and params.get("itemsView") == "notLoaded":
+                for entry in data:
+                    entry["items"] = []
+            return response
+        elif method == "fs/watch":
+            if not self.watch_supported:
+                raise sessions.NativeError(method, {"code": -32601, "message": "Method not found"})
+            self.watches[params["watchId"]] = params["path"]
+            if self.on_watch:
+                self.on_watch(params)
+            return {"path": str(Path(params["path"]).resolve())}
+        elif method == "fs/unwatch":
+            self.watches.pop(params["watchId"], None)
+            return {}
         elif method == "thread/read":
             row = copy.deepcopy(self.threads[params["threadId"]])
             if not params.get("includeTurns"):
@@ -149,6 +203,8 @@ class NativeFixture:
             if not lose or self.persist_lost_send:
                 turn["items"].append(item)
                 if not existing:
+                    turn["items"].append({"id": "agent-" + str(self.sent), "type": "agentMessage",
+                                          "phase": "final_answer", "text": "Fixture final output"})
                     row["turns"].append(turn)
                 if "collaborationMode" in params:
                     self.save(row, params["collaborationMode"])
@@ -189,6 +245,114 @@ class SessionContracts(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.native = NativeFixture(self.root)
         self.path = self.root / ".oasis/local/delivery.json"
+
+    def test_discovery_uses_command_connection_without_thread_mutations(self):
+        import argparse
+        from unittest.mock import MagicMock, patch
+        parser = argparse.ArgumentParser()
+        sessions.register(parser.add_subparsers(dest="command"))
+        args = parser.parse_args(["session", "discovery", "--target", str(self.root)])
+        server = MagicMock()
+        server.__enter__.return_value = server
+        server.pages.return_value = [{"id": "fixture-project", "roots": [{"path": str(self.root)}]}]
+        server.call.return_value = {"data": []}
+        with patch.object(sessions, "command_server", return_value=server) as connection:
+            result = args.func(args)
+        connection.assert_called_once_with("oasis_discovery")
+        self.assertEqual(result["project_id"], "fixture-project")
+        self.assertEqual([call.args[0] for call in server.call.call_args_list], ["skills/list"])
+
+    def test_definite_creation_rejection_can_retry_but_unknown_rejection_stays_uncertain(self):
+        for code in (-32601, -32602, -32001, -32000):
+            row = receipt(self.root)
+            self.native.reject["thread/start"] = {"code": code, "message": "Rejected creation"}
+            with self.assertRaises(sessions.NativeError):
+                sessions.create_metadata(self.path, row, self.native)
+            self.assertEqual(row["phase"], "creation_rejected" if code != -32000 else "creation_started")
+            if code != -32000:
+                self.assertEqual(sessions.resume(self.path, factory=self.native)["phase"], "ready")
+            else:
+                with self.assertRaises(HarnessError):
+                    sessions.create_metadata(self.path, row, self.native)
+
+    def test_consumed_setting_types_fail_without_native_actions(self):
+        for field, invalid in (("active_permission_profile", ["wrong"]), ("sandbox_policy", ["wrong"]),
+                               ("reasoning_effort", []), ("model", True),
+                               ("active_permission_profile", {"id": []}), ("sandbox_policy", {"type": []})):
+            with self.subTest(field=field):
+                with self.assertRaises(HarnessError):
+                    sessions.inherited_settings({**copy.deepcopy(SAVED), field: invalid})
+        self.assertEqual(self.native.calls, [])
+
+    def test_small_anchor_excludes_old_same_text_and_reads_only_new_items(self):
+        text = "Reusable short notice"
+        self.native.threads["caller"]["turns"] = [{"id": f"old-{i}", "items": [
+            {"id": f"old-user-{i}", "type": "userMessage", "content": [{"type": "text", "text": text}]}]}
+            for i in range(1000)]
+        self.native.echo_client_id = False
+        self.native.lose["turn/start"] = 1
+        with self.assertRaises(HarnessError):
+            sessions.send_once(self.path, "caller", text, self.native)
+        saved = read_json(self.path)
+        self.assertEqual(saved["history_anchor"]["turn_id"], "old-999")
+        self.assertNotIn("before_turn_ids", saved)
+        self.assertNotIn("before_user_item_ids", saved)
+        self.assertLess(len(json.dumps(saved)), 1500)
+        recovered = sessions.send_once(self.path, "caller", text, self.native)
+        self.assertEqual(recovered["state"], "accepted")
+        self.assertFalse(recovered["duplicate_observed"])
+        self.assertFalse(any(method == "thread/read" and params.get("includeTurns") for method, params in self.native.calls))
+        self.assertTrue(any(method == "thread/items/list" and isinstance(params.get("cursor"), dict)
+                            for method, params in self.native.calls))
+        self.assertEqual(self.native.sent, 1)
+
+    def test_paging_unavailable_before_send_preserves_legacy_recovery(self):
+        self.native.history_paging = False
+        self.native.lose["turn/start"] = 1
+        with self.assertRaises(HarnessError):
+            sessions.send_once(self.path, "caller", "Result", self.native)
+        self.assertIn("before_turn_ids", read_json(self.path))
+        self.assertEqual(sessions.send_once(self.path, "caller", "Result", self.native)["state"], "accepted")
+        self.assertEqual(self.native.sent, 1)
+
+    def test_item_paging_loss_uses_anchor_turns_and_backend_loss_needs_client_id(self):
+        for echo in (True, False):
+            self.native.add("caller", status="active")
+            self.native.echo_client_id = echo
+            self.native.threads["caller"]["turns"] = [{"id": "active", "items": [
+                {"id": "before", "type": "userMessage", "content": [{"type": "text", "text": "Result"}]}]}]
+            self.native.history_paging = self.native.item_paging = True
+            self.native.lose["turn/start"] = 1
+            path = self.root / f"paging-{echo}.json"
+            with self.assertRaises(HarnessError):
+                sessions.send_once(path, "caller", "Result", self.native)
+            self.native.item_paging = False
+            self.assertEqual(sessions.send_once(path, "caller", "Result", self.native)["state"], "accepted")
+            record = read_json(path)
+            record["state"] = "uncertain"
+            write_json(path, record)
+            self.native.history_paging = False
+            actual = sessions.send_once(path, "caller", "Result", self.native)
+            self.assertEqual(actual["state"], "accepted" if echo else "uncertain")
+
+    def test_bad_history_cursor_does_not_hide_failure_or_replay(self):
+        self.native.lose["turn/start"] = 1
+        with self.assertRaises(HarnessError):
+            sessions.send_once(self.path, "caller", "Result", self.native)
+        self.native.reject["thread/turns/list"] = {"code": -32602, "message": "Invalid anchor"}
+        with self.assertRaises(sessions.NativeError):
+            sessions.send_once(self.path, "caller", "Result", self.native)
+        self.assertEqual(self.native.sent, 1)
+        self.assertEqual(read_json(self.path)["state"], "uncertain")
+
+    def test_delivery_binding_and_modes_cannot_change_on_recovery(self):
+        expected = {"target": str(self.root), "project_id": "other-project"}
+        with self.assertRaisesRegex(HarnessError, "another project"):
+            sessions.send_once(self.path, "caller", "Result", self.native, expected_binding=expected)
+        self.assertEqual(self.native.sent, 0)
+        sessions.send_once(self.path, "caller", "Result", self.native)
+        with self.assertRaisesRegex(HarnessError, "different mode"):
+            sessions.send_once(self.path, "caller", "Result", self.native, planning=True)
 
     def test_creation_preserves_settings_once_without_resume_or_turn(self):
         row = receipt(self.root)
