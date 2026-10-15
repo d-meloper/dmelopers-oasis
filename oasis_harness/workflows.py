@@ -12,8 +12,8 @@ import re
 import time
 import uuid
 
-from . import sessions
-from .common import HarnessError, atomic_write, contained, digest, operation_lock, read_json, write_json
+from . import check_results, sessions
+from .common import HarnessError, atomic_write, contained, digest, file_hash, operation_lock, read_json, write_json
 
 MODES = {"pioneer": ("Pioneer",), "oasis": ("Oasis", "Cameleer")}
 ROLE_PARENT = {"Pioneer": None, "Oasis": None, "Cameleer": None,
@@ -21,7 +21,13 @@ ROLE_PARENT = {"Pioneer": None, "Oasis": None, "Cameleer": None,
 TERMINAL = {"completed", "failed", "cancelled", "archived", "collected"}
 COMPLETION_REMINDER = ("Before reporting completion, review this task's reusable experience once in the relevant existing skill reference: "
                        "consolidate useful new lessons, duplicates and demonstrably stale advice within the permitted edit scope; "
-                       "respect read-only work and make no edit when there is nothing to change.")
+                       "respect read-only work and make no edit when there is nothing to change. "
+                       "For JUnit checks, select check run from the first baseline; assigned Camel can submit its receipt with "
+                       "workflow complete --check-receipt. See the validation manual for check review and scope/environment options. "
+                       "Sufficient manual evidence remains valid. Cite the existing check review summary and receipt references in "
+                       "complete/collect --checks; separate reports or copied case/hash/resource tables are not required. "
+                       "Finish independent original/code review and experience before collect; "
+                       "after a collected receipt, release your writers and give the final result using that receipt.")
 
 
 def _completion_prompt(text):
@@ -632,7 +638,7 @@ def task_status(target, task_id=None, *, include_complete=False, summary=False):
             if not (task_id or include_complete or row.get("phase") not in TERMINAL
                     or pending_collection or notice and notice["state"] != "accepted"):
                 continue
-            entry = {key: copy.deepcopy(row.get(key)) for key in ("id", "camel_thread_id", "cameleer_thread_id", "phase", "location", "result", "checks")}
+            entry = {key: copy.deepcopy(row.get(key)) for key in ("id", "camel_thread_id", "cameleer_thread_id", "phase", "location", "result", "checks", "check_evidence", "collection_receipt")}
             entry["goal"] = row.get("current_goal", row.get("goal"))
             if notice:
                 entry["completion_notice"] = notice
@@ -765,6 +771,38 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
         return copy.deepcopy(row)
 
 
+def _cli_task_result(target, row, *, full=False):
+    """Keep recovery/API state intact; omit repeated instruction bodies on success."""
+    if full or row.get("phase") not in {"assigned", "awaiting_terminal", "completed", "archived", "collected"}:
+        return row
+    if row.get("error") or row.get("collection_timeout") or row.get("collection"):
+        return row
+    completion = row.get("completion", {})
+    if not isinstance(completion, dict):
+        return row
+    deliveries = [row.get("assignment_delivery", {}), completion.get("delivery", {})]
+    if any(not isinstance(value, dict) or value.get("state") not in (None, "accepted", "pending_terminal", "pending_recipient") for value in deliveries):
+        return row
+    result = copy.deepcopy(row)
+    for key in ("prompt", "history", "summary"):
+        result.pop(key, None)
+    for value in (result.get("assignment_delivery", {}), result.get("completion", {}),
+                  (result.get("completion") or {}).get("delivery", {})):
+        value.pop("text", None)
+    result["task_state"] = str(_task_path(Path(target).resolve()))
+    receipt = result.get("collection_receipt")
+    if isinstance(receipt, dict):
+        # Persisted JSON is sorted by key; show completion proof before evidence
+        # that can exceed a caller's output budget. Do not alter receipt content.
+        first = ("status", "native_status", "final_available", "terminal_turn_id", "thread_status", "archive_state",
+                 "task_id", "cycle", "result_key", "assignment_turn_id", "original_assignment_turn_id",
+                 "camel_thread_id", "cameleer_thread_id", "schema_version", "final_message_id")
+        result["collection_receipt"] = {**{key: receipt[key] for key in first if key in receipt},
+                                        **{key: value for key, value in receipt.items() if key not in first}}
+        result = {"collection_receipt": result.pop("collection_receipt"), **result}
+    return result
+
+
 def register(subparsers):
     parser = subparsers.add_parser("workflow", help="Project modes, actual Camel IDs and terminal notices")
     commands = parser.add_subparsers(dest="workflow_command", required=True)
@@ -814,9 +852,10 @@ def register(subparsers):
     p.add_argument("--title")
     p.add_argument("--plan", action="store_true")
     p.add_argument("--request-id")
-    p.set_defaults(func=lambda args: assign(args.target, args.cameleer_id, args.goal,
+    p.add_argument("--full", action="store_true", help="Return the legacy full task row, including instruction bodies/history")
+    p.set_defaults(func=lambda args: _cli_task_result(args.target, assign(args.target, args.cameleer_id, args.goal,
         context=Path(args.context_file).read_text(encoding="utf-8") if args.context_file else None,
-        location=args.location, planning=args.plan, title=args.title, request_id=args.request_id))
+        location=args.location, planning=args.plan, title=args.title, request_id=args.request_id), full=args.full))
     p = commands.add_parser("tasks")
     p.add_argument("--target", required=True)
     p.add_argument("--task-id")
@@ -829,10 +868,12 @@ def register(subparsers):
     p.add_argument("--message-file")
     p.add_argument("--result")
     p.add_argument("--checks")
+    p.add_argument("--check-receipt", action="append", default=[])
     p.add_argument("--outcome", choices=("completed", "failed", "cancelled"), default="completed")
-    p.set_defaults(func=lambda args: complete(args.target, args.task_id,
+    p.add_argument("--full", action="store_true", help="Return the legacy full task row")
+    p.set_defaults(func=lambda args: _cli_task_result(args.target, complete(args.target, args.task_id,
         Path(args.message_file).read_text(encoding="utf-8") if args.message_file else None,
-        result=args.result, checks=args.checks, outcome=args.outcome))
+        result=args.result, checks=args.checks, outcome=args.outcome, check_receipts=args.check_receipt), full=args.full))
     p = commands.add_parser("collect")
     p.add_argument("--target", required=True)
     p.add_argument("--task-id", required=True)
@@ -840,7 +881,8 @@ def register(subparsers):
     p.add_argument("--checks")
     p.add_argument("--merged-reference")
     p.add_argument("--timeout", type=float, default=30, help="Total connection, RPC, wait and cleanup budget in seconds")
-    p.set_defaults(func=lambda args: collect(args.target, args.task_id, result=args.result, checks=args.checks, merged_reference=args.merged_reference, timeout=args.timeout))
+    p.add_argument("--full", action="store_true", help="Return the legacy full task row")
+    p.set_defaults(func=lambda args: _cli_task_result(args.target, collect(args.target, args.task_id, result=args.result, checks=args.checks, merged_reference=args.merged_reference, timeout=args.timeout), full=args.full))
     p = commands.add_parser("task-resume")
     p.add_argument("--target", required=True)
     p.add_argument("--task-id", required=True)
@@ -871,7 +913,7 @@ def register(subparsers):
 
 
 @_arm_notifications
-def complete(target, task_id, message=None, *, result=None, checks=None, outcome="completed", factory=sessions.command_server):
+def complete(target, task_id, message=None, *, result=None, checks=None, outcome="completed", check_receipts=(), factory=sessions.command_server):
     if outcome not in ("completed", "failed", "cancelled"):
         raise HarnessError("Task outcome must be completed, failed or cancelled")
     root, _ = _root(target)
@@ -883,10 +925,17 @@ def complete(target, task_id, message=None, *, result=None, checks=None, outcome
         if row.get("completion") and _notice(root, row)["state"] == "accepted":
             return copy.deepcopy(row)
         if not row.get("completion"):
+            evidence = [check_results.describe(path) for path in check_receipts]
+            if checks is None and evidence:
+                checks = "; ".join(f"{item['receipt']}: original outcomes {item['case_counts']}, exit {item['whole_run_exit_code']}, evidence {item['evidence_status']}"
+                                   for item in evidence)
             text = message or f"Task {outcome}: {row['goal']}. Checks: {checks or 'see Camel result'}. Result: {result or row['camel_thread_id']}. Please review, collect, merge and archive the completed work."
+            if evidence:
+                text += "\nCheck receipts (check review --receipt <path>; manual evidence remains valid):\n" + "\n".join(
+                    f"{item['receipt']} (original exit {item['whole_run_exit_code']}, evidence {item['evidence_status']})" for item in evidence)
             sessions.require_text(text, "Completion message")
-            row.update(phase="awaiting_terminal", result=result, checks=checks, summary=message,
-                       completion={"outcome": outcome, "text": text, "result_key": digest([row["id"], row.get("cycle", 0), outcome, result, checks, text])})
+            row.update(phase="awaiting_terminal", result=result, checks=checks, summary=message, check_evidence=evidence,
+                       completion={"outcome": outcome, "text": text, "result_key": digest([row["id"], row.get("cycle", 0), outcome, result, checks, text, evidence])})
             write_json(_task_path(root), state)
         try:
             with _open(factory, root, "oasis_complete_" + row["id"], channel=_task_channel(row)) as server:
@@ -1078,8 +1127,15 @@ def _collection_boundary(root, state, row, snapshot):
 def _collection_identity(root, row):
     assignment = _delivery_path(root, row, "assign")
     return digest([{key: row.get(key) for key in ("id", "cycle", "camel_thread_id", "cameleer_thread_id", "prompt", "assignment_delivery", "dependency_continuations")},
-                   (row.get("completion") or {}).get("result_key"), _task_project(row),
+                   (row.get("completion") or {}).get("result_key"), row.get("check_evidence"), _task_project(row),
                    read_json(assignment) if assignment.exists() else None])
+
+
+def _submitted_checks(row):
+    for evidence in row.get("check_evidence", []):
+        if file_hash(evidence["receipt"]) != evidence["receipt_sha256"]:
+            raise HarnessError("Submitted check receipt changed; review the current evidence before collection")
+        check_results.describe(evidence["receipt"])
 
 
 def collect(target, task_id, *, result=None, checks=None, merge=None, merged_reference=None,
@@ -1110,6 +1166,7 @@ def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_re
             raise HarnessError("This task has no terminal result to collect")
         if row.get("collected_result_key") == completion["result_key"]:
             return copy.deepcopy(row)
+        _submitted_checks(row)
         if completion["outcome"] != "completed":
             if result is not None:
                 row["result"] = result
@@ -1140,6 +1197,7 @@ def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_re
                 row["result"] = result
             if checks is not None:
                 row["checks"] = checks
+            _submitted_checks(row)
             boundary = _collection_boundary(root, state, row, snapshot)
             if boundary is not None:
                 return boundary
@@ -1171,10 +1229,23 @@ def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_re
             if (native.get("status") or {}).get("type") not in ("idle", "notLoaded"):
                 return _collection_boundary(root, state, row, {**row["native_turn"], "state": "pending",
                     "reason": "Native work became active before archive; preserve this Camel and resume collection after its final output."})
+            _submitted_checks(row)
             lifecycle = _lifecycle_once(_delivery_path(root, row, "archive"), row["camel_thread_id"], server, root,
                                        scoped={row["camel_thread_id"]}, expected_binding=_binding(root, _task_project(row)), native=native)
             if lifecycle["state"] == "accepted":
                 row.update(phase="archived", archived=True, collected_result_key=completion["result_key"])
+                row["collection_receipt"] = {
+                    "schema_version": 1, "status": "collected", "task_id": row["id"], "cycle": row.get("cycle", 0),
+                    "camel_thread_id": row["camel_thread_id"], "cameleer_thread_id": row["cameleer_thread_id"],
+                    "assignment_turn_id": row["native_turn"]["id"],
+                    "original_assignment_turn_id": (row.get("assignment_delivery") or {}).get("turn_id"),
+                    "terminal_turn_id": row["native_turn"]["id"], "native_status": row["native_turn"]["status"],
+                    "final_available": row["native_turn"]["final_available"], "final_message_id": row["native_turn"].get("final_message_id"),
+                    "thread_status": native["status"]["type"], "archive_state": lifecycle["state"],
+                    "result_key": completion["result_key"], "result": row.get("result"), "checks": row.get("checks"),
+                    "check_evidence": copy.deepcopy(row.get("check_evidence", [])),
+                }
+                row["instruction"] = "Collection verified. Release your remaining writer boundary and give the final result using collection_receipt. Resume other requested work if any remains."
             else:
                 row["phase"] = "archive_uncertain"
             write_json(_task_path(root), state)
@@ -1243,11 +1314,11 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
         else:
             if row.get("followup_key") != request_key:
                 row["history"].append({name: copy.deepcopy(row.get(name)) for name in
-                    ("cycle", "phase", "completion", "result", "checks", "current_goal", "followup_key", "followup_input_sha256", "native_turn", "unsubmitted_notice", "dependency_continuations")})
+                    ("cycle", "phase", "completion", "result", "checks", "check_evidence", "collection_receipt", "current_goal", "followup_key", "followup_input_sha256", "native_turn", "unsubmitted_notice", "dependency_continuations")})
                 row["cycle"] = row.get("cycle", 0) + 1
                 row.update(followup_key=request_key, followup_input_sha256=sha, prompt=_completion_prompt(message),
                            current_goal=message.strip().splitlines()[0], planning=planning, execution=implementation, phase="resuming")
-                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn", "unsubmitted_notice", "dependency_continuations"):
+                for name in ("completion", "collected_result_key", "merge_state", "summary", "checks", "result", "native_turn", "unsubmitted_notice", "dependency_continuations", "check_evidence", "collection_receipt", "instruction"):
                     row.pop(name, None)
                 write_json(_task_path(root), state)
             with _open(factory, root, "oasis_resume_" + row["id"], channel=_task_channel(row)) as server:

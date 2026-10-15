@@ -1,12 +1,14 @@
 """Mode and Camel lifecycle fixtures, with real local state and injected RPC."""
 import copy
+import sys
 from pathlib import Path
 import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 
-from oasis_harness import sessions, workflows
+from oasis_harness import check_results, sessions, workflows
 from oasis_harness.common import HarnessError, digest, read_json, write_json
 from tests.test_sessions import NativeFixture
 
@@ -275,6 +277,53 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual(result["result"], "actual-merge-sha")
         self.assertIn("actual-merge-sha", (self.root / ".oasis/state/tasks.md").read_text(encoding="utf-8"))
 
+    def test_compact_cli_keeps_api_state_and_exact_full_compatibility(self):
+        import contextlib
+        import io
+        import json
+        from oasis_harness.cli import main
+        row = self.assign(context="Retained instructions. " * 350)
+        self.assertIn("prompt", row)
+        path = self.root / ".oasis/local/tasks/state.json"
+        original = path.read_bytes()
+        for operation, function, args in (
+            ("assign", "assign", ["--cameleer-id", "caller", "--goal", row["goal"]]),
+            ("complete", "complete", ["--task-id", row["id"]]),
+            ("collect", "collect", ["--task-id", row["id"]]),
+        ):
+            with self.subTest(operation=operation):
+                output = io.StringIO()
+                with patch("oasis_harness.workflows." + function, return_value=row), contextlib.redirect_stdout(output):
+                    self.assertEqual(main(["workflow", operation, "--target", str(self.root), *args]), 0)
+                result = json.loads(output.getvalue())
+                self.assertEqual(result["id"], row["id"])
+                self.assertEqual(result["assignment_delivery"]["turn_id"], row["assignment_delivery"]["turn_id"])
+                self.assertNotIn("prompt", result)
+                self.assertNotIn("text", result["assignment_delivery"])
+                self.assertEqual(result["task_state"], str(path))
+                output = io.StringIO()
+                with patch("oasis_harness.workflows." + function, return_value=row), contextlib.redirect_stdout(output):
+                    self.assertEqual(main(["workflow", operation, "--target", str(self.root), "--full", *args]), 0)
+                self.assertEqual(json.loads(output.getvalue()), row)
+        self.assertEqual(path.read_bytes(), original)
+        self.assertEqual(row["prompt"], row["assignment_delivery"]["text"])
+
+    def test_compact_collected_receipt_is_exact_and_recovery_rows_stay_full(self):
+        row = self.assign(context="Private retained assignment " * 100)
+        self.complete(row)
+        collected = workflows.collect(self.root, row["id"], factory=self.native)
+        compact = workflows._cli_task_result(self.root, collected)
+        self.assertEqual(compact["collection_receipt"], collected["collection_receipt"])
+        self.assertEqual(compact["completion"]["result_key"], collected["completion"]["result_key"])
+        self.assertNotIn("text", compact["completion"])
+        self.assertIn("text", collected["completion"])
+        for changes in ({"phase": "archive_uncertain"}, {"phase": "failed"}, {"phase": "terminal_unverified"},
+                        {"collection_timeout": True}, {"collection": "collection_changed"}, {"error": "Retained diagnostic"},
+                        {"completion": None}, {"assignment_delivery": None}, {"completion": {"delivery": None}},
+                        {"assignment_delivery": {"state": "uncertain", "text": "Retain recovery input", "message_id": "once"}}):
+            value = {**collected, **changes}
+            self.assertEqual(workflows._cli_task_result(self.root, value), value)
+
     def test_same_camel_is_restored_for_followup_and_completed_retry_is_noop(self):
         row = self.assign()
         self.complete(row)
@@ -292,6 +341,90 @@ class WorkflowContracts(unittest.TestCase):
         next_follow = workflows.resume_task(self.root, row["id"], "Fix the whitespace edge", request_id="followup-2", factory=self.native)
         self.assertEqual(next_follow["cycle"], follow["cycle"] + 1)
         self.assertEqual(self.native.started, 1)
+
+    def test_large_receipt_completion_proof_precedes_evidence_in_cli(self):
+        import contextlib
+        import io
+        import json
+        from oasis_harness.cli import main
+        row = self.assign()
+        self.complete(row)
+        collected = workflows.collect(self.root, row["id"], factory=self.native)
+        receipt = collected["collection_receipt"]
+        for value in (collected, receipt):
+            value["check_evidence"] = [
+                {"receipt": "retained-check-" + str(index), "whole_run_exit_code": 1,
+                 "other_nonpassing_cases": {"tests.regression::failure-" + str(case): "failure" for case in range(80)}}
+                for index in range(4)]
+        # Reproduce persisted alphabetical ordering: check_evidence precedes final/status.
+        collected = json.loads(json.dumps(collected, sort_keys=True))
+        original = copy.deepcopy(collected)
+        output = io.StringIO()
+        with patch("oasis_harness.workflows.collect", return_value=collected), contextlib.redirect_stdout(output):
+            self.assertEqual(main(["workflow", "collect", "--target", str(self.root), "--task-id", row["id"]]), 0)
+        rendered = output.getvalue()
+        parsed = json.loads(rendered)
+        self.assertEqual(next(iter(parsed)), "collection_receipt")
+        self.assertEqual(parsed["collection_receipt"], original["collection_receipt"])
+        self.assertEqual(collected, original)
+        for field in ("status", "native_status", "final_available", "terminal_turn_id", "thread_status", "archive_state",
+                      "task_id", "cycle", "result_key", "assignment_turn_id"):
+            self.assertIn('"' + field + '"', rendered[:1200])
+        self.assertLess(rendered.index('"result_key"'), rendered.index('"check_evidence"'))
+        self.assertGreater(len(rendered), 24000)
+        self.assertEqual(workflows._cli_task_result(self.root, collected, full=True), original)
+    def test_standard_receipt_submission_collection_and_duplicate_need_no_runner_or_rpc(self):
+        (self.root / "source.txt").write_text("fixture")
+        (self.root / "runtime.txt").write_text("dependency")
+        evidence = check_results.execute(self.root, [sys.executable, "-B", "-c",
+            "import sys;from pathlib import Path;Path(sys.argv[1]).write_text('<testsuite><testcase classname=\"s\" name=\"pass\"/><testcase classname=\"s\" name=\"fail\"><failure/></testcase></testsuite>');sys.exit(1)", "{report}"],
+            inputs=["source.txt"], runtime=["runtime.txt"])
+        row = self.assign()
+        submitted = self.complete(row, check_receipts=[evidence["receipt"]])
+        self.assertEqual(submitted["check_evidence"][0]["whole_run_exit_code"], 1)
+        with patch("oasis_harness.check_results.run", side_effect=AssertionError("No test rerun")):
+            self.assertEqual(check_results.review(evidence["receipt"])["status"], "reusable")
+            result = workflows.collect(self.root, row["id"], factory=self.native)
+        receipt = result["collection_receipt"]
+        self.assertEqual(receipt["status"], "collected")
+        self.assertEqual(receipt["native_status"], "completed")
+        self.assertEqual(receipt["archive_state"], "accepted")
+        self.assertEqual(receipt["thread_status"], "idle")
+        self.assertTrue(receipt["final_available"])
+        self.assertEqual(receipt["assignment_turn_id"], row["assignment_delivery"]["turn_id"])
+        self.assertEqual(receipt["terminal_turn_id"], receipt["assignment_turn_id"])
+        self.assertEqual(receipt["result_key"], result["collected_result_key"])
+        before = len(self.native.calls)
+        with patch("oasis_harness.check_results.describe", side_effect=AssertionError("Already collected")):
+            duplicate = workflows.collect(self.root, row["id"], factory=self.native)
+        self.assertEqual(duplicate["collection_receipt"], receipt)
+        self.assertEqual(len(self.native.calls), before)
+        follow = workflows.resume_task(self.root, row["id"], "Small follow-up", factory=self.native)
+        self.assertNotIn("collection_receipt", follow)
+        self.assertNotIn("check_evidence", follow)
+        self.assertEqual(follow["history"][-1]["collection_receipt"], receipt)
+
+    def test_receipt_only_submission_supplies_existing_check_summary_without_result_document(self):
+        historical = self.root / ".oasis/local/manual.json"
+        write_json(historical, {"exit_code": 1})
+        row = self.assign()
+        submitted = workflows.complete(self.root, row["id"], check_receipts=[historical], factory=self.native)
+        self.assertIsNone(submitted["result"])
+        self.assertIn("exit 1", submitted["checks"])
+        self.assertIn("evidence unknown", submitted["checks"])
+        self.assertIn(str(historical), submitted["completion"]["text"])
+        self.assertFalse(list((self.root / ".oasis/local").glob("*review*.md")))
+
+    def test_unknown_manual_receipt_remains_unknown_and_tampering_blocks_archive(self):
+        historical = self.root / ".oasis/local/baseline.json"
+        write_json(historical, {"exit_code": 0})
+        row = self.assign()
+        submitted = self.complete(row, check_receipts=[historical])
+        self.assertEqual(submitted["check_evidence"][0]["evidence_status"], "unknown")
+        write_json(historical, {"exit_code": 0, "input_hashes": {}})
+        with self.assertRaisesRegex(HarnessError, "receipt changed"):
+            workflows.collect(self.root, row["id"], factory=self.native)
+        self.assertNotIn("thread/archive", self.native.methods())
 
     def test_lost_creation_recovers_only_the_existing_task(self):
         self.native.lose["thread/start"] = 1
@@ -420,6 +553,7 @@ class WorkflowContracts(unittest.TestCase):
         self.assertEqual(actual["phase"], "awaiting_terminal")
         self.assertNotIn("merge_state", actual)
         self.assertNotIn("collected_result_key", actual)
+        self.assertNotIn("collection_receipt", actual)
         self.assertNotIn("thread/archive", self.native.methods())
         summary = workflows.task_status(self.root, row["id"], summary=True)["tasks"][0]
         self.assertEqual(summary["collection"], "awaiting_terminal")
@@ -441,6 +575,7 @@ class WorkflowContracts(unittest.TestCase):
                 self.assertEqual(actual["phase"], phase)
                 self.assertEqual(actual["completion"]["outcome"], "completed")
                 self.assertNotIn("collected_result_key", actual)
+                self.assertNotIn("collection_receipt", actual)
                 self.assertEqual(merges, [])
                 self.assertFalse(native["archived"])
         self.assertNotIn("thread/archive", self.native.methods())
@@ -581,6 +716,8 @@ class WorkflowContracts(unittest.TestCase):
         self.native.history_paging = False
         actual = workflows.collect(self.root, row["id"], factory=self.native)
         self.assertEqual(actual["phase"], "archived")
+        self.assertEqual(actual["collection_receipt"]["assignment_turn_id"], native["turns"][-1]["id"])
+        self.assertEqual(actual["collection_receipt"]["terminal_turn_id"], native["turns"][-1]["id"])
 
     def test_archive_native_error_preserves_result_for_scoped_retry(self):
         row = self.assign()

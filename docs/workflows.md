@@ -30,6 +30,16 @@ retain short outcomes and links.
 Source operators use `oasis.py`; adopters use installed `tools/oasis.py`.
 Use command help for current IDs and inputs.
 
+Successful CLI `assign`, `complete` and `collect` responses omit instruction
+bodies and history already retained in `task_state`. IDs, phase, delivery identity,
+result/check references and the exact collection receipt remain in the response.
+The collection receipt is displayed first, with native final/idle/archive and
+task/cycle/result proof before large evidence arrays, so bounded output can retain
+the completion decision. This changes display order only, preserving all receipt values.
+Use `--full` for the legacy complete row or `workflow tasks --task-id` to inspect
+retained state. Python APIs still return the full row. Uncertain, failed or
+changed-operation responses retain full recovery diagnostics.
+
 | Command | Work |
 |---|---|
 | `workflow assign` | Create Camel, deliver goal/context and retain its connection |
@@ -53,7 +63,29 @@ the request, diff and performed checks, reusing matching consumed-input evidence
 and rerunning checks affected by integration or a concrete concern. State the
 reason for a repeated check in the existing result; independent review still
 examines relevant original inputs. `collect` retains the result/check summary and merged reference.
+Optional repeatable `complete --check-receipt` binds receipt paths/hashes and
+original outcomes to this task/cycle/result, includes references in its notice
+and exposes them in task status. Use the [standard consumer](validation.md#role-check-evidence)
+before collection; attaching receipts does not declare that every case passed or
+replace independent review. Collection checks retained artifact integrity without
+rerunning tests or reconstructing missing historical inputs. Sufficient manual
+summaries remain valid.
+When receipts are supplied and `--checks` is omitted, completion fills that
+existing summary with original counts/exit/evidence status and receipt references.
+`--result` or a separate report file is optional. The consumer can cite
+`check review --summary` directly in `collect --checks` after independent review;
+it need not transcribe the same cases, hashes or scope into another document.
 Duplicate notices do not repeat integration. Incomplete work stays available.
+Finish independent review and useful experience consolidation before collection.
+On success, `collection_receipt.status=collected` retains task/cycle, assignment
+and terminal turn IDs (including the verified effective assignment for legacy or
+dependency continuation), result key, native completed/final, idle state, accepted
+archive, result and check references. Release remaining writers and use it for
+the final reply when requested work is complete. This receipt is retained with
+the task; no extra closeout artifact or native status query is needed. A duplicate
+collection returns it without native calls or evidence rereads. A new cycle clears
+the active receipt and preserves it in task history. Pending, uncertain, failed,
+interrupted, changed or active work does not receive a success receipt.
 For a successful result, `collect` verifies the assigned turn is still latest,
 has native `completed` status and nonempty `agentMessage.phase=final_answer`
 output, and its chat is `idle` or `notLoaded`, before integration and again

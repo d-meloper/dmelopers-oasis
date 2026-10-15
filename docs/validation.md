@@ -35,7 +35,7 @@ For optional machine-checked reuse, `check run` wraps an explicitly selected
 JUnit-producing command without installing a runner or modifying its settings:
 
 ```powershell
-python -B -X utf8 oasis.py check run --root <project> --input src --input tests --input pyproject.toml --runtime-input <consumed-runtime-and-dependency-directory> -- python -m pytest --junitxml={report}
+python -B -X utf8 oasis.py check run --root <project> --input src --input tests --input pyproject.toml --runtime-input <consumed-runtime-and-dependency-directory> -- python -m pytest '--junitxml={report}'
 python -B -X utf8 oasis.py check reuse --receipt <recorded-receipt.json> --case 'module.Class::test_name'
 ```
 
@@ -57,6 +57,76 @@ receipt or a required publication status and introduces no completion gate.
 Keep this optional boundary proportional to the check: hashing an entire runtime
 directory can cost more than a tiny subset. Prefer citing already sufficient
 case evidence; a broad new fingerprint pass is not a required closing routine.
+
+## Role check evidence
+
+Choose the standard producer from the first JUnit-producing baseline, or cite
+already sufficient manual evidence. No runner installation is needed. For example:
+
+```powershell
+python -B -X utf8 tools/oasis.py check run --root . --input src --input tests --input pyproject.toml --runtime-input <consumed-runtime-and-dependencies> --environment-profile role-neutral -- python -m pytest '--junitxml={report}'
+python -B -X utf8 tools/oasis.py workflow complete --target . --task-id <actual-id> --result <result-reference> --check-receipt <receipt.json>
+python -B -X utf8 tools/oasis.py check review --receipt <receipt.json> --case 'module.Class::test_name'
+```
+
+Source operators use `oasis.py`. Repeat `--check-receipt` for several runs.
+`check review` is the fixed consumer, also for an initial baseline: it checks
+the recorded schema/artifacts and current consumed inputs without executing a
+runner. Without `--case`, it considers the originally passed cases while retaining
+the whole exit and every nonpassing case. Use `--purpose` when the verification
+purpose changes. Missing or unsupported original proof is `unknown/needs_check`,
+never a guessed `input_hashes` field or a fingerprint constructed after the run.
+Schema 2 records an explicit environment profile; complete schema-1 receipts keep
+their original strict behavior. Historical manual receipts may still be cited as
+manual evidence; automatic unknown coverage does not erase sufficient human review.
+
+`check review --summary` returns the decision, selected counts, original exit,
+nonpassing cases, scope, purpose/profile and pinned report/log references without
+copying the passed-case table. Its `summary` can be cited directly in existing
+`complete/collect --checks`; independent original/code review still applies.
+No separate result/review document, copied original/hash inventory or resource
+table is required unless it is a requested deliverable. Use consumer output,
+rather than guessing `status/artifacts/outcome` in the raw producer receipt.
+
+`fingerprint_changes.during_run/current` distinguishes cwd, command, runner,
+host runtime, source/test/config inputs, dependency/runtime inputs and environment.
+New executions also retain key-by-key private environment digests; diagnostics
+show added/removed/changed key names without values or credential text. Older
+receipts keep their original combined environment proof: absent per-key evidence
+is explicitly unknown and is never reconstructed. Align diagnosed settings in
+the invoking shell only when the intended consumed environment is the same;
+meaningful environment/runtime/purpose changes still require checks. No additional
+environment key is excluded to make a reuse verdict pass.
+
+The default `strict` profile retains the cleaned inherited environment, including
+role identity. Explicit `role-neutral` removes only `CODEX_THREAD_ID`,
+`CODEX_SESSION_ID` and `OASIS_APP_SERVER_URL` from the actual runner environment
+and its fingerprint.
+Choose strict when the test consumes those values. All remaining values, including
+PATH and PYTHONPATH, remain hashed; raw environment values are not serialized.
+The runner uses the fingerprinted executable path. Reuse applies the recorded
+profile, without changing the consumer's environment or ignoring consumed inputs.
+
+For an authorized change comparison, the first `check run` may additionally
+declare repeatable `--scope-input`, `--allow-product`, `--allow-experience` and
+`--protect` relative paths. Scope includes directories and initially absent paths
+for planned additions. Allowed/protected paths must be inside that scope; protected
+paths take precedence.
+Scope/allowed/protected declaration format, membership, ownership and link
+boundaries are checked before input/runtime hashing. Invalid Windows backslash
+paths remain rejected; use portable relative paths such as `tests/test_case.py`.
+The error identifies the offending option/path. Valid declarations retain the
+same full inventories, hashes and before/after/current evidence.
+
+`check review --changes` compares the original scope with
+current bytes and reports product/experience changes separately. Protected or
+unassigned changes make the review `needs_review`; `check_status` separately
+retains the testcase reuse decision. Missing original boundaries are unknown.
+This covers declared paths only, so choose a scope containing the full assignment
+and its protected inputs. It does not waive changed check inputs or replace diff
+review. Submit the existing result summary and finish independent review/experience
+before collection; use its retained [success receipt](workflows.md#assign-collect-and-resume)
+to release writers and reply when the requested work is complete.
 
 ## Verification surfaces
 

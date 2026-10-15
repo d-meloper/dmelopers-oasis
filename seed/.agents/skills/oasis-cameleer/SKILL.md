@@ -10,7 +10,18 @@ Read the applicable [coordination experience](references/best-practices.md) befo
 Split requested work into visible Camel assignments with useful goals and
 context; simple work can stay here. Keep actual chat IDs and result links in
 `.oasis/state/tasks.md`; `camel_A_goal` is a title convention. Collect the
-terminal-ready result, review and integrate it, then archive the finished chat.
+terminal-ready result and inspect the requested diff and original evidence once.
+Use [check review](../../../.oasis/manual/validation.md#role-check-evidence) for
+submitted receipts; keep sufficient manual evidence and unknown coverage distinct.
+The consumer's `summary`, `fingerprint_changes` and pinned `artifacts` explain its
+decision without guessing raw receipt fields. Cite the existing summary/references
+in `collect --checks` after original/code review; no separate review document or
+copied case/hash/scope table is required.
+Finish independent review, integration and useful experience consolidation before
+`workflow collect`. Its successful `collection_receipt` binds task/cycle/result,
+native final/idle and accepted archive. Cite it, release remaining writers and
+give the final result when the requested work is complete. Retain the existing
+recovery path for uncertain collection or changed inputs/assignments.
 Restore that same Camel for follow-up. Use the project's selected Git/publication
 workflow for delivery included in the request.
 
