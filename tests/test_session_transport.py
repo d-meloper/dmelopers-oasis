@@ -1,5 +1,6 @@
 """Real loopback RFC 6455 exchanges, without native chats or model calls."""
 import base64
+from contextlib import contextmanager
 import hashlib
 import io
 import json
@@ -8,11 +9,15 @@ import queue
 import select
 import socket
 import struct
+import subprocess
+import sys
+import tempfile
 import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
 from types import SimpleNamespace
+from pathlib import Path
 
 from oasis_harness import sessions
 from oasis_harness.common import HarnessError
@@ -218,6 +223,67 @@ class InjectedTransport:
 
 
 class SessionTransportContracts(unittest.TestCase):
+    @contextmanager
+    def proxy_client(self, server):
+        # A real child forwards bytes only, like `codex app-server proxy`.
+        # The independent server rejects unmasked frames and checks the upgrade.
+        bridge = '''import socket, sys, threading
+peer = socket.create_connection(("127.0.0.1", int(sys.argv[1])))
+def upload():
+    try:
+        while block := sys.stdin.buffer.read1(65536):
+            peer.sendall(block)
+        peer.shutdown(socket.SHUT_WR)
+    except OSError:
+        pass
+threading.Thread(target=upload, daemon=True).start()
+try:
+    while block := peer.recv(65536):
+        sys.stdout.buffer.write(block)
+        sys.stdout.buffer.flush()
+finally:
+    peer.close()
+'''
+        original = subprocess.Popen
+        with tempfile.TemporaryDirectory(prefix="oasis-proxy-") as directory:
+            script = Path(directory) / "bridge.py"
+            script.write_text(bridge, encoding="utf-8")
+            def launch(command, **kwargs):
+                self.assertEqual(command, ["fixture-codex", "app-server", "proxy", "--sock", "fixture-socket"])
+                return original([sys.executable, "-B", "-X", "utf8", str(script), str(server.listener.getsockname()[1])], **kwargs)
+            environment = {key: value for key, value in os.environ.items() if key not in {"OASIS_APP_SERVER_URL", "OASIS_APP_SERVER_SOCKET"}}
+            environment["OASIS_APP_SERVER_SOCKET"] = "fixture-socket"
+            with patch.dict(os.environ, environment, clear=True), \
+                    patch("oasis_harness.sessions.shutil.which", return_value="fixture-codex"), \
+                    patch("oasis_harness.sessions.subprocess.Popen", side_effect=launch):
+                with sessions.deadline_scope(timeout=5), sessions.AppServer("proxy_fixture") as client:
+                    yield client
+
+    def test_default_proxy_upgrades_before_first_rpc_and_frames_utf8(self):
+        with LoopbackServer(fragmented=True, coalesced=True) as server, self.proxy_client(server) as client:
+            self.assertEqual(client.backend, "proxy")
+            self.assertEqual(client.call("echo", {"text": "한글" * 12000}), {"text": "한글" * 12000})
+            self.assertEqual(client.drain_events()[0]["method"], "fixture/ready")
+            process = client.process
+            self.assertTrue(server.requests[0].startswith(b"GET / HTTP/1.1\r\n"))
+            self.assertEqual([row["method"] for row in server.messages[:2]], ["initialize", "initialized"])
+            self.assertEqual(client.diagnostics()["rpc_by_method"], {"initialize": 1, "echo": 1})
+        self.assertIsNotNone(process.poll())
+        self.assertEqual(server.errors, [])
+
+    def test_proxy_invalid_upgrade_sends_no_rpc_and_preserves_protocol_error(self):
+        with LoopbackServer(handshake="bad_accept") as server:
+            with self.assertRaisesRegex(HarnessError, "acceptance or negotiation"):
+                with self.proxy_client(server):
+                    self.fail("Invalid handshake was accepted")
+            self.assertEqual(server.messages, [])
+
+    def test_proxy_response_loss_never_replays_the_request(self):
+        with LoopbackServer() as server, self.proxy_client(server) as client:
+            with self.assertRaisesRegex(HarnessError, "outcome uncertain"):
+                client.call("disconnect", {}, timeout=1)
+            self.assertEqual(sum(row.get("method") == "disconnect" for row in server.messages), 1)
+
     def injected_client(self, transport):
         scope = patch.dict(os.environ, {}, clear=True)
         select = patch("oasis_harness.sessions.shutil.which", return_value="fixture-codex")
@@ -278,11 +344,11 @@ class SessionTransportContracts(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 socket_wire._frame(1, b"payload", timeout=1)
         socket_wire.socket.sendall.assert_not_called()
-        proxy = object.__new__(sessions._ProxyTransport)
+        proxy = object.__new__(sessions._ProxyStream)
         proxy.process = Mock()
         with patch("oasis_harness.sessions.time.monotonic", side_effect=[0, 2]):
             with self.assertRaises(TimeoutError):
-                proxy.send("payload", timeout=1)
+                proxy.write(b"payload", timeout=1)
         proxy.process.stdin.write.assert_not_called()
         client = object.__new__(sessions.AppServer)
         client.transport = Mock()
@@ -461,22 +527,19 @@ class SessionTransportContracts(unittest.TestCase):
             client.call("denied", {}, timeout=1)
         self.assertNotIn("PRIVATE_FIXTURE_DETAIL", str(error.exception))
 
-    def test_stdio_framing_accepts_large_utf8_and_rejects_oversized_or_invalid_utf8(self):
-        value = {"method": "fixture/large", "params": {"text": "한글" * 12000}}
-        tail = {"method": "fixture/final", "params": {}}
-        proxy = object.__new__(sessions._ProxyTransport)
+    def test_proxy_stream_preserves_binary_bytes_and_partial_reads(self):
+        proxy = object.__new__(sessions._ProxyStream)
         proxy.buffer = bytearray()
-        proxy.process = SimpleNamespace(stdout=io.BytesIO(json.dumps(value, ensure_ascii=False).encode("utf-8") + b"\n" + json.dumps(tail).encode() + b"\n"))
-        self.assertEqual(sessions.AppServer._decode(proxy.receive()), value)
-        self.assertEqual(sessions.AppServer._decode(proxy.receive()), tail)
-        self.assertIsNone(proxy.receive())
-        self.assertEqual(proxy.MAX_MESSAGE, 64 * 1024 * 1024)
-        for raw, message in ((b"x" * 1025 + b"\n", "supported size"), (b"\xff\n", "UTF-8")):
-            proxy.buffer = bytearray()
-            proxy.MAX_MESSAGE = 1024
-            proxy.process.stdout = io.BytesIO(raw)
-            with self.assertRaisesRegex(HarnessError, message):
-                proxy.receive()
+        proxy.closed, proxy.eof, proxy.timeout = False, False, 0.01
+        proxy.chunks = queue.Queue(maxsize=16)
+        with self.assertRaises(TimeoutError):
+            proxy.recv(1)
+        proxy.chunks.put(b"\x81\xff\n\x00")
+        proxy.chunks.put(b"")
+        self.assertEqual(proxy.recv(1), b"\x81")
+        self.assertEqual(proxy.recv(64), b"\xff\n\x00")
+        self.assertEqual(proxy.recv(1), b"")
+        self.assertEqual(proxy.recv(1), b"")
 
     def test_stdio_blocked_write_or_flush_closes_only_own_proxy_with_a_deadline(self):
         for block_flush in (False, True):
@@ -500,14 +563,16 @@ class SessionTransportContracts(unittest.TestCase):
                 process.poll.return_value = None
                 process.wait.return_value = 0
                 process.terminate.side_effect = release.set
-                proxy = object.__new__(sessions._ProxyTransport)
+                proxy = object.__new__(sessions._ProxyStream)
                 proxy.process, proxy.closed = process, False
                 proxy.write_lock, proxy.close_lock = threading.Lock(), threading.Lock()
                 proxy.stderr_reader = Mock()
+                proxy.stdout_reader = Mock()
+                proxy.chunks = queue.Queue(maxsize=16)
                 errors = []
                 def send():
                     try:
-                        proxy.send('{"id":1,"method":"fixture"}', timeout=0.03)
+                        proxy.write(b'{"id":1,"method":"fixture"}', timeout=0.03)
                     except Exception as exc:
                         errors.append(exc)
                     finally:
@@ -525,7 +590,7 @@ class SessionTransportContracts(unittest.TestCase):
                 process.terminate.assert_called_once_with()
 
     def test_private_stderr_ring_is_drained_and_bounded(self):
-        proxy = object.__new__(sessions._ProxyTransport)
+        proxy = object.__new__(sessions._ProxyStream)
         marker = b"PRIVATE_FIXTURE_DETAIL"
         proxy.process = SimpleNamespace(stderr=io.BytesIO(b"x" * (64 * 1024) + marker))
         proxy.stderr_buffer, proxy.stderr_bytes = bytearray(), 0
@@ -751,7 +816,7 @@ class SessionTransportContracts(unittest.TestCase):
                 client.call("disconnect", {}, timeout=2)
             self.assertEqual(len([row for row in server.messages if row.get("method") == "disconnect"]), 1)
 
-    def test_default_proxy_is_preserved_and_reports_the_existing_socket_prerequisite(self):
+    def test_default_proxy_preserves_socket_selection_and_reports_the_prerequisite(self):
         process = Mock()
         process.stdin, process.stdout, process.stderr = io.BytesIO(), io.BytesIO(), io.BytesIO()
         process.wait.return_value = 1

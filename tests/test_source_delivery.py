@@ -17,6 +17,23 @@ spec.loader.exec_module(delivery)
 
 
 class SourceDeliveryContracts(unittest.TestCase):
+    def test_default_delivery_runs_stay_private_unique_and_preserve_existing_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "producer"; root.mkdir(); git(root, "init")
+            (root / ".gitignore").write_text("/.oasis/local/\n", encoding="utf-8")
+            with patch.object(delivery, "ROOT", root):
+                first, second = delivery.delivery_destination(), delivery.delivery_destination()
+                self.assertNotEqual(first, second)
+                self.assertEqual(first.parent, root / ".oasis/local/deliveries")
+                self.assertFalse(first.exists() or second.exists())
+                first.mkdir(parents=True)
+                (first / "evidence.txt").write_text("retained", encoding="utf-8")
+                with self.assertRaisesRegex(HarnessError, "retain existing"):
+                    delivery.delivery_destination(first)
+                with self.assertRaises(HarnessError):
+                    delivery.delivery_destination(root / "staging")
+                self.assertEqual((first / "evidence.txt").read_text(encoding="utf-8"), "retained")
+
     def test_remote_status_reads_checks_and_stops_on_moved_base_without_mutation(self):
         from oasis_harness.publication import Publisher
         with tempfile.TemporaryDirectory() as tmp:

@@ -11,6 +11,7 @@ import importlib.util
 import json
 from pathlib import Path
 import sys
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -345,6 +346,14 @@ def source_head():
     return head
 
 
+def delivery_destination(destination=None):
+    destination = destination if destination is not None else ROOT / ".oasis/local/deliveries" / uuid.uuid4().hex
+    destination = build.evidence_destination(ROOT, destination)
+    if destination.exists():
+        raise HarnessError("Use a new delivery evidence directory; retain existing runs")
+    return destination
+
+
 def prepare(destination, title, notes, provider=None, *, full=False, remove_public_files=(), reuse_build_receipt=None):
     provider = provider or GitHub()
     config = source_config()
@@ -356,11 +365,9 @@ def prepare(destination, title, notes, provider=None, *, full=False, remove_publ
         raise HarnessError("Private snapshot must match the actual source before public preparation")
     if provider.authenticated_user()["id"] != config["account_id"]:
         raise HarnessError("Source delivery account changed")
-    destination = Path(destination).resolve()
-    if destination.exists() or destination.is_relative_to(ROOT) or ROOT.is_relative_to(destination):
-        raise HarnessError("Use a new external delivery evidence directory")
+    destination = delivery_destination(destination)
     # A command uses argument arrays and executes only the already reviewed
-    # committed source. Raw source and logs stay in external private evidence.
+    # committed source. Raw source and logs stay in private retained evidence.
     base, changed = changes_from_public(provider, config, head)
     literal_only = public_version_literal_only(provider, config, base, head, changed)
     proof = verification_plan(head, changed, full=full, reuse_build_receipt=reuse_build_receipt,
@@ -566,7 +573,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
     child = commands.add_parser("prepare")
-    child.add_argument("--destination", type=Path, required=True)
+    child.add_argument("--destination", type=Path, help="New evidence directory; defaults to .oasis/local/deliveries/<unique-run>")
     child.add_argument("--title", required=True)
     child.add_argument("--notes", type=Path, required=True)
     child.add_argument("--full", action="store_true", help="Explicit full-suite run instead of impact selection")

@@ -29,9 +29,11 @@ removals are named. There is no automatic whole-project export.
 ## Build adapter
 
 `build --root <producer> --revision <full-commit> --adapter <json> --destination
-<new-external-folder> --version <version>` materializes regular files from one
+<producer>/.oasis/local/builds/<new-run> --version <version>` materializes regular files from one
 Git commit. It rejects links, submodules and Windows path collisions. Working
-changes remain untouched. The adapter JSON contains exactly:
+changes remain untouched. Internal evidence must be ignored and untracked;
+explicit external destinations remain supported. Retain receipts, logs and exact
+source/output bytes together. The adapter JSON contains exactly:
 
 ```json
 {"schema_version":1,"build":[["python","build.py","--output","{output}"]],"checks":[["python","check.py","{output}"]],"artifacts":["application.zip"]}
@@ -70,7 +72,9 @@ any retry. Setup and release approvals are distinct.
 ## Candidate
 
 `publish prepare --config <json> --build-receipt <build.json> --notes <utf8-file>
---destination <new-external-folder>` only reads GitHub and writes local evidence.
+--destination <producer>/.oasis/local/deliveries/<new-run>/candidate` only reads
+GitHub and writes local evidence. Candidate paths follow the same private
+workspace boundary as builds.
 Configuration includes `schema_version:1`, exact `repository`, `repository_id`,
 `base_branch`, `channel` (`stable` or `preview`), `mode` (`source-and-artifacts`
 or `artifacts-only`), `version`, `tag`, `title`, boolean `make_latest`, an `exports`

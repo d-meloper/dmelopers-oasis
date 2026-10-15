@@ -10,11 +10,11 @@
     },
     "oasis_harness/publication.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "31a4c18d0d48f32609bc880e79e22a6f222fc3308d8d978a018d9cbe9b2158db"
+      "sha256": "5a0b34ab70588dab194966362f00d0a35de843376012fccc35d5e31e8bd24961"
     },
     "oasis_harness/sessions.py": {
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "0223e2ec1c4b328d0448e1e6a5dfbbd2d218de202c062ec678966713d36dceb6"
+      "sha256": "42933f742190bfd981561ca8d46375e90aad741a6fa9e6840b7ddb162f24de74"
     },
     "oasis_harness/workflows.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",

@@ -37,8 +37,9 @@ another candidate approval; unresolved material decisions need the owner.
 2. Run `backup run`, then `backup status`. Verify the actual account, immutable
    private repository ID/visibility and committed-main match. The selected
    `isolated-unmanaged` policy uses the existing external bare relay.
-3. Run `tools/source_delivery.py prepare` with a new external destination, title
-   and notes. It compares actual public main, scans the whole retained source
+3. Run `tools/source_delivery.py prepare` with title and notes. Omit
+   `--destination` to retain a unique run under `.oasis/local/deliveries/`.
+   It compares actual public main, scans the whole retained source
    and selects relevant tests. Supply `--reuse-build-receipt <verified build.json>`
    when that retained run already verified the implementation. The adapter checks
    its source, commands and logs, reuses unchanged test inputs and runs checks for
@@ -90,7 +91,7 @@ staged files except the index and package literal. Keep earlier identities;
 advisory notes do not replace actual byte review.
 
 `tools/bump_commit_version.py --delta-draft` previews an unfinished release row
-from the staged scope. `--output <new external file>` retains that draft without
+from the staged scope. `--output .oasis/local/<run>/delta-draft.json` retains that draft without
 changing the index or filling in review judgments. Inspect and finish it before
 staging the version index.
 
@@ -117,3 +118,31 @@ The next ordinary commit increments the new HEAD patch.
 Keep operational evidence in ignored `.oasis/local/`; put reusable experience in
 the nearest reference. [Validation](validation.md) distinguishes fixtures,
 native discovery, model behavior and external effects.
+
+## Local workspaces and cleanup
+
+Keep Oasis test, review and delivery work inside this project, under ignored
+`.oasis/local/`; do not create sibling staging folders on the Desktop.
+Tests set their temporary root to `.oasis/local/tmp/`. Each `TemporaryDirectory`
+owns a unique fixture and removes it on normal or exceptional context exit.
+Retained snapshots inside that operational tree share the owning Git checkout's
+scratch root; nesting another scratch tree inside a snapshot can exceed native
+Windows path limits. Each process still reserves distinct fixture directories.
+Do not remove this shared root while checks or native fixture processes are active.
+After an interrupted process, inspect its exact orphan before removing it; age or
+a matching folder prefix alone does not prove that another writer has finished.
+
+Retain build receipts, exact source snapshots, command logs, outputs, coverage,
+review notes and candidate/state files together in `.oasis/local/deliveries/<run>/`.
+They remain needed for check reuse, recovery and anonymous readback, including
+failed or uncertain operations. These are evidence, not disposable fixtures;
+never run broad cleanup over `.oasis/local/` or delete a retained snapshot while
+another receipt references it. Archive a retired run only after its users are
+finished, with a per-file hash manifest and verified archive readback; preserve
+original path/reference mappings. Existing historical archives remain untouched.
+
+Explicit external build/delivery destinations remain compatible, but ordinary
+source work uses the internal paths above. Internal build and publication paths
+must be ignored, untracked descendants of `.oasis/local/`, with no links/reparse
+points. The source checkout and its ancestors cannot be output destinations.
+The external bare backup relay keeps its separate recovery ownership.

@@ -66,6 +66,13 @@ project owner has been established.
 
 Verify the installed payload and native catalog:
 
+Use the existing App Server control socket on this first request. The default
+client negotiates its WebSocket protocol through the CLI proxy; a timeout does
+not establish that the socket is absent. Preserve the connection error and
+inspect the existing endpoint before deferring initialization. See
+[transport prerequisites](sessions.md#transport-and-rpc). Do not start a host
+service or change global settings as an automatic fallback.
+
 ```powershell
 python -B -X utf8 tools/oasis.py install verify --target .
 python -B -X utf8 tools/oasis.py skills validate --project .

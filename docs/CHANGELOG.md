@@ -6,6 +6,59 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 2.0.4
+
+Retained snapshots inside an owning Git checkout share that checkout's
+`.oasis/local/tmp/` instead of nesting another scratch tree inside the snapshot.
+An independent Git checkout keeps its own root. The nested layout reproduced
+Windows error 206 when Git fixture engines exceeded native path limits; the
+short owning-project path preserves internal storage and per-fixture cleanup.
+Retain the original failed run and its diagnostics. This changes only source
+tests and guidance; installed runtime and existing project settings are unchanged.
+
+## 2.0.3
+
+The installed validation manual links retained build evidence to the distributed
+publication manual. Source-only development guidance remains excluded from adopters.
+
+## 2.0.2
+
+Source delivery now defaults to a unique retained run under
+`.oasis/local/deliveries/`. Build snapshots, publication candidates and version
+drafts accept ignored, untracked internal operational paths while refusing
+source/ancestor outputs and linked/reparse paths. Explicit external destinations
+remain compatible. Tests create their disposable fixtures in `.oasis/local/tmp/`
+and remove each owned fixture on context exit.
+
+Keep receipts, exact source/output bytes, logs, coverage and candidate journals
+together, including failed or uncertain runs. The development guide distinguishes
+these retained records from scratch data and records safe retirement/archive
+handling. No historical evidence is rewritten or removed, no user settings or
+external backup relay are moved, and no blanket evidence cleanup is introduced.
+Use the ordinary inspected upgrade for the shared build/publication helper;
+source tooling and test-root selection are development-only. Core remains 2.0.0.
+
+## 2.0.1
+
+The default control-socket client now performs HTTP Upgrade and masked WebSocket
+framing through the CLI's byte-forwarding proxy. Sending JSONL directly could
+time out despite a running compatible daemon, leaving first-install native
+initialization pending. Socket selection and explicit loopback URLs retain their
+existing meanings. No server startup, global setting change or RPC replay is added.
+
+Both paths share the existing WebSocket validation, message limits and deadlines.
+Proxy stdout is bounded with backpressure; private stderr and owned-process
+cleanup remain bounded. Independent protocol fixtures exercise real subprocess
+pipes. A Windows read-only check reached the existing daemon without endpoint
+environment variables and discovered all 24 skills in a disposable installation.
+That check created no chats or model turns; unregistered-project role creation
+and behavior on other installed host versions remain unverified.
+
+Apply the ordinary inspected upgrade and resume any retained initialization
+operation. Do not reinstall files or create duplicate roles after an uncertain
+native outcome. A missing/incompatible host endpoint still requires its actual
+prerequisite; this correction does not install or start that service.
+
 ## 2.0.0
 
 The owner selected package 2.0.0 for the accumulated evidence and workflow

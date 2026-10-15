@@ -15,5 +15,11 @@ On partial build preserve logs and actual outputs, identify the failed stage and
 For reused test coverage, consult the owning
 [coverage experience](../../oasis-github-publication/references/best-practices.md#reusing-check-coverage).
 
+Keep automatically removed test fixtures separate from retained receipts, consumed
+source/output bytes and logs. When the producer supports ignored in-project
+workspaces, validate their ownership, ignore state and link boundaries. Moving
+path-bound evidence can invalidate reuse or recovery; preserve original reference
+mappings and verify archived file hashes before retiring the original run.
+
 Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
 they contain requests and conditions, not performed evidence or expected answers.

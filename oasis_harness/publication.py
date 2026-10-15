@@ -9,7 +9,7 @@ from pathlib import Path
 import re
 from urllib.parse import quote
 
-from .build import verify_evidence
+from .build import evidence_destination, verify_evidence
 from .common import HarnessError, atomic_write, contained, digest, file_hash, operation_lock, read_json, safe_relative, write_json
 from .github import GitHub, repository_slug
 
@@ -178,10 +178,7 @@ def prepare(config_path, build_receipt, notes_path, destination, provider=None, 
         raise HarnessError("Release publication requires actual verified artifacts")
     if build["version"] != config["version"]:
         raise HarnessError("Build and publication versions differ")
-    dest = Path(destination).resolve()
-    source_root = Path(build["source_root"]).resolve()
-    if dest.is_relative_to(source_root) or source_root.is_relative_to(dest):
-        raise HarnessError("Publication candidate must live outside producer checkout")
+    dest = evidence_destination(build["source_root"], destination)
     repo = target_check(provider, config)
     slug = config["repository"]
     base = branch_head(provider, slug, config["base_branch"])

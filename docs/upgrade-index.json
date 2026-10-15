@@ -2219,6 +2219,174 @@
         "Publish the owner-selected major package version with reusable check evidence and compact, terminal-verified workflows; Core remains 2.0.0."
       ],
       "version": "2.0.0"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use an ordinary inspected upgrade. Connect to the existing control socket on the first bootstrap request and resume retained initialization rather than duplicating roles. Keep actual missing-host prerequisites explicit.",
+          "change": "Negotiate HTTP Upgrade and masked WebSocket frames through the byte-forwarding CLI proxy; share existing protocol validation and bound raw stdout with backpressure.",
+          "checks": [
+            "Real subprocess fixtures verify first-RPC framing, fragmented Unicode, invalid upgrades, response loss without replay, deadlines and owned-process cleanup.",
+            "Windows read-only native checks connect without endpoint overrides and discover 24 enabled bundled skills in a disposable installation.",
+            "No host startup, global settings change, chat creation or model turn is introduced; live role initialization on an unregistered fixture remains unverified."
+          ],
+          "name": "Existing control-socket transport and first bootstrap",
+          "paths": [
+            "oasis_harness/sessions.py",
+            "docs/sessions.md",
+            "docs/installation.md",
+            "library/oasis-runtime-lifecycle/references/best-practices.md"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/installation.md",
+        "docs/sessions.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/sessions.py",
+        "tests/test_deadlines.py",
+        "tests/test_session_transport.py"
+      ],
+      "previous": "2.0.0",
+      "source_only": [
+        "Relevant protocol and native read-only evidence precede scoped hook commit, verified private backup and exact reviewed public source delivery. No tags, assets, adopter rollout or host service activation."
+      ],
+      "summary": [
+        "Correct the proven control-socket protocol mismatch that could leave first-install initialization pending; Core remains 2.0.0."
+      ],
+      "version": "2.0.1"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use an ordinary inspected upgrade and a unique private run directory. Preserve existing receipts, source/output bytes and candidate journals; no evidence migration or blanket cleanup is required.",
+          "change": "Allow ignored, untracked .oasis/local descendants for exact build evidence and public candidates; reject source/ancestor outputs and linked/reparse paths while retaining explicit external compatibility.",
+          "checks": [
+            "Internal source snapshot and candidate fixtures retain exact exports and verified readback.",
+            "Nonignored, tracked, overlapping and linked paths are rejected; existing and failed runs remain intact."
+          ],
+          "name": "Private build and publication workspaces",
+          "paths": [
+            "oasis_harness/build.py",
+            "oasis_harness/publication.py",
+            "docs/publication.md"
+          ]
+        }
+      ],
+      "files": [
+        "AGENTS.md",
+        "docs/CHANGELOG.md",
+        "docs/development.md",
+        "docs/publication.md",
+        "docs/validation.md",
+        "library/oasis-build-package/references/best-practices.md",
+        "oasis_harness/build.py",
+        "oasis_harness/publication.py",
+        "tests/__init__.py",
+        "tests/test_build.py",
+        "tests/test_commit_version.py",
+        "tests/test_source_delivery.py",
+        "tools/bump_commit_version.py",
+        "tools/public-source-policy.json",
+        "tools/source_checks.py",
+        "tools/source_delivery.py"
+      ],
+      "previous": "2.0.1",
+      "source_only": [
+        "Source delivery defaults to a unique .oasis/local/deliveries run; unittest fixtures use .oasis/local/tmp with per-fixture automatic cleanup. Version drafts accept the same ignored private boundary.",
+        "The reviewed privacy pin for the preceding committed native-transport change is refreshed after diff inspection; no session code is included in this commit. Final committed-source full suite, privacy scan, verified private backup and exact reviewed PR/squash with required checks and anonymous readback remain required. No tags, release assets or adopter rollout."
+      ],
+      "summary": [
+        "Keep test fixtures and retained source-delivery work inside ignored project workspaces; Core remains 2.0.0."
+      ],
+      "version": "2.0.2"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Use the ordinary inspected documentation upgrade; existing evidence and temporary folders need no migration.",
+          "change": "Link retained evidence guidance to the distributed publication manual instead of source-only development instructions.",
+          "checks": [
+            "The target publication manual and build-adapter heading are present in both source and adopter payload."
+          ],
+          "name": "Installed validation reference",
+          "paths": [
+            "docs/validation.md"
+          ]
+        }
+      ],
+      "files": [
+        "docs/validation.md"
+      ],
+      "previous": "2.0.2",
+      "source_only": [
+        "Reuse unchanged full functional checks from the retained 2.0.2 snapshot; refresh distribution/privacy checks for the documentation and version change."
+      ],
+      "summary": [
+        "Keep the workspace evidence link usable in installed validation manuals."
+      ],
+      "version": "2.0.3"
+    },
+    {
+      "areas": [],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/development.md",
+        "docs/validation.md",
+        "tests/__init__.py",
+        "tests/test_build.py"
+      ],
+      "previous": "2.0.3",
+      "source_only": [
+        "Retained snapshots share the owning Git checkout scratch root; independent Git checkouts keep their own. The original nested-path Windows error 206 diagnostics and failed full run remain retained. Refresh the full source suite because its test initializer changed; then perform verified private backup and exact reviewed source-only PR/squash delivery. No runtime, user setting, tag, asset or adopter rollout change."
+      ],
+      "summary": [
+        "Keep retained-snapshot test paths short inside the owning project on Windows."
+      ],
+      "version": "2.0.4"
+    },
+    {
+      "areas": [],
+      "files": [
+        "tests/test_build.py"
+      ],
+      "previous": "2.0.4",
+      "source_only": [
+        "Use a read-only synthetic path outside the owning operational tree for the unowned-checkout assertion; create no external fixture directory. The short-root ownership and actual Git-engine regression checks pass. Retain superseded failed/interrupted runs and run the final full committed-source adapter before exact source-only delivery. No installed behavior or user settings change."
+      ],
+      "summary": [
+        "Correct the source regression fixture for an unowned external checkout."
+      ],
+      "version": "2.0.5"
+    },
+    {
+      "areas": [],
+      "files": [
+        "library/oasis-runtime-lifecycle/references/best-practices.md"
+      ],
+      "previous": "2.0.5",
+      "source_only": [
+        "Record PID reuse, parent/child creation-time ordering and operation-specific ownership in the existing lifecycle experience. This is guidance only: no process-killing code or runtime behavior is added. Reuse unchanged verified functional inputs and refresh distribution, resource and privacy checks for the final exact source candidate."
+      ],
+      "summary": [
+        "Retain the Windows process-ownership lesson from interrupted source verification."
+      ],
+      "version": "2.0.6"
+    },
+    {
+      "areas": [],
+      "files": [
+        "tests/test_backup.py"
+      ],
+      "previous": "2.0.6",
+      "source_only": [
+        "Shorten only the disposable restore destination name; preserve the full checkpoint ref, immutable private tree identity, remote-only restoration and all existing assertions. The focused restoration case passes. Retain the preceding complete 446-case run with its single native-path error; run the final full committed-source adapter before exact source-only delivery. No runtime or user setting changes."
+      ],
+      "summary": [
+        "Keep the long checkpoint-ref restore fixture within native Windows path limits."
+      ],
+      "version": "2.0.7"
     }
   ],
   "schema_version": 1

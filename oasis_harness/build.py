@@ -10,13 +10,30 @@ import sys
 import uuid
 
 from .common import (HarnessError, ProcessTimeout, clean_environment, contained, digest, file_hash,
-                     git, git_objects, json_object, read_json, run, write_json, write_new_json)
+                     git, git_objects, is_reparse, json_object, read_json, run, write_json, write_new_json)
+
+
+def evidence_destination(root, destination):
+    """Allow private in-project evidence only in the ignored operational tree."""
+    root, destination = Path(root).resolve(), Path(destination).absolute()
+    if any(path.is_symlink() or is_reparse(path) for path in (destination, *destination.parents)):
+        raise HarnessError("Build evidence must not traverse linked/reparse paths")
+    destination = destination.resolve()
+    if root.is_relative_to(destination):
+        raise HarnessError("Build evidence must not contain the source checkout")
+    if destination.is_relative_to(root):
+        relative = destination.relative_to(root)
+        if relative.parts[:2] != (".oasis", "local") or len(relative.parts) < 3:
+            raise HarnessError("In-project evidence belongs under ignored .oasis/local/")
+        if (run(["git", "-C", str(root), "check-ignore", "--quiet", "--", relative.as_posix()], check=False).returncode != 0
+                or git(root, "ls-files", "--", ":(icase).oasis/local")):
+            raise HarnessError("In-project evidence must remain ignored and untracked")
+    return destination
 
 
 def committed_snapshot(root, revision, destination):
-    root, destination = Path(root).resolve(), Path(destination).resolve()
-    if destination.is_relative_to(root) or root.is_relative_to(destination):
-        raise HarnessError("Build evidence must be outside the source checkout")
+    destination = evidence_destination(root, destination)
+    root = Path(root).resolve()
     if git(root, "rev-parse", "--show-toplevel").casefold() != str(root).replace("\\", "/").casefold():
         # Git on Windows returns slash paths; compare real paths instead.
         if Path(git(root, "rev-parse", "--show-toplevel")).resolve() != root:
@@ -91,7 +108,7 @@ def execution_environment(root, keys=()):
 
 def execute(root, revision, adapter, destination, version):
     """Adapters are executable project code: inspect/authorize them before invocation."""
-    destination = Path(destination).resolve()
+    destination = evidence_destination(root, destination)
     if destination.exists():
         raise HarnessError("Build evidence destination already exists; retain it and use a new run")
     adapter = read_json(adapter) if isinstance(adapter, (str, Path)) else adapter

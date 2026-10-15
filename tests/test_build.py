@@ -2,11 +2,95 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
-from oasis_harness.build import execute, verify_evidence
+from oasis_harness.build import evidence_destination, execute, verify_evidence
 from oasis_harness.common import HarnessError, git, run, write_json, read_json
 
 
 class BuildContracts(unittest.TestCase):
+    def test_test_fixtures_are_created_inside_project_and_removed_after_use(self):
+        from tests import fixture_project
+        expected = fixture_project(Path(__file__).resolve().parents[1]) / ".oasis/local/tmp"
+        self.assertEqual(Path(tempfile.gettempdir()).resolve(), expected)
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = Path(tmp)
+            self.assertEqual(fixture.parent, expected)
+            (fixture / "generated.txt").write_text("disposable fixture", encoding="utf-8")
+        self.assertFalse(fixture.exists())
+
+    def test_retained_snapshots_share_the_owning_project_scratch_root(self):
+        from tests import fixture_project
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "project"; project.mkdir()
+            (project / ".git").mkdir()
+            snapshot = project / ".oasis/local/deliveries/run/build/source"
+            snapshot.mkdir(parents=True)
+            self.assertEqual(fixture_project(snapshot), project)
+            self.assertEqual(fixture_project(project), project)
+            (snapshot / ".git").mkdir()
+            self.assertEqual(fixture_project(snapshot), snapshot)
+            external = Path(project.anchor) / ("oasis-external-" + project.parent.name) / "source"
+            self.assertEqual(fixture_project(external), external)
+
+    def test_ignored_internal_evidence_retains_exact_source_and_failure_logs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "producer"; root.mkdir()
+            git(root, "init"); git(root, "config", "user.name", "Fixture"); git(root, "config", "user.email", "fixture@example.invalid")
+            (root / ".gitignore").write_text("/.oasis/local/\n", encoding="utf-8")
+            (root / "input.txt").write_text("committed input", encoding="utf-8")
+            git(root, "add", "."); git(root, "commit", "-m", "fixture")
+            destination = root / ".oasis/local/deliveries/run/build"
+            adapter = {"schema_version": 1, "purpose": "source", "build": [], "artifacts": [],
+                       "checks": [[sys.executable, "-c", "from pathlib import Path; assert Path('input.txt').read_text() == 'committed input'"]]}
+            result = execute(root, "HEAD", adapter, destination, "1")
+            proof = verify_evidence(result["receipt"])
+            self.assertEqual(set(proof["source"]["files"]), {".gitignore", "input.txt"})
+            self.assertEqual(git(root, "status", "--porcelain"), "")
+            from oasis_harness.publication import prepare, Publisher
+            from tests.test_publication import GitHubFixture
+            config = {"schema_version": 1, "repository": "fixture/public", "repository_id": 1, "base_branch": "main",
+                      "channel": "stable", "mode": "source-and-artifacts", "operation": "source", "version": "1",
+                      "tag": None, "title": "Fixture", "make_latest": False, "exports": {"input.txt": "input.txt"}, "required_checks": []}
+            private = destination.parent
+            write_json(private / "publication.json", config)
+            (private / "notes.md").write_text("Fixture notes", encoding="utf-8")
+            provider = GitHubFixture()
+            candidate = prepare(private / "publication.json", result["receipt"], private / "notes.md", private / "candidate", provider)
+            self.assertEqual(Publisher(private / "candidate", candidate["sha256"], provider).execute("fixture request")["phase"], "source_verified")
+            self.assertEqual(set(read_json(private / "candidate/candidate.json")["public_files"]), {"input.txt", "oasis-release.json"})
+            before = Path(result["receipt"]).read_bytes()
+            with self.assertRaisesRegex(HarnessError, "already exists"):
+                execute(root, "HEAD", adapter, destination, "1")
+            self.assertEqual(before, Path(result["receipt"]).read_bytes())
+            adapter["checks"] = [[sys.executable, "-c", "print('fixture failure'); raise SystemExit(7)"]]
+            failed = root / ".oasis/local/deliveries/failed/build"
+            with self.assertRaises(HarnessError):
+                execute(root, "HEAD", adapter, failed, "1")
+            self.assertEqual(read_json(failed / "build.json")["phase"], "failed")
+            self.assertIn("fixture failure", (failed / "command-1.log").read_text(encoding="utf-8"))
+
+    def test_internal_evidence_requires_ignored_untracked_scope_and_no_links(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "producer"; root.mkdir(); git(root, "init")
+            destination = root / ".oasis/local/run"
+            with self.assertRaisesRegex(HarnessError, "ignored and untracked"):
+                evidence_destination(root, destination)
+            (root / ".gitignore").write_text("/.oasis/local/\n", encoding="utf-8")
+            self.assertEqual(evidence_destination(root, destination), destination.resolve())
+            self.assertEqual(evidence_destination(root, Path(tmp) / "external"), (Path(tmp) / "external").resolve())
+            for invalid in (root, root.parent, root / "staging", root / ".oasis/local"):
+                with self.subTest(path=invalid), self.assertRaises(HarnessError):
+                    evidence_destination(root, invalid)
+                self.assertFalse((root / "staging").exists())
+            with patch("oasis_harness.build.is_reparse", side_effect=lambda path: path == root / ".oasis"):
+                with self.assertRaisesRegex(HarnessError, "linked/reparse"):
+                    evidence_destination(root, destination)
+            destination.mkdir(parents=True)
+            (destination / "private.txt").write_text("fixture", encoding="utf-8")
+            git(root, "add", "-f", ".oasis/local/run/private.txt")
+            with self.assertRaisesRegex(HarnessError, "ignored and untracked"):
+                evidence_destination(root, root / ".oasis/local/another-run")
+
     def test_timeout_retains_partial_log_and_failed_receipt(self):
         from unittest.mock import patch
         from oasis_harness.common import ProcessTimeout
@@ -18,7 +102,7 @@ class BuildContracts(unittest.TestCase):
             adapter = {"schema_version": 1, "purpose": "source", "build": [], "checks": [["fixture-check"]], "artifacts": []}
             with patch("oasis_harness.build.committed_snapshot", side_effect=snapshot), patch("oasis_harness.build.execution_environment", return_value={}), patch("oasis_harness.build.run", side_effect=ProcessTimeout(1, b"partial compiler output", b"private fixture diagnostic")):
                 with self.assertRaises(HarnessError):
-                    execute(parent, "HEAD", adapter, parent / "timeout", "1")
+                    execute(parent / "producer", "HEAD", adapter, parent / "timeout", "1")
             receipt = read_json(parent / "timeout/build.json")
             self.assertEqual(receipt["phase"], "failed")
             self.assertTrue(receipt["commands"][0]["timed_out"])

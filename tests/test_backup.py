@@ -373,7 +373,8 @@ class IsolatedSourceBackupTests(GitFixture):
         config = backup._config(self.root)
         config["primary"] = str(self.base / "lost-source")
         config["relay"] = str(self.base / "lost-relay.git")
-        restored = self.base / "isolated remote-only restore"
+        # Keep the destination short: the immutable checkpoint ref itself is long.
+        restored = self.base / "r"
         proof = backup.restore(config, restored, provider=self.provider)
         self.assertEqual(proof["main"], self.baseline)
         self.assertEqual(proof["main_tree"], main_tree)

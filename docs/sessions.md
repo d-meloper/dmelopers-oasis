@@ -7,13 +7,20 @@ methods; installed availability and actual effects need their own evidence.
 
 ## Transport and RPC
 
-The default proxy connects to an existing daemon/control socket.
-`OASIS_APP_SERVER_SOCKET` selects that socket. A Desktop standard-I/O process
-does not provide this endpoint. Explicit process-local `OASIS_APP_SERVER_URL`
+The default client connects to an existing daemon/control socket through
+`codex app-server proxy`. The proxy forwards bytes: the client performs the
+HTTP Upgrade handshake and sends masked WebSocket frames before native RPC.
+It does not send JSONL directly to the socket. `OASIS_APP_SERVER_SOCKET`
+selects a socket; when absent, the CLI selects its default control socket.
+A Desktop standard-I/O process alone does not provide this endpoint.
+Explicit process-local `OASIS_APP_SERVER_URL`
 selects an existing caller-managed loopback WebSocket endpoint, such as
 `ws://127.0.0.1:PORT`. Upstream WebSocket support is experimental and unsupported
 for production. The adapter owns its client connection/proxy, with bounded
 close; it does not start or stop the host service or its turns.
+When an existing compatible socket is available, the first initialization
+needs no separate socket-configuration request. An absent or incompatible
+endpoint remains an explicit failure; no server is automatically started.
 
 `AppServer` retains its `call`, `pages`, `close` and context-manager interface.
 RPC IDs dispatch responses to pending calls; request deadlines include writes
@@ -51,7 +58,9 @@ buffered accepted responses/notifications remain available. `drain_events()`
 raises its event error once, then permits buffered retrieval; `diagnostics()`
 retains the `event_error` for inspection.
 
-Standard-I/O stderr is continuously drained into a private 64 KiB ring.
+Proxy stderr is continuously drained into a private 64 KiB ring. Its raw
+stdout queue holds at most sixteen 64 KiB chunks and applies backpressure;
+the same WebSocket message/event limits apply to both connection paths.
 `diagnostics()` exposes backend/state, unsupported-method information and private
 `stderr_tail`. Raw stderr is not appended automatically to public errors or logs.
 Keep those diagnostics in local evidence. Unsupported server requests receive

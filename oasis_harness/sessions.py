@@ -157,6 +157,10 @@ class _LoopbackWebSocket:
 
     def __init__(self, url, *, deadline=None):
         address, port, target, authority = self.endpoint(url)
+        self._open(lambda timeout: socket.create_connection((address, port), timeout=timeout),
+                   target, authority, deadline=deadline)
+
+    def _open(self, connect, target, authority, *, deadline=None):
         self.socket = None
         self.buffer = bytearray()
         self.write_lock = threading.RLock()
@@ -165,7 +169,7 @@ class _LoopbackWebSocket:
         # One handshake budget also covers a peer dripping headers slowly.
         handshake_deadline = time.monotonic() + remaining_timeout(10, deadline=deadline)
         try:
-            self.socket = socket.create_connection((address, port), timeout=remaining_timeout(10, deadline=handshake_deadline))
+            self.socket = connect(remaining_timeout(10, deadline=handshake_deadline))
             key = base64.b64encode(os.urandom(16)).decode("ascii")
             request = (f"GET {target} HTTP/1.1\r\nHost: {authority}\r\nUpgrade: websocket\r\n"
                        f"Connection: Upgrade\r\nSec-WebSocket-Key: {key}\r\nSec-WebSocket-Version: 13\r\n\r\n")
@@ -374,8 +378,8 @@ class _LoopbackWebSocket:
         self._close_frame(struct.pack("!H", 1000), deadline=deadline)
 
 
-class _ProxyTransport:
-    """Own only a stdio proxy client, never the server behind its socket."""
+class _ProxyStream:
+    """Bounded byte stream through our proxy process, without JSONL framing."""
     MAX_MESSAGE = _LoopbackWebSocket.MAX_MESSAGE
     STDERR_LIMIT = 64 * 1024
     supports_close_deadline = True
@@ -456,6 +460,29 @@ class _ProxyTransport:
         self.stderr_bytes = 0
         self.stderr_reader = threading.Thread(target=self._stderr, daemon=True)
         self.stderr_reader.start()
+        self.timeout = None
+        self.eof = False
+        self.chunks = queue.Queue(maxsize=16)
+        self.stdout_reader = threading.Thread(target=self._stdout, daemon=True)
+        self.stdout_reader.start()
+
+    def _stdout(self):
+        while not self.closed:
+            try:
+                block = self.process.stdout.read(65536)
+            except (OSError, ValueError):
+                block = b""
+            while not self.closed:
+                try:
+                    self.chunks.put(block, timeout=0.05)
+                    break
+                except queue.Full:
+                    continue
+            if not block:
+                return
+
+    def settimeout(self, value):
+        self.timeout = value
 
     def _stderr(self):
         try:
@@ -471,35 +498,27 @@ class _ProxyTransport:
         with self.stderr_lock:
             return self.stderr_buffer.decode("utf-8", errors="replace"), self.stderr_bytes > self.STDERR_LIMIT
 
-    def receive(self):
-        while True:
-            end = self.buffer.find(b"\n")
-            if end >= 0:
-                payload = bytes(self.buffer[:end]).removesuffix(b"\r")
-                del self.buffer[:end + 1]
-                break
-            if len(self.buffer) > self.MAX_MESSAGE + 1:
-                raise HarnessError("Native stdio message exceeds the supported size")
-            chunk = self.process.stdout.read(65536)
-            if not chunk:
-                if not self.buffer:
-                    return None
-                payload = bytes(self.buffer)
-                self.buffer.clear()
-                break
-            self.buffer.extend(chunk)
-        if len(payload) > self.MAX_MESSAGE:
-            raise HarnessError("Native stdio message exceeds the supported size")
-        try:
-            return payload.decode("utf-8")
-        except UnicodeError:
-            raise HarnessError("Native stdio message is not valid UTF-8") from None
+    def recv(self, size):
+        if self.eof:
+            return b""
+        if not self.buffer:
+            if self.closed and self.chunks.empty():
+                return b""
+            try:
+                self.buffer.extend(self.chunks.get(timeout=self.timeout))
+            except queue.Empty:
+                raise TimeoutError("Native proxy read deadline expired") from None
+            if not self.buffer:
+                self.eof = True
+        value = bytes(self.buffer[:size])
+        del self.buffer[:size]
+        return value
 
-    def send(self, text, *, timeout=30):
+    def sendall(self, payload):
+        self.write(payload, timeout=self.timeout if self.timeout is not None else 30)
+
+    def write(self, payload, *, timeout=30):
         deadline = time.monotonic() + timeout
-        payload = text.encode("utf-8")
-        if len(payload) > self.MAX_MESSAGE:
-            raise HarnessError("Native stdio outgoing message exceeds the supported size")
         if time.monotonic() >= deadline:
             raise TimeoutError("Native stdio write deadline expired")
         finished, errors = threading.Event(), []
@@ -512,7 +531,7 @@ class _ProxyTransport:
                     raise TimeoutError("Native stdio write deadline expired")
                 if self.closed:
                     raise OSError("Native stdio connection is closed")
-                data, offset = payload + b"\n", 0
+                data, offset = payload, 0
                 while offset < len(data):
                     if time.monotonic() >= deadline:
                         raise TimeoutError("Native stdio write deadline expired")
@@ -536,11 +555,19 @@ class _ProxyTransport:
             self.close(deadline=deadline)
             raise OSError("Native stdio send failed") from None
 
+    def shutdown(self, _how):
+        self.close()
+
     def close(self, *, deadline=None):
+        deadline = deadline if deadline is not None else getattr(self, "cleanup_deadline", None)
         with self.close_lock:
             if self.closed:
                 return
             self.closed = True
+        try:
+            self.chunks.put_nowait(b"")
+        except queue.Full:
+            pass
         # Closing a buffered stdin during another thread's flush can hang.
         # This proxy uses unbuffered pipes; serialize a graceful EOF, otherwise
         # terminate only our own proxy to release a blocked write.
@@ -578,6 +605,37 @@ class _ProxyTransport:
                 stream.close()
             except (OSError, ValueError):
                 pass
+        if self.stdout_reader is not threading.current_thread():
+            self.stdout_reader.join(timeout=_cleanup_timeout(0.2, deadline))
+
+
+class _ProxyTransport(_LoopbackWebSocket):
+    """RFC 6455 over the existing control socket's byte-forwarding CLI proxy."""
+
+    def __init__(self, executable, socket_path=None, *, deadline=None):
+        self.proxy = None
+
+        def connect(timeout):
+            self.proxy = _ProxyStream(executable, socket_path, deadline=time.monotonic() + timeout)
+            self.proxy.settimeout(timeout)
+            return self.proxy
+
+        try:
+            self._open(connect, "/", "localhost", deadline=deadline)
+        except HarnessError as exc:
+            if str(exc) not in {"Native WebSocket handshake ended before an upgrade response",
+                                "Native loopback WebSocket is unavailable; supply the address of an already running caller-managed App Server"}:
+                raise
+            raise HarnessError("Native App Server proxy is unavailable; this path requires an already running daemon/control socket with WebSocket support. Select its OASIS_APP_SERVER_SOCKET. No server was started.") from None
+        self.process = self.proxy.process
+
+    def stderr_tail(self):
+        return self.proxy.stderr_tail()
+
+    def close(self, *, deadline=None):
+        if self.proxy is not None:
+            self.proxy.cleanup_deadline = deadline
+        super().close(deadline=deadline)
 
 
 class _RpcInbox:
