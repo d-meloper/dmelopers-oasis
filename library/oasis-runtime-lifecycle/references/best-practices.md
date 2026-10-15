@@ -10,9 +10,23 @@ Separate requested, issued, applied and acknowledged state. A stale-response gua
 
 Initial queries must not overwrite newer pushed status. Startup waits for registered readiness; quit/restart uses the actual durable-state owner rather than a stale copy in another window. Parent exit, pending flags and child launch alone do not prove save durability or successor readiness. Keep development supervision distinct from packaged restart and bind process identity as the platform supports.
 
+On Windows, a recorded parent PID can identify a later unrelated process after
+PID reuse. Before stopping a process tree, authenticate every edge against parent
+creation time and the operation's launch record; reject children older than the
+current parent or any uncertain relationship. A child's unchanged PID and creation
+time alone do not establish that relationship. Prefer a retained process handle
+or owned job boundary over reconstructing ownership from a process snapshot.
+
 Retain presentation obligations through superseded requests and distinguish intentional cancellation from new renderer failure. Saving cannot wait forever on hidden/paused rendering. Bound teardown and flush required peer acknowledgements. Use the existing diagnostic owner and avoid ordinary input/user-content telemetry. Test delayed registration, native failure and cleanup failure through the real owner; mocked effects do not establish installed/native behavior.
 
 ## Concurrent protocol dispatch
+
+Separate a byte-forwarding proxy from its endpoint's framing protocol. A running
+control socket can require HTTP Upgrade and masked WebSocket frames even when
+the proxy exposes stdin/stdout; JSONL on that stream can simply time out. Verify
+the endpoint handshake before declaring it missing or starting another host.
+Use the same connection and a bounded metadata read to establish the boundary;
+retain process/stdout/stderr ownership and deadlines through failed handshakes.
 
 For concurrent RPCs and native notifications, dispatch in the reader by response
 ID and keep events in a separate bounded FIFO. A caller waiting for one response

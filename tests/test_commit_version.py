@@ -12,6 +12,20 @@ PACKAGE = Path(__file__).resolve().parents[1]
 
 
 class CommitVersionTests(unittest.TestCase):
+    def test_private_delta_output_preserves_source_and_refuses_overwrite(self):
+        (self.root / ".gitignore").write_text("/.oasis/local/\n", encoding="utf-8")
+        self.stage_work()
+        before = (self.git("rev-parse", "HEAD").stdout, self.git("write-tree").stdout)
+        command = ["python", "-B", "-X", "utf8", "tools/bump_commit_version.py", "--delta-draft", "--output", ".oasis/local/draft.json"]
+        result = subprocess.run(command, cwd=self.root, env=self.env, capture_output=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        path = self.root / ".oasis/local/draft.json"
+        draft = path.read_bytes()
+        self.assertEqual(json.loads(draft)["files"], ["work.txt"])
+        self.assertNotEqual(subprocess.run(command, cwd=self.root, env=self.env, capture_output=True).returncode, 0)
+        self.assertEqual(path.read_bytes(), draft)
+        self.assertEqual(before, (self.git("rev-parse", "HEAD").stdout, self.git("write-tree").stdout))
+
     def test_delta_draft_preserves_index_version_and_head(self):
         self.stage_work()
         before = (self.git("rev-parse", "HEAD").stdout, self.git("write-tree").stdout, (self.root / "oasis_harness/__init__.py").read_bytes())
@@ -40,7 +54,7 @@ class CommitVersionTests(unittest.TestCase):
         self.env = clean_environment({"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_COUNT": "0"})
         for directory in ("tools", "oasis_harness", ".githooks", ".oasis"):
             (self.root / directory).mkdir()
-        for relative in ("tools/bump_commit_version.py", "oasis_harness/common.py", ".githooks/pre-commit"):
+        for relative in ("tools/bump_commit_version.py", "oasis_harness/common.py", "oasis_harness/build.py", ".githooks/pre-commit"):
             shutil.copyfile(PACKAGE / relative, self.root / relative)
         os.chmod(self.root / ".githooks/pre-commit", 0o755)
         (self.root / "oasis_harness/__init__.py").write_bytes(b'"""Fixture."""\n__version__ = "1.2.3"\n')

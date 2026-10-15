@@ -40,7 +40,9 @@ Explicit exact versions use command-local `oasis.versionTarget`; X/Y and core
 changes follow explicit owner requests. Never bypass the hook.
 
 Preserve other writers, private/ignored state and Git/Codex settings.
-Operational evidence stays in `.oasis/local/`. Keep PR/squash, required
+Test/review/delivery work stays inside `.oasis/local/`; follow the
+[workspace cleanup policy](docs/development.md#local-workspaces-and-cleanup).
+Keep PR/squash, required
 `oasis-source-checks` and full anonymous readback. Never push the producer
 directly, reconnect its public remote, reset to the public squash, force history
 or disable protections. Report actual checks and limits using

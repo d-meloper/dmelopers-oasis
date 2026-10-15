@@ -16,7 +16,7 @@ DEPENDENTS = {
     "doctor": {"doctor"}, "skills": {"skills", "workflow_installation", "doctor", "public_source"},
     "publication": {"publication", "build", "source_delivery", "public_source"},
     "github": {"github", "publication", "backup"},
-    "build": {"build", "publication", "source_delivery", "check_results"},
+    "build": {"build", "publication", "source_delivery", "check_results", "commit_version"},
     "check_results": {"check_results", "build", "distribution"},
     "backup": {"backup", "gitops"}, "gitops": {"gitops", "backup"},
     "sessions": {"sessions", "session_transport", "deadlines", "shared_runtime", "rpc_efficiency", "notifications", "waiting", "workflows", "dependencies"},

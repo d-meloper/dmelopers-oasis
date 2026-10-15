@@ -1,6 +1,7 @@
 """Absolute native operation budgets; no real chats or host configuration."""
 import io
 import os
+import queue
 from pathlib import Path
 import tempfile
 import threading
@@ -160,10 +161,12 @@ class DeadlineContracts(unittest.TestCase):
         self.assertTrue(transport.closed)
 
     def test_expired_cleanup_never_adds_proxy_wait_budgets(self):
-        proxy = object.__new__(sessions._ProxyTransport)
+        proxy = object.__new__(sessions._ProxyStream)
         proxy.closed = False
         proxy.write_lock, proxy.close_lock = threading.Lock(), threading.Lock()
         proxy.stderr_reader = Mock()
+        proxy.stdout_reader = Mock()
+        proxy.chunks = queue.Queue(maxsize=16)
         proxy.process = Mock()
         proxy.process.stdin, proxy.process.stdout, proxy.process.stderr = io.BytesIO(), io.BytesIO(), io.BytesIO()
         proxy.close(deadline=time.monotonic() - 1)

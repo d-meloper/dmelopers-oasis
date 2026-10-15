@@ -7,6 +7,11 @@ python -B -X utf8 -m unittest discover -s tests -t . -v
 ```
 
 Tests use disposable filesystem/Git projects and injected native/service adapters.
+Their temporary directories live under the test checkout's `.oasis/local/tmp/`
+and each fixture removes its own files on context exit. A retained snapshot inside
+an owning Git checkout shares that owner's scratch root to avoid long native paths.
+Retained evidence stays
+outside that disposable subtree; see [build evidence](publication.md#build-adapter).
 They verify the exercised functions; live chat adoption and remote effects need
 their own evidence. Select affected modules for ordinary changes; shared or
 unknown Python uses the full suite when passing evidence does not cover the same

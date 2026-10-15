@@ -13,6 +13,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from oasis_harness.common import HarnessError, atomic_write, contained, operation_lock, write_new_json
+from oasis_harness.build import evidence_destination
 
 VERSION_PATH = "oasis_harness/__init__.py"
 HISTORY_PATH = "docs/upgrade-index.json"
@@ -169,7 +170,7 @@ def bump():
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--delta-draft", action="store_true", help="Read staged scope and print an unfinished release-row draft")
-    parser.add_argument("--output", type=Path, help="New external file for the draft; no index or version writes")
+    parser.add_argument("--output", type=Path, help="New private draft file, preferably under .oasis/local/; no index or version writes")
     args = parser.parse_args()
     if args.output and not args.delta_draft:
         parser.error("--output requires --delta-draft")
@@ -177,9 +178,7 @@ if __name__ == "__main__":
         if args.delta_draft:
             draft = delta_draft()
             if args.output:
-                output = args.output.absolute()
-                if output.resolve().is_relative_to(ROOT):
-                    raise HarnessError("Version draft output must be outside the source checkout")
+                output = evidence_destination(ROOT, args.output)
                 write_new_json(output, draft)
             else:
                 print(json.dumps(draft, ensure_ascii=True, indent=2))
