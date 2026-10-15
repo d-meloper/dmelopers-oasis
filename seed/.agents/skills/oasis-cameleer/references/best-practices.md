@@ -13,6 +13,15 @@ checks and add checks for changed integration inputs or a concrete doubt.
 Retain failed and deferred outcomes. Collect the actual integrated reference,
 archive finished scope and restore that same chat for follow-up.
 Reconcile uncertain operations; duplicate completion must not cause another merge.
+Use the [standard receipt consumer](../../../../.oasis/manual/validation.md#role-check-evidence)
+for submitted check evidence; absent original proof remains unknown. Finish
+original/code inspection using the existing summary and pinned evidence references;
+the same cases, hashes and scope need no separate report or resource table. Finish
+independent review and useful integration experience before collection. A retained
+`collection_receipt.status=collected` binds the task/cycle/result and verified
+native final/idle/archive: cite it, release writers and give the final result
+when the requested work is complete. New inputs, cycles or uncertain effects
+retain their ordinary review/recovery path.
 
 ## Planning and scoped dependencies
 

@@ -2159,6 +2159,66 @@
         "Reuse whole-assignment notices and individually passed testcase evidence without weakening terminal or publication boundaries; Core remains 2.0.0."
       ],
       "version": "1.2.9"
+    },
+    {
+      "areas": [
+        {
+          "apply": "Inspect the ordinary upgrade; keep existing test commands and sufficient manual evidence. Choose strict for tests consuming role identity; use role-neutral only for role-independent checks. Preserve historical receipts without reconstructing missing proof.",
+          "change": "Add schema-2 producer/review summaries, precise fingerprint diagnostics, explicit role-neutral execution, and optional product/experience/protected change declarations. Reject invalid declarations before hashing and quote PowerShell report placeholders.",
+          "checks": [
+            "Normal exit-1 subset reuse preserves every original nonpassing case and exit.",
+            "Meaningful input/runtime/environment/purpose changes and evidence tampering reject automatic reuse.",
+            "Role-neutral removes its documented keys from execution and hashing; strict remains the default."
+          ],
+          "name": "Optional check evidence and consumed boundaries",
+          "paths": [
+            "oasis_harness/check_results.py",
+            "oasis_harness/common.py",
+            "docs/validation.md"
+          ]
+        },
+        {
+          "apply": "Preserve unfinished tasks, historical links, accepted prompts and project-owned guidance during three-way upgrade. Use existing summaries and independent original/code review before collection; no separate report or completion gate is required.",
+          "change": "Attach optional check evidence to task/cycle/result, reuse existing check summaries, retain exact successful collection proof, and show that proof before large evidence. Omit repeated success instructions/history while preserving full API/state/recovery output.",
+          "checks": [
+            "Manual summaries and receipt-only completion both remain supported.",
+            "Collection requires exact current native final/idle/archive identity; duplicates do not rerun checks, merge or native calls.",
+            "Follow-up preserves prior receipt/history; uncertain/failed/legacy outputs and --full retain recovery details."
+          ],
+          "name": "Completion evidence and compact CLI",
+          "paths": [
+            "oasis_harness/workflows.py",
+            "docs/workflows.md",
+            "seed/.agents/skills/oasis-camel",
+            "seed/.agents/skills/oasis-cameleer"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/validation.md",
+        "docs/workflows.md",
+        "oasis_harness/check_results.py",
+        "oasis_harness/common.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-camel/SKILL.md",
+        "seed/.agents/skills/oasis-camel/references/best-practices.md",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-cameleer/references/best-practices.md",
+        "tests/test_check_results.py",
+        "tests/test_public_source.py",
+        "tests/test_workflows.py",
+        "tools/public-source-policy.json"
+      ],
+      "previous": "1.2.9",
+      "source_only": [
+        "The explicit owner-selected package version is 2.0.0; no 1.3.0 release is recorded. Core and repository bindings are unchanged.",
+        "Retain all prior failed/composite and real-role evidence. Perform final committed-source validation, verified private backup and the exact reviewed source-only PR/squash delivery with required checks and full anonymous readback. No tag, release assets or adopter rollout."
+      ],
+      "summary": [
+        "Publish the owner-selected major package version with reusable check evidence and compact, terminal-verified workflows; Core remains 2.0.0."
+      ],
+      "version": "2.0.0"
     }
   ],
   "schema_version": 1

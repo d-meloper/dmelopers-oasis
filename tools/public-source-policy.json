@@ -1,5 +1,9 @@
 {
   "reviewed": {
+    "oasis_harness/check_results.py": {
+      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
+      "sha256": "0dff90bc7269b837d445495735e09af5a7157b725c15e7b11cf3dd87e63c54cd"
+    },
     "oasis_harness/knowledge.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
       "sha256": "ae3d0c63e2f791b0075778704e28fb981958076121b6392a405f71c9698a5037"
@@ -9,32 +13,36 @@
       "sha256": "31a4c18d0d48f32609bc880e79e22a6f222fc3308d8d978a018d9cbe9b2158db"
     },
     "oasis_harness/sessions.py": {
-      "sha256": "0223e2ec1c4b328d0448e1e6a5dfbbd2d218de202c062ec678966713d36dceb6",
-      "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain."
+      "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
+      "sha256": "0223e2ec1c4b328d0448e1e6a5dfbbd2d218de202c062ec678966713d36dceb6"
     },
     "oasis_harness/workflows.py": {
-      "sha256": "bb5cc4600decd07087de65e748d87bb2cdf2f35a86bc673f5719e914b26830be",
-      "reason": "Reviewed native protocol field names, new-input reminders and unchanged saved-delivery recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
+      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
+      "sha256": "ebba97230eb26dbe74e31952533c4494449e24217c7fb8ce3708caf154207c6d"
+    },
+    "tests/test_check_results.py": {
+      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
+      "sha256": "9ebc1599b904b7562b5f2c9738fc4421f1d7c89181735989e98d84b14f345f3b"
     },
     "tests/test_public_source.py": {
-      "reason": "Reviewed complete synthetic privacy/XML negatives and 24-skill distribution fixtures. No live private payload; exact artwork and hard secret/path checks remain.",
-      "sha256": "57fcaae042c1ae12581d39bfe6ffdcb04116a4e87fa377ffa7b8c4293c95cae6"
+      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
+      "sha256": "95472d16683e23cdba27ec2c35b1bc46ea0821d9aa808da9eb76f47bfd4a7b9b"
+    },
+    "tests/test_rpc_efficiency.py": {
+      "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain.",
+      "sha256": "17e742eff2513efd6e95277b3ecae2594f26a438f9c852236ef7495d85e09547"
     },
     "tests/test_sessions.py": {
       "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
       "sha256": "3e7da971dc997d88218b7203976980434740270e5a19e5189ffab27decca0f5f"
     },
     "tests/test_workflows.py": {
-      "sha256": "f345365f4c5fbbbe19480f758b4b46317144be0e89d603880a221e2e76f708ac",
-      "reason": "Reviewed synthetic session/task fixtures, new-input reminders and legacy retry recovery. No live host IDs, credentials or private settings are bundled; hard credential/path checks remain."
+      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
+      "sha256": "fcb73caaed58740b1334796803d765236ed432b59063e2e33d8ba8c49dae7d45"
     },
     "tools/source_policy.py": {
-      "sha256": "6e8603a8aac7f306cca63c7d6315197acf757bb50745cfbc982f3ead325be50d",
-      "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload."
-    },
-    "tests/test_rpc_efficiency.py": {
-      "sha256": "17e742eff2513efd6e95277b3ecae2594f26a438f9c852236ef7495d85e09547",
-      "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain."
+      "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload.",
+      "sha256": "6e8603a8aac7f306cca63c7d6315197acf757bb50745cfbc982f3ead325be50d"
     }
   },
   "schema_version": 1

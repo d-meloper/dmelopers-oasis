@@ -6,6 +6,38 @@ does not authorize repeating its original operation. Raw identities, private pat
 and receipts remain local. The [machine index](upgrade-index.json) retains exact
 predecessor deltas and the complete captured adaptation inventory.
 
+## 2.0.0
+
+The owner selected package 2.0.0 for the accumulated evidence and workflow
+improvements. The role contract remains Core 2.0.0.
+
+Optional schema-2 JUnit receipts support read-only `check review`, concise
+summaries and declared product/experience/protected change boundaries. Diagnostics
+identify changed fingerprint fields and environment key names without exposing
+values. The default strict profile retains role identity; explicit role-neutral
+removes only the documented role/transport keys from both runner execution and
+fingerprinting. Meaningful consumed-input changes still require checks. Existing
+schema-1 receipts keep strict behavior; missing historical proof stays unknown.
+
+Camel can attach receipts through `complete --check-receipt`; sufficient manual
+evidence remains valid. Existing summaries and pinned references avoid copying
+case/hash/scope tables into extra reports while retaining independent review.
+Successful collection retains exact task/cycle/result and native final/idle/archive
+proof. Duplicate collection reuses it without new native calls or evidence reads.
+Follow-up preserves the original receipt in task history.
+
+Successful assign/complete/collect CLI output omits repeated instructions and
+history, and displays collection proof before large evidence arrays. Python APIs,
+`--full`, saved state and recovery diagnostics retain their complete information.
+Invalid change declarations fail before expensive fingerprinting; path protections
+remain strict. PowerShell examples quote the literal JUnit report placeholder.
+
+Apply an inspected ordinary three-way upgrade, preserving project settings,
+knowledge, user skills, unfinished tasks and historical links. Saved prompts and
+receipts are not rewritten. No runner installation, new role, completion gate,
+periodic model request or automatic retry is introduced. Retained role trials
+cover the requested Windows scenarios; they do not establish universal speedups.
+
 ## 1.2.9
 
 Core remains 2.0.0. Whole-assignment waits to the assigning Cameleer reuse the

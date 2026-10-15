@@ -35,6 +35,13 @@ cases. Cite their exact IDs and original receipt for an unchanged subset; retain
 the overall failure and every failed/skipped/missing case. Automatic reuse also
 needs the actual runner, dependency/runtime files, cwd and environment fingerprint.
 Bare historical JUnit cannot establish missing original input fingerprints.
+For JUnit-producing work, choose the [standard producer/consumer](../../../../.oasis/manual/validation.md#role-check-evidence)
+from the first baseline. Its declared change scope separates product, owned
+experience and protected inputs. A role-neutral profile removes its declared
+role/transport keys from execution as well as hashing; other settings still
+invalidate reuse. Use consumer field/key differences to align the actual intended
+environment. Missing historical key evidence cannot be reconstructed. Tests
+consuming the removed values use strict.
 Reuse source/result reads for the same purpose while those inputs match. Inspect
 changed ranges or a concrete concern, state that reason in the existing result
 when repeating a check, and preserve independent review of the relevant originals.

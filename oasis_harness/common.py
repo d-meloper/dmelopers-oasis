@@ -150,14 +150,14 @@ def clean_environment(extra=None):
     return env
 
 
-def run(argv, *, cwd=None, input_text=None, input_bytes=None, env=None, check=True, timeout=120):
+def run(argv, *, cwd=None, input_text=None, input_bytes=None, env=None, check=True, timeout=120, inherit_environment=True):
     if input_text is not None and input_bytes is not None:
         raise HarnessError("Select text or byte input, not both")
     payload = input_text.encode("utf-8") if input_text is not None else input_bytes
     try:
         result = subprocess.run([str(arg) for arg in argv], cwd=cwd, input=payload,
                                 capture_output=True,
-                                env=clean_environment(env), timeout=timeout, check=False)
+                                env=clean_environment(env) if inherit_environment else dict(env or {}), timeout=timeout, check=False)
     except subprocess.TimeoutExpired as exc:
         raise ProcessTimeout(timeout, exc.output, exc.stderr) from exc
     except OSError as exc:

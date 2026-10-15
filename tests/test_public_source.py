@@ -20,7 +20,10 @@ def fixture():
     for folder in ("seed", "library", "docs", "oasis_harness"):
         for path in sorted((PACKAGE / folder).rglob("*")):
             if path.is_file() and "__pycache__" not in path.parts and path.suffix != ".pyc":
-                files[path.relative_to(PACKAGE).as_posix()] = path.read_bytes()
+                # This fixture represents the public Git projection. The source
+                # text attributes export LF even when unchanged Windows working
+                # files contain CRLF; the pinned binary/-text artwork is read below.
+                files[path.relative_to(PACKAGE).as_posix()] = path.read_bytes().replace(b"\r\n", b"\n")
     for name in ("README.md", "AGENTS.md", "oasis.py", ".gitignore", ".gitattributes"):
         files[name] = (PACKAGE / name).read_bytes()
     files["assets/readme-hero.png"] = (PACKAGE / "assets/readme-hero.png").read_bytes()
@@ -31,7 +34,7 @@ def fixture():
     reviewed = {
         name: {"sha256": digest(files[name]),
                "reason": "Fixture review of bounded scanner patterns and metadata field names; no live host data."}
-        for name in ("oasis_harness/knowledge.py", "oasis_harness/publication.py",
+        for name in ("oasis_harness/check_results.py", "oasis_harness/knowledge.py", "oasis_harness/publication.py",
                      "oasis_harness/sessions.py", "oasis_harness/workflows.py")
     }
     return files, reviewed
