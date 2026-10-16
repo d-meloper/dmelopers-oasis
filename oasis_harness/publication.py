@@ -371,7 +371,9 @@ class Publisher:
         if not pr:
             if any(e["operation"] == "pull_request" and e["status"] in ("intent", "uncertain_or_rejected") for e in self.state["events"]):
                 raise HarnessError("PR creation was uncertain and lookup found none; obtain operator reconciliation before retry")
-            body = (self.dest / "notes.md").read_text(encoding="utf-8").rstrip() + f"\n\nExact publication candidate {self.state['candidate_id']}.\n"
+            body = (self.dest / "notes.md").read_text(encoding="utf-8")
+            if self.config.get("operation", "release") != "source":
+                body = body.rstrip() + f"\n\nExact publication candidate {self.state['candidate_id']}.\n"
             pr = self.mutation("pull_request", "POST", self.prefix + "/pulls", {"title": self.config["title"], "body": body, "head": self.branch, "base": self.config["base_branch"]})
         self.save(pr_url=pr["html_url"], pr_number=pr["number"])
         pr = self.provider.request("GET", self.prefix + f"/pulls/{pr['number']}")

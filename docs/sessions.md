@@ -183,5 +183,5 @@ Transport I/O and buffered events do not provide a managed server, approval UI
 or automatic result review/integration. The scoped workflow observer supplies
 terminal notification without model polling. Protocol schema,
 local fixtures, live backend effects, visible UI and descendant archive effects
-have separate evidence boundaries. See [validation](validation.md) and recorded
-observations in [CHANGELOG](CHANGELOG.md).
+have separate evidence boundaries. See [validation](validation.md) for those
+limits and the [release notes](CHANGELOG.md) for harness changes.

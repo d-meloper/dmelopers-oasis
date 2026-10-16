@@ -25,5 +25,9 @@ Use the current selector for the next checks; do not apply today's dependency
 table retroactively to reject scope that the retained runner actually verified.
 
 Use the [publication manual](../../../../.oasis/manual/publication.md) for
-candidate, drift and partial recovery. [Version history](../../../../.oasis/manual/CHANGELOG.md)
-retains earlier evidence and its limits.
+candidate, drift and partial recovery. Public change descriptions explain the
+product effect and any required migration. Keep workspace administration,
+individual test runs and recovery receipts in the project's local operational
+record. A maintenance patch need not create a release note. The
+[release notes](../../../../.oasis/manual/CHANGELOG.md) describe harness changes
+relevant to adopters.

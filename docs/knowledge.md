@@ -43,11 +43,12 @@ affected by the actual change and the final deliverable.
 
 Project knowledge and settings remain local. Raw transcripts, host paths,
 account/chat IDs and operational evidence belong in `.oasis/local/`. Portable
-lessons use sanitized examples. [CHANGELOG](CHANGELOG.md) owns harness version
-changes and transition procedures. Project experience history belongs in the
-project's existing history or local evidence, preserving unique observations
-without putting obsolete instructions in active references or local lessons in
-the installed harness CHANGELOG.
+lessons use sanitized examples. [Release notes](CHANGELOG.md) describe changes
+to harness behavior, compatibility and required migrations. Individual test runs,
+workspace changes and maintenance retrospectives belong in the project's existing
+history or local evidence. Preserve unique observations there without turning
+them into installed release notes or obsolete active instructions. A source
+patch version alone is not a reason to add an adopter-facing release description.
 
 ## Optional structured cases
 

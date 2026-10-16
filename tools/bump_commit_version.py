@@ -68,10 +68,12 @@ def version_delta(expected, previous):
         if not isinstance(old_rows, list) or len(data["releases"]) != len(old_rows) + 1 or [(r.get("version"), r.get("previous")) for r in data["releases"][:-1]] != [(r.get("version"), r.get("previous")) for r in old_rows]:
             raise HarnessError("Retain prior chronological version entries and append exactly one new delta")
     rows = data["releases"][-1:]
-    if len(rows) != 1 or rows[0].get("version") != expected or rows[0].get("previous") != previous or not isinstance(rows[0].get("summary"), list) or not rows[0]["summary"] or any(not isinstance(s, str) or not s for s in rows[0]["summary"]) or not isinstance(rows[0].get("areas"), list) or not isinstance(rows[0].get("source_only"), list):
-        raise HarnessError("Each package bump needs one staged predecessor delta, summary and adopter application areas")
-    if not rows[0]["areas"] and not rows[0]["source_only"] or any(not isinstance(s, str) or not s for s in rows[0]["source_only"]):
-        raise HarnessError("Describe adopter application or explicitly source-only/no-adopter effects")
+    if len(rows) != 1 or rows[0].get("version") != expected or rows[0].get("previous") != previous or not isinstance(rows[0].get("summary"), list) or any(not isinstance(s, str) or not s.strip() for s in rows[0]["summary"]) or not isinstance(rows[0].get("areas"), list) or not isinstance(rows[0].get("source_only"), list):
+        raise HarnessError("Each package bump needs one staged predecessor delta and explicit public summary/application lists")
+    if rows[0]["source_only"]:
+        raise HarnessError("Keep source-only implementation notes in private evidence; source_only must be empty")
+    if bool(rows[0]["summary"]) != bool(rows[0]["areas"]):
+        raise HarnessError("Public summaries need adopter areas; source-only deltas leave summary and areas empty")
     for area in rows[0]["areas"]:
         if not isinstance(area, dict) or any(not isinstance(area.get(k), str) or not area[k] for k in ("name", "change", "apply")) or not isinstance(area.get("paths"), list) or not area["paths"] or any(not isinstance(p, str) or not p for p in area["paths"]) or not isinstance(area.get("checks"), list) or any(not isinstance(c, str) for c in area["checks"]):
             raise HarnessError("Each adopter area needs paths, change, application instructions and checks")

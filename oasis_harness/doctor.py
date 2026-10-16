@@ -29,7 +29,7 @@ def upgrade_guidance(package, installed, incoming, differences):
             raise ValueError("Invalid version delta index")
         releases = []
         for release in data["releases"]:
-            if not isinstance(release, dict) or not isinstance(release.get("version"), str) or not isinstance(release.get("previous"), str) or not isinstance(release.get("summary"), list) or not release["summary"] or any(not isinstance(s, str) for s in release["summary"]) or not isinstance(release.get("areas"), list) or not isinstance(release.get("source_only", []), list):
+            if not isinstance(release, dict) or not isinstance(release.get("version"), str) or not isinstance(release.get("previous"), str) or not isinstance(release.get("summary"), list) or any(not isinstance(s, str) or not s.strip() for s in release["summary"]) or not isinstance(release.get("areas"), list) or not isinstance(release.get("source_only", []), list) or release["areas"] and not release["summary"]:
                 raise ValueError("Invalid version delta")
             for area in release["areas"]:
                 if not isinstance(area, dict) or any(not isinstance(area.get(key), str) or not area[key] for key in ("name", "change", "apply")) or not isinstance(area.get("paths"), list) or any(not isinstance(p, str) or not p for p in area["paths"]) or not isinstance(area.get("checks"), list):
@@ -51,7 +51,10 @@ def upgrade_guidance(package, installed, incoming, differences):
                 cursor = release["version"]
         mapped = {".oasis/runtime/oasis_harness/__init__.py", ".oasis/manual/upgrade-index.json"}
         result["chain_complete"] = True
-        result["releases"] = [{"version": r["version"], "previous": r["previous"], "summary": r["summary"], "source_only": r.get("source_only", [])} for r in chain]
+        # Source maintenance still joins the predecessor chain, but contributes
+        # no adopter release note. Legacy source_only prose is never displayed.
+        result["releases"] = [{"version": r["version"], "previous": r["previous"], "summary": r["summary"]}
+                              for r in chain if r["summary"] and r["areas"]]
         for release in chain:
             for area in release["areas"]:
                 prefixes = [mapped for prefix in area["paths"] for mapped in _installed_prefixes(prefix)]

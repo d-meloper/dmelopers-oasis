@@ -15,8 +15,9 @@ completion, consolidate useful lessons in the existing owner under
 [knowledge policy](knowledge.md). Preserve project knowledge files and avoid
 duplicate closing passes, extra verification or publication caused only by
 experience consolidation. Core metadata describes roles and versions; file hashes
-protect actual installer bytes and exact public candidates. Version-specific
-procedures and evidence belong in [CHANGELOG](CHANGELOG.md).
+protect actual installer bytes and exact public candidates. [Release notes](CHANGELOG.md)
+describe public harness changes and required migrations. Operational evidence
+stays in ignored local records.
 
 `빠른 작업으로 진행해` applies [fast work](../seed/ProjectGuide.md#fast-work)
 immediately: implement, run a brief relevant check and leave deferred commands.
@@ -50,7 +51,8 @@ another candidate approval; unresolved material decisions need the owner.
 4. Review the exact public diff, target/base, removals, scan and coverage.
    Independent review focuses on proven defects in affected behavior; refresh
    checks invalidated by corrections. Fixed reviewer counts and behavior-policy
-   proofs are not required.
+   proofs are not required. Check the public title, notes and installed manuals
+   against the [public change guidance](#public-change-guidance).
 5. Run `tools/source_delivery.py execute` for that candidate. Attach its PR,
    `attest` the checked head and resume `execute`. Keep PR/squash, required
    `oasis-source-checks`, repository protections and identity checks.
@@ -85,10 +87,13 @@ keys and never changes global settings. Development hooks are not installed
 into adopters.
 
 An ordinary commit reads HEAD and increments package patch Z once. Stage one
-chronological predecessor entry in `docs/upgrade-index.json`, listing changed
-paths, adopter application/checks and source-only effects. Its inventory matches
-staged files except the index and package literal. Keep earlier identities;
-advisory notes do not replace actual byte review.
+chronological predecessor entry in `docs/upgrade-index.json`, listing the exact
+changed paths. Its inventory matches staged files except the index and package
+literal. Describe an adopter-facing change through its summary and affected
+areas, application and checks. For maintenance with no adopter-facing effect,
+leave `summary`, `areas` and `source_only` empty; the version, predecessor and
+file inventory retain continuity. Do not add operational prose to `source_only`.
+Keep earlier version identities; advisory notes do not replace actual byte review.
 
 `tools/bump_commit_version.py --delta-draft` previews an unfinished release row
 from the staged scope. `--output .oasis/local/<run>/delta-draft.json` retains that draft without
@@ -118,6 +123,44 @@ The next ordinary commit increments the new HEAD patch.
 Keep operational evidence in ignored `.oasis/local/`; put reusable experience in
 the nearest reference. [Validation](validation.md) distinguishes fixtures,
 native discovery, model behavior and external effects.
+
+## Public change guidance
+
+Write public commit and PR titles around the resulting harness behavior or
+maintained source contract. Release descriptions explain the affected capability,
+correction, compatibility or required migration in terms useful to an adopter.
+Maintenance without an adopter-facing effect needs no CHANGELOG entry or upgrade
+description. The source repository still contains its maintained code, tests and
+development contracts.
+
+Keep temporary-folder moves, individual test-fixture repairs, interrupted runs,
+cleanup incidents, private backup receipts and task retrospectives in the local
+operational record. Do not turn each patch commit or verification step into a
+public release item. Source validation and evidence storage procedures belong in
+this development guide; installed manuals describe the adopting project's
+available operations.
+
+Review public wording together with the actual candidate. Automated content
+checks can enforce declared boundaries and detect known local-record patterns;
+they do not establish whether every sentence is relevant or every claim is true.
+When removing operational narrative from current public documents, preserve its
+originals in local evidence and existing Git/private recovery history. Preserve
+license notices and any migration procedure still needed by existing installs.
+
+## Source checks
+
+Run source tests from this root:
+
+```powershell
+python -B -X utf8 -m unittest discover -s tests -t . -v
+```
+
+Tests use disposable filesystem/Git projects and injected native/service adapters.
+Select checks affected by the changed function and its consumers. Shared or
+unknown Python changes use the full suite when matching retained evidence does
+not cover them. Keep original outcomes, inputs and logs when reusing coverage;
+a bare log, failed or incomplete build cannot establish delivery success.
+Live chat adoption and remote effects require their own evidence.
 
 ## Local workspaces and cleanup
 

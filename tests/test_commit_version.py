@@ -145,12 +145,13 @@ class CommitVersionTests(unittest.TestCase):
         path.write_bytes(path.read_bytes().replace(b"1.2.3", version.encode("ascii")))
         self.git("add", "--", "oasis_harness/__init__.py")
 
-    def stage_delta(self, version="1.2.4", previous="1.2.3", files=None):
+    def stage_delta(self, version="1.2.4", previous="1.2.3", files=None, *, summary=None, areas=None, source_only=None):
         path = self.root / "docs/upgrade-index.json"
         path.parent.mkdir(exist_ok=True)
         history = json.loads(path.read_text(encoding="utf-8"))["releases"] if path.exists() else []
         entry = {"version":version,"previous":previous,
-            "summary":["Fixture scoped change"],"areas":[],"source_only":["Fixture has no adopter effects"],
+            "summary":[] if summary is None else summary,"areas":[] if areas is None else areas,
+            "source_only":[] if source_only is None else source_only,
             "files":["work.txt"] if files is None else files}
         if history and history[-1]["version"] == version and history[-1]["previous"] == previous:
             history[-1] = entry
@@ -158,6 +159,35 @@ class CommitVersionTests(unittest.TestCase):
             history.append(entry)
         path.write_text(json.dumps({"schema_version":1,"releases":history}),encoding="utf-8")
         self.git("add", "--", "docs/upgrade-index.json")
+
+    def test_source_maintenance_keeps_only_predecessor_and_scope_metadata(self):
+        self.stage_work()
+        self.stage_delta()
+        self.git("commit", "-m", "Source maintenance")
+        history = json.loads(self.git("show", "HEAD:docs/upgrade-index.json").stdout)["releases"]
+        self.assertEqual(history[0], {"version":"1.2.4", "previous":"1.2.3",
+                                    "summary":[], "areas":[], "source_only":[], "files":["work.txt"]})
+
+    def test_source_notes_cannot_be_published_as_release_summaries(self):
+        self.stage_work()
+        before = (self.root / "oasis_harness/__init__.py").read_bytes()
+        for notes in ({"source_only":["Moved test builds into a local folder"]},
+                      {"summary":["Moved test builds into a local folder"]}):
+            self.stage_delta(**notes)
+            rejected = self.git("commit", "-m", "Source notes in public index", check=False)
+            self.assertNotEqual(rejected.returncode, 0)
+            self.assertIn(b"source-only", rejected.stderr)
+            self.assertEqual((self.root / "oasis_harness/__init__.py").read_bytes(), before)
+
+    def test_adopter_changes_need_both_summary_and_application_area(self):
+        self.stage_work()
+        area = {"name":"Guide", "change":"Clarify supported setup",
+                "apply":"Review the updated guide", "paths":["work.txt"], "checks":[]}
+        self.stage_delta(areas=[area])
+        self.assertNotEqual(self.git("commit", "-m", "Missing public summary", check=False).returncode, 0)
+        self.stage_delta(summary=["Clarify supported setup"], areas=[area])
+        self.git("commit", "-m", "Document supported setup")
+        self.assertIn(b'__version__ = "1.2.4"', self.committed())
 
     def test_version_notes_cover_exact_staged_scope_before_version_writes(self):
         self.stage_work()

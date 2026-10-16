@@ -10,7 +10,7 @@
     },
     "oasis_harness/publication.py": {
       "reason": "Reviewed scanner regular-expression literals and synthetic negative fixtures; no actual private payload. Complete bytes reviewed under the source hardening task.",
-      "sha256": "5a0b34ab70588dab194966362f00d0a35de843376012fccc35d5e31e8bd24961"
+      "sha256": "44d2237a93c6b9424ae6c6387d070326c5139464a333dfa6d984e902267ba454"
     },
     "oasis_harness/sessions.py": {
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
@@ -26,7 +26,7 @@
     },
     "tests/test_public_source.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
-      "sha256": "95472d16683e23cdba27ec2c35b1bc46ea0821d9aa808da9eb76f47bfd4a7b9b"
+      "sha256": "8c34135ade971563d727f7cee2a9f38ea83066c53ce210f9c989f48ad35c7aaf"
     },
     "tests/test_rpc_efficiency.py": {
       "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain.",
@@ -41,8 +41,8 @@
       "sha256": "fcb73caaed58740b1334796803d765236ed432b59063e2e33d8ba8c49dae7d45"
     },
     "tools/source_policy.py": {
-      "reason": "Reviewed bounded scanner literals and neutral distribution checks. All 24 skill resources, exact artwork pins and hard privacy/XML checks remain; no private payload.",
-      "sha256": "6e8603a8aac7f306cca63c7d6315197acf757bb50745cfbc982f3ead325be50d"
+      "reason": "Reviewed bounded scanner literals and public change structure checks. Exact artwork pins and hard privacy/XML checks remain; known operational note patterns do not certify editorial relevance or permit private payloads.",
+      "sha256": "009a9c2273eb6e288e77110c4d9cb512bc6cfbea74debc38488bbe692c7a2bf5"
     }
   },
   "schema_version": 1
