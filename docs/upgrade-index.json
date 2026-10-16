@@ -1525,6 +1525,38 @@
         "tests/test_public_source.py",
         "tools/public-source-policy.json"
       ]
+    },
+    {
+      "version": "2.0.13",
+      "previous": "2.0.12",
+      "summary": [
+        "Verify complete Desktop assignment inputs and initial saved settings without replay."
+      ],
+      "areas": [
+        {
+          "name": "Desktop assignment acknowledgement",
+          "change": "Read the native complete-text output envelope and wait for scoped initial-settings events within the existing deadline.",
+          "apply": "Apply an inspected ordinary upgrade and recover retained assignments by their existing Camel ID without replay.",
+          "paths": [
+            "oasis_harness/desktop_sessions.py"
+          ],
+          "checks": [
+            "Complete and truncated native output, exact source/input identity, delayed settings, registration races and bounded timeout."
+          ]
+        }
+      ],
+      "source_only": [],
+      "files": [
+        "AGENTS.md",
+        "docs/CHANGELOG.md",
+        "docs/development.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/desktop_sessions.py",
+        "tests/test_commit_version.py",
+        "tests/test_desktop_sessions.py",
+        "tools/bump_commit_version.py",
+        "tools/public-source-policy.json"
+      ]
     }
   ]
 }

@@ -50,7 +50,8 @@ class Tools:
                    {"type": "turn_context", "payload": {**(saved or SAVED), "turn_id": turn_id}}]
         path.write_text("".join(json.dumps(row) + "\n" for row in records), encoding="utf-8")
         items = [] if prompt is None else [{"type": "functionCallOutput", "id": "input-" + turn_id,
-                                          "namespace": "codex_app", "output": delegation(source, prompt)}]
+                                          "namespace": "codex_app", "name": "create_thread",
+                                          "output": {"text": delegation(source, prompt), "truncated": False}}]
         self.rows[identity] = {"native": {"id": identity, "kind": "codex", "hostId": "local",
                              "cwd": str(self.root), "title": "fixture", "status": {"type": "idle"}},
                              "turns": [{"id": turn_id, "status": "completed", "items": items}], "path": path}
@@ -93,8 +94,9 @@ class Tools:
 
 
 class Watch:
-    def __init__(self, directory, changed, failed):
+    def __init__(self, directory, changed, failed, *, recursive=False):
         self.directory, self.changed, self.failed, self.closed = directory, changed, failed, False
+        self.recursive = recursive
 
     def close(self):
         self.closed = True
@@ -146,6 +148,89 @@ class DesktopContracts(unittest.TestCase):
         with self.assertRaises(HarnessError):
             self.server.recover_assignment(CHILD, SOURCE, self.root, "Do <work> & check", settings, project)
         self.assertEqual(len([call for call in self.tools.calls if call[0] == "create_thread"]), 1)
+
+    def test_creation_waits_for_first_settings_event_without_replay(self):
+        ready, finished = threading.Event(), threading.Event()
+        watchers, reads = [], []
+        original = sessions.latest_settings
+        def read(path):
+            if Path(path) == self.tools.rows.get(CHILD, {}).get("path"):
+                reads.append(path)
+            try:
+                return original(path)
+            except sessions.MissingSavedSettings:
+                if len(reads) == 2:
+                    ready.set()
+                raise
+        def watch(directory, changed, failed, *, recursive=False):
+            watcher = Watch(directory, changed, failed, recursive=recursive)
+            watchers.append(watcher)
+            def save():
+                if not ready.wait(2):
+                    return
+                changed(["unrelated.jsonl"])
+                path = self.tools.rows[CHILD]["path"]
+                with path.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"type": "turn_context", "payload": {**SAVED, "turn_id": CHILD_TURN}}) + "\n")
+                changed([path.name])
+                finished.set()
+            threading.Thread(target=save, daemon=True).start()
+            return watcher
+        def before_settings():
+            path = self.tools.rows[CHILD]["path"]
+            path.write_text(path.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
+        self.tools.after_create = before_settings
+        self.server.watcher_factory = watch
+        with mock.patch.object(sessions, "latest_settings", side_effect=read):
+            result = self.create()
+        self.assertTrue(finished.wait(2))
+        self.assertEqual((result["thread_id"], result["turn_id"]), (CHILD, CHILD_TURN))
+        self.assertEqual(len(reads), 3)
+        self.assertEqual(len([call for call in self.tools.calls if call[0] == "create_thread"]), 1)
+        self.assertTrue(watchers[0].closed)
+        self.assertFalse(self.server.watches)
+
+    def test_missing_creation_settings_times_out_with_known_id_and_releases_watch(self):
+        created, watchers = [], []
+        def before_settings():
+            path = self.tools.rows[CHILD]["path"]
+            path.write_text(path.read_text(encoding="utf-8").splitlines()[0] + "\n", encoding="utf-8")
+        def watch(directory, changed, failed, *, recursive=False):
+            value = Watch(directory, changed, failed, recursive=recursive)
+            watchers.append(value)
+            return value
+        self.tools.after_create = before_settings
+        self.server.watcher_factory = watch
+        with sessions.deadline_scope(timeout=.05), self.assertRaises((sessions.MissingSavedSettings, sessions.DeadlineExceeded)):
+            self.create(on_created=created.append)
+        self.assertEqual(created, [CHILD])
+        self.assertEqual(len([call for call in self.tools.calls if call[0] == "create_thread"]), 1)
+        self.assertTrue(watchers[0].closed)
+        self.assertFalse(self.server.watches)
+
+    def test_creation_rollout_written_during_registration_precedes_native_readback(self):
+        watchers, saved = [], {}
+        def before_settings():
+            path = self.tools.rows[CHILD]["path"]
+            saved["bytes"] = path.read_bytes()
+            path.unlink()
+        def watch(directory, changed, failed, *, recursive=False):
+            path = self.tools.rows[CHILD]["path"]
+            path.write_bytes(saved["bytes"])
+            value = Watch(directory, changed, failed, recursive=recursive)
+            watchers.append(value)
+            return value
+        original = self.tools.call
+        def call(name, args, **kwargs):
+            if name == "read_thread" and args["threadId"] == CHILD:
+                self.assertTrue(self.tools.rows[CHILD]["path"].is_file(), "Native reads cannot precede persistence")
+            return original(name, args, **kwargs)
+        self.tools.after_create = before_settings
+        self.server.watcher_factory = watch
+        with mock.patch.object(self.tools, "call", side_effect=call):
+            self.assertTrue(self.create()["creation_verified"])
+        self.assertTrue(watchers[0].closed)
+        self.assertTrue(watchers[0].recursive)
 
     def test_known_id_precedes_a_failed_native_readback(self):
         created = []
@@ -287,6 +372,22 @@ class DesktopContracts(unittest.TestCase):
                         {**item, "output": item["output"].replace("<input>", "<input extra='true'>")}):
             self.assertEqual(desktop.DesktopServer._item(altered)["type"], "functionCallOutput")
 
+    def test_native_output_envelope_requires_complete_text_and_preserves_source(self):
+        item = {"type": "functionCallOutput", "namespace": "codex_app", "name": "send_message_to_thread",
+                "id": "native-input", "output": {"text": delegation(SOURCE, "line1\r\n<work> & check"), "truncated": False}}
+        original = copy.deepcopy(item)
+        normalized = desktop.DesktopServer._item(item)
+        self.assertEqual((normalized["id"], normalized["nativeType"], normalized["sourceThreadId"]),
+                         ("native-input", "functionCallOutput", SOURCE))
+        self.assertEqual(sessions._message_text(normalized), "line1\r\n<work> & check")
+        self.assertEqual(item, original)
+        for output in ({**item["output"], "truncated": True}, {"text": item["output"]["text"]},
+                       {**item["output"], "truncated": 0}, {"text": None, "truncated": False},
+                       {"text": item["output"]["text"] + "[truncated]", "truncated": False}):
+            with self.subTest(output=output):
+                altered = {**item, "output": output}
+                self.assertEqual(desktop.DesktopServer._item(altered), altered)
+
     def test_history_anchor_includes_new_items_in_its_existing_turn(self):
         self.create()
         value = {"thread_id": CHILD, "message_id": "client-message", "text": "Follow-up"}
@@ -402,6 +503,43 @@ class DesktopContracts(unittest.TestCase):
         events = self.server.wait_events(2)
         worker.join(timeout=2)
         self.assertEqual([event["params"]["watchId"] for event in events], ["file"])
+
+    @unittest.skipUnless(os.name == "nt", "Windows filesystem notification integration")
+    def test_real_windows_creation_waits_for_nested_rollout_and_releases_watch(self):
+        ready, finished, saved = threading.Event(), threading.Event(), {}
+        watchers, workers, missing = [], [], []
+        def before_settings():
+            path = self.tools.rows[CHILD]["path"]
+            saved["bytes"] = path.read_bytes()
+            path.unlink()
+        original = self.server.rollouts.find
+        def find(identity):
+            try:
+                return original(identity)
+            except desktop.MissingRollout:
+                missing.append(identity)
+                if len(missing) == 2:
+                    ready.set()
+                raise
+        def watch(directory, changed, failed, *, recursive=False):
+            watcher = desktop._DirectoryWatch(directory, changed, failed, recursive=recursive)
+            watchers.append(watcher)
+            def save():
+                if ready.wait(2):
+                    self.tools.rows[CHILD]["path"].write_bytes(saved["bytes"])
+                    finished.set()
+            worker = threading.Thread(target=save, daemon=True)
+            workers.append(worker)
+            worker.start()
+            return watcher
+        self.tools.after_create = before_settings
+        self.server.watcher_factory = watch
+        with sessions.deadline_scope(timeout=5), mock.patch.object(self.server.rollouts, "find", side_effect=find):
+            self.assertTrue(self.create()["creation_verified"])
+        self.assertTrue(finished.wait(2))
+        workers[0].join(timeout=2)
+        self.assertFalse(watchers[0].thread.is_alive())
+        self.assertIsNone(watchers[0].handle)
 
     @unittest.skipUnless(os.name == "nt", "Windows filesystem notification integration")
     def test_real_windows_append_notification_owns_and_releases_handles(self):

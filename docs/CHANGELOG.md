@@ -5,6 +5,15 @@ migrations. Maintenance revisions without an adopter-facing change are omitted.
 The [upgrade index](upgrade-index.json) supports predecessor checks; actual file
 differences and local conflicts still determine the complete upgrade plan.
 
+## 2.0.13
+
+Desktop assignment readback accepts the native complete-text output envelope,
+and waits for the new chat's first saved settings record within its existing
+native deadline. Scoped file events trigger the recheck. Truncated inputs and
+actual settings mismatches remain unverified; a timeout retains the created ID
+without replay. Apply an inspected ordinary upgrade and recover retained tasks
+by their existing Camel ID.
+
 ## 2.0.11
 
 Fresh installation and ordinary upgrades include the Desktop task adapter and
