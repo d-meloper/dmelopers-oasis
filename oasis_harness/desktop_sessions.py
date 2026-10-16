@@ -79,6 +79,10 @@ def _unlinked(path, root):
     return path
 
 
+class MissingRollout(HarnessError):
+    """An acknowledged creation has not yet persisted its initial record."""
+
+
 class Rollouts:
     """Bounded, read-only exact-ID lookup; no app database or cached defaults."""
     MAX_ENTRIES = 100000
@@ -115,6 +119,8 @@ class Rollouts:
                         if not candidate.is_file():
                             raise HarnessError("Desktop rollout identity is not an ordinary file")
                         matches.append(candidate)
+        if not matches:
+            raise MissingRollout("Desktop chat has no saved rollout yet; preserve its acknowledged ID")
         if len(matches) != 1:
             raise HarnessError("Desktop thread requires exactly one actual UUID-named rollout; preserve its known ID")
         self.cache[identity] = matches[0]
@@ -122,13 +128,14 @@ class Rollouts:
 
     def metadata(self, identity):
         path = self.find(identity)
-        metadata, turn_id = None, None
+        metadata, turn_id, complete_records = None, None, 0
         with path.open(encoding="utf-8") as stream:
             for line in stream:
                 sessions.remaining_timeout()
                 # A writer can have an unfinished last record. Never use it as evidence.
                 if not line.endswith("\n"):
                     continue
+                complete_records += 1
                 record = json.loads(line)
                 if not isinstance(record, dict) or not isinstance(record.get("payload"), dict):
                     raise HarnessError("Desktop rollout has an invalid record")
@@ -141,6 +148,8 @@ class Rollouts:
                     turn_id = payload["turn_id"]
                 elif record.get("type") == "event_msg" and payload.get("type") == "task_started" and payload.get("turn_id"):
                     turn_id = payload["turn_id"]
+        if not complete_records:
+            raise MissingRollout("Desktop initial rollout record is not complete yet")
         if (not isinstance(metadata, dict) or metadata.get("id") != identity
                 or not isinstance(metadata.get("cwd"), str) or not metadata["cwd"]):
             raise HarnessError("Desktop rollout metadata does not match its exact chat ID/root")
@@ -149,12 +158,13 @@ class Rollouts:
 
 class _DirectoryWatch:
     """One cancellable overlapped ReadDirectoryChangesW owner per directory."""
-    def __init__(self, directory, changed, failed):
+    def __init__(self, directory, changed, failed, *, recursive=False):
         if os.name != "nt":
             raise sessions.NativeError("fs/watch", {"code": -32601, "message": "Windows change notifications unavailable"})
         from ctypes import wintypes as wt
         self.api = ctypes.WinDLL("kernel32", use_last_error=True)
         self.changed, self.failed = changed, failed
+        self.recursive = recursive
         self.closed = False
         self.lock = threading.RLock()
         self.buffer = ctypes.create_string_buffer(65536)
@@ -201,7 +211,7 @@ class _DirectoryWatch:
 
     def _arm(self):
         self.api.ResetEvent(self.event)
-        if not self.api.ReadDirectoryChangesW(self.handle, self.buffer, len(self.buffer), False,
+        if not self.api.ReadDirectoryChangesW(self.handle, self.buffer, len(self.buffer), self.recursive,
                                                0x1F, None, ctypes.byref(self.overlapped), None):
             if ctypes.get_last_error() != 997:
                 raise ctypes.WinError(ctypes.get_last_error())
@@ -392,6 +402,10 @@ class DesktopServer:
         value = copy.deepcopy(item)
         if item.get("type") == "functionCallOutput" and item.get("namespace") == "codex_app" and item.get("name") in (None, "create_thread", "send_message_to_thread"):
             text = item.get("output")
+            if isinstance(text, dict):
+                if text.get("truncated") is not False:
+                    return value
+                text = text.get("text")
         elif item.get("type") == "userMessage":
             content = item.get("content")
             text = "\n".join(part.get("text", "") for part in content if isinstance(part, dict) and part.get("type") == "text") if isinstance(content, list) else None
@@ -524,16 +538,63 @@ class DesktopServer:
         """Verify a retained accepted child ID; never create or replay its prompt."""
         identity = _identity(thread_id)
         _identity(source_id)
+        child = sessions.inherited_settings(self._creation_settings(identity, target))
+        if child != settings:
+            raise HarnessError("Desktop child actual saved selections differ; preserve the acknowledged chat ID")
         native = self._thread(identity)
         if native["projectId"] != project_id or sessions.canonical_root(native["cwd"]) != sessions.canonical_root(target):
             raise HarnessError("Desktop created a different project/root; preserve the acknowledged chat ID")
-        child = sessions.inherited_settings(sessions.latest_settings(native["path"]))
-        if child != settings:
-            raise HarnessError("Desktop child actual saved selections differ; preserve the acknowledged chat ID")
         turns = self._history(identity)
         turn_id = self._prompt_turn(turns, prompt, source_id)
         return {"thread_id": identity, "turn_id": turn_id, "native_thread": native, "host_id": "local",
                 "settings": child, "creation_verified": True, "desktop_managed": True}
+
+    def _creation_settings(self, identity, target):
+        """Wait for this acknowledged chat's persisted context before native reads."""
+        def read():
+            path, metadata, _ = self.rollouts.metadata(identity)
+            if sessions.canonical_root(metadata["cwd"]) != sessions.canonical_root(target):
+                raise HarnessError("Desktop created a different saved root; preserve the acknowledged chat ID")
+            return sessions.latest_settings(path)
+        try:
+            return read()
+        except (MissingRollout, sessions.MissingSavedSettings):
+            pass
+        condition, generation, failure = threading.Condition(), 0, None
+        suffix = "-" + identity.lower() + ".jsonl"
+        def changed(names):
+            nonlocal generation
+            if names is None or any(str(name).lower().endswith(suffix) for name in names):
+                with condition:
+                    generation += 1
+                    condition.notify_all()
+        def failed(error):
+            nonlocal failure
+            with condition:
+                failure = HarnessError("Desktop creation observation failed: " + type(error).__name__)
+                condition.notify_all()
+        with sessions.deadline_scope(timeout=30):
+            directory = _unlinked(self.rollouts.home / "sessions", self.rollouts.home)
+            if not directory.is_dir():
+                raise HarnessError("Desktop session directory is unavailable; retain the acknowledged chat ID")
+            watcher = self.watcher_factory(directory, changed, failed, recursive=True)
+            try:
+                while True:
+                    with condition:
+                        observed = generation
+                        if failure:
+                            raise failure
+                    try:
+                        return read()  # Includes writes during watch registration.
+                    except (MissingRollout, sessions.MissingSavedSettings):
+                        with condition:
+                            if not condition.wait_for(lambda: generation != observed or failure is not None,
+                                                      timeout=sessions.remaining_timeout()):
+                                raise
+                            if failure:
+                                raise failure
+            finally:
+                watcher.close()
 
     def archive_state(self, thread_id):
         """Read the exact rollout's native archive location, without another writer."""

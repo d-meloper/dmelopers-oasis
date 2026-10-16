@@ -34,8 +34,10 @@ source-only delivery of requested edits without repeated candidate approval.
 Unresolved material decisions still need the owner.
 
 Use `.githooks/pre-commit` with the intended staged scope and plain `git commit`.
-Ordinary commits increment only package patch Z from HEAD and append a
-predecessor delta in [the version index](docs/upgrade-index.json).
+Ordinary commits preserve the package version. Record the task's starting commit;
+on completion, increment package patch Z once with command-local
+`oasis.versionFinalize=<full-baseline-commit>` and append one predecessor delta
+covering the whole task in [the version index](docs/upgrade-index.json).
 Explicit exact versions use command-local `oasis.versionTarget`; X/Y and core
 changes follow explicit owner requests. Never bypass the hook.
 

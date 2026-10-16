@@ -33,8 +33,10 @@ The source uses an isolated ordinary producer on `main`, private recovery
 The owner authorizes routine source-only delivery of requested edits without
 another candidate approval; unresolved material decisions need the owner.
 
-1. Review and stage the ready scope. Append its predecessor delta to
-   `docs/upgrade-index.json` and commit through the patch hook.
+1. Record the task's starting commit and keep ordinary checkpoint commits at
+   the existing package version. On completion, review the whole task, append
+   its predecessor delta to `docs/upgrade-index.json` and finalize one patch
+   through the hook using that full baseline commit.
 2. Run `backup run`, then `backup status`. Verify the actual account, immutable
    private repository ID/visibility and committed-main match. The selected
    `isolated-unmanaged` policy uses the existing external bare relay.
@@ -86,39 +88,52 @@ A clone does not activate hooks automatically. Local setup preserves other Git
 keys and never changes global settings. Development hooks are not installed
 into adopters.
 
-An ordinary commit reads HEAD and increments package patch Z once. Stage one
+Ordinary commits preserve the package version and release identities. Record
+the full starting commit before task work. When that task is complete, stage one
 chronological predecessor entry in `docs/upgrade-index.json`, listing the exact
-changed paths. Its inventory matches staged files except the index and package
-literal. Describe an adopter-facing change through its summary and affected
+net changed paths from that baseline to the index, including earlier checkpoint
+commits. Exclude the index and package literal. Finalize package patch Z once:
+
+```powershell
+git -c oasis.versionFinalize=<full-task-baseline-commit> commit -m <message>
+```
+
+The baseline must be an immutable ancestor in this repository. Finalization
+selection is command-local; ordinary and empty checkpoint commits do not bump.
+Describe an adopter-facing change through its summary and affected
 areas, application and checks. For maintenance with no adopter-facing effect,
 leave `summary`, `areas` and `source_only` empty; the version, predecessor and
 file inventory retain continuity. Do not add operational prose to `source_only`.
 Keep earlier version identities; advisory notes do not replace actual byte review.
 
-`tools/bump_commit_version.py --delta-draft` previews an unfinished release row
-from the staged scope. `--output .oasis/local/<run>/delta-draft.json` retains that draft without
+`tools/bump_commit_version.py --delta-draft --base <full-task-baseline-commit>`
+previews an unfinished release row for the whole task through the current index.
+`--output .oasis/local/<run>/delta-draft.json` retains that draft without
 changing the index or filling in review judgments. Inspect and finish it before
 staging the version index.
 
-Stage the scope and use plain `git commit`; partial-path/alternate-index commits
-refuse before version writes. A failed retry against unchanged HEAD reuses the
-pending patch. Never bypass the hook. X/Y and core changes require an explicit
+Stage the intended scope and use the normal commit path; partial-path/alternate-index
+commits refuse before version writes. Repeat the same finalization command after
+a failed commit; its pending patch is reused. Never bypass the hook. X/Y and core changes require an explicit
 owner request.
 
 An explicitly requested new base records X.Y.(Z+1):
 
 ```powershell
-git -c oasis.versionBase=X.Y.Z commit -m <message>
+git -c oasis.versionFinalize=<full-task-baseline-commit> -c oasis.versionBase=X.Y.Z commit -m <message>
 ```
 
 An explicitly requested exact version records the staged literal:
 
 ```powershell
-git -c oasis.versionTarget=X.Y.Z commit -m <message>
+git -c oasis.versionFinalize=<full-task-baseline-commit> -c oasis.versionTarget=X.Y.Z commit -m <message>
 ```
 
 The target must change HEAD, remain command-local and have no simultaneous base.
-The next ordinary commit increments the new HEAD patch.
+The next ordinary commit retains that version. A later completed task finalizes
+its next patch from its own recorded baseline. An owner-requested consolidation
+of unpublished versions uses the last released producer commit as baseline and
+an exact target, preserving all baseline release identities and Git history.
 
 Keep operational evidence in ignored `.oasis/local/`; put reusable experience in
 the nearest reference. [Validation](validation.md) distinguishes fixtures,

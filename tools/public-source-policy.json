@@ -45,11 +45,11 @@
       "sha256": "009a9c2273eb6e288e77110c4d9cb512bc6cfbea74debc38488bbe692c7a2bf5"
     },
     "oasis_harness/desktop_sessions.py": {
-      "sha256": "988bc148e896e31385e65413fdda4f07adf0d510e99b9bf8d6a06a5f0a64004c",
+      "sha256": "fe1cfedcf9246a25486a4866d15c128cc32e37606650fc5463890e597ba9abd9",
       "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
     },
     "tests/test_desktop_sessions.py": {
-      "sha256": "d53066130113e4f8330208c584be49f909a5b7bd3197fc1a6a7902edfd0ed87d",
+      "sha256": "cdf686bdebbc90b73a37d20fc24bb052d1234c104d4e8fbbbffd307347b6d322",
       "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
     },
     "tests/test_desktop_workflows.py": {

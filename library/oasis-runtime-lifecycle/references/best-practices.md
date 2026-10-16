@@ -54,7 +54,16 @@ An unsubscribe acknowledgement does not establish immediate writer release.
 For combined create-and-first-input tools, persist the actual returned chat ID
 before settings/input readback; a later verification failure must not lose that
 known creation. Verify exact delegation source, input and native turn identity,
-including native function-output representations. The same call ID does not
+including native function-output representations. Native history can wrap that
+output in an object with `text` and `truncated`; accept only explicit complete
+text and retain the wrapper in fixtures, rather than flattening it in the fake
+transport. Truncated or incompletely described output cannot prove delivery.
+An acknowledged child ID can precede its rollout and first saved settings.
+Before native history reads, wait for that UUID's file and saved context in the
+verified session tree. Subscribe before rereading and ignore unrelated filenames;
+keep this scoped wait within the original deadline. Missing context is not a settings
+mismatch. Keep a real mismatch or expired wait unverified and retain the known ID.
+The same call ID does not
 authorize replay after response loss. Recover a lost ID only against the retained
 original input and settings, rather than a title or a new creation.
 
