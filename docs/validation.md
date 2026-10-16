@@ -1,21 +1,9 @@
 # Verification boundaries
 
-Run local tests from the source root:
-
-```powershell
-python -B -X utf8 -m unittest discover -s tests -t . -v
-```
-
-Tests use disposable filesystem/Git projects and injected native/service adapters.
-Their temporary directories live under the test checkout's `.oasis/local/tmp/`
-and each fixture removes its own files on context exit. A retained snapshot inside
-an owning Git checkout shares that owner's scratch root to avoid long native paths.
-Retained evidence stays
-outside that disposable subtree; see [build evidence](publication.md#build-adapter).
-They verify the exercised functions; live chat adoption and remote effects need
-their own evidence. Select affected modules for ordinary changes; shared or
-unknown Python uses the full suite when passing evidence does not cover the same
-inputs. Reuse passed checks with matching code, tests, configuration and other
+Checks establish the functions and inputs they actually exercise. Live chat
+adoption and remote effects require their own evidence. Select relevant checks
+for changed behavior and its consumers. Reuse passed checks with matching code,
+tests, configuration and other
 consumed inputs. Compare the inputs actually consumed, using their retained
 fingerprint where available; missing proof remains unknown. Version/documentation
 changes alone do not invalidate unaffected functional checks. State a rerun's
@@ -26,8 +14,8 @@ loading full histories; inspect affected ranges when the inputs or purpose chang
 
 Run checks for changed inputs and retain failed, missing or deferred coverage.
 Exact final export, privacy and identity checks still apply to the candidate.
-Source delivery accepts a retained verified build receipt explicitly; a bare
-log or failed run cannot become a pass.
+A retained verified build receipt can support the same checked inputs; a bare
+log or failed run cannot become a pass. See [build evidence](publication.md#build-adapter).
 
 ## Reusing a testcase subset
 
@@ -179,9 +167,8 @@ surface availability; see [sessions](sessions.md).
 For dependency costs, separate elapsed wait, tool wait and model requests.
 An unchanged dependency should cause zero periodic model requests and a confirmed
 meaningful transition should produce no duplicate wake-up. Measure a fixed task
-on the selected candidate, retaining source identity and consumed fixture inputs.
-The fixed installed protocol fixture repeats the same model-free task three
-times. Count native RPC by method,
+on the selected candidate, retaining source identity and consumed inputs.
+Count native RPC by method,
 local IPC, response bytes, connections/processes and completion delivery delay
 separately. A retained historical run is context, not a controlled speedup or
 token-saving measurement; do not rerun an old version merely to populate a report.
@@ -202,5 +189,5 @@ publication. See [Windows sharing semantics](https://learn.microsoft.com/en-us/w
 
 Reports identify what ran, failed, remains uncertain and was deferred. Static
 inventory/links, installed runtime, model adoption, backend effects, visible UI
-and external delivery have separate evidence boundaries. Versioned observations
-and their original limits live in [CHANGELOG](CHANGELOG.md).
+and external delivery have separate evidence boundaries. Keep run-specific
+observations, outcomes and their limits with the project's local evidence.

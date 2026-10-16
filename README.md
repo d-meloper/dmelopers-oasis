@@ -79,7 +79,7 @@ See [ProjectGuide](seed/ProjectGuide.md).
 | Requested publication | [Publication](docs/publication.md) |
 | Reusable experience | [Knowledge](docs/knowledge.md) |
 | Checks and limits | [Validation](docs/validation.md) |
-| Version history and transition procedures | [CHANGELOG](docs/CHANGELOG.md) |
+| Release notes and migration procedures | [CHANGELOG](docs/CHANGELOG.md) |
 
 Run source commands from this root; adopters use installed `tools/oasis.py`:
 
@@ -106,8 +106,8 @@ project knowledge stays in its actual file; see [knowledge policy](docs/knowledg
 
 The [upgrade index](docs/upgrade-index.json) describes predecessor deltas;
 actual bytes and local conflicts determine application. Core metadata describes
-roles and versions. [CHANGELOG](docs/CHANGELOG.md) retains historical procedures
-and evidence.
+roles and versions. [Release notes](docs/CHANGELOG.md) describe harness changes
+and required migrations.
 
 Source delivery targets `d-meloper/dmelopers-oasis` on `main`, with private
 recovery at `d-meloper/dmelopers-oasis-harness-backup`. These bindings and source

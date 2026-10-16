@@ -93,6 +93,49 @@ def _fail(rule):
     raise HarnessError("Harness public-source check blocked: " + rule)
 
 
+def validate_public_change_text(text):
+    """Catch known operational-note leaks; editorial review still owns relevance."""
+    if not isinstance(text, str) or not text.strip():
+        _fail("public change text must be nonempty")
+    patterns = (
+        r"\.oasis[/\\]local(?:[/\\]|\b)",
+        r"\b(?:test|regression) fixture (?:destination|root|directory)\b",
+        r"\bsource[- ]only (?:delivery|validation|patch)\b",
+        r"\b(?:privacy|scanner) pin\b", r"\bPID reuse\b",
+        r"\bWindows error 206\b", r"\bowner-selected\b",
+        r"\bexact (?:publication|source) candidate\b",
+    )
+    if any(re.search(pattern, text, re.IGNORECASE) for pattern in patterns):
+        _fail("operational detail in public change text; retain it in local evidence")
+
+
+def validate_public_history(index, changelog):
+    """Keep continuity metadata while publishing only actionable adopter notes."""
+    if (not isinstance(index, dict) or set(index) != {"schema_version", "releases"}
+            or index.get("schema_version") != 1 or not isinstance(index.get("releases"), list)
+            or not index["releases"]):
+        _fail("public version index contains non-release history")
+    for row in index["releases"]:
+        if (not isinstance(row, dict)
+                or set(row) != {"version", "previous", "summary", "areas", "source_only", "files"}
+                or any(not isinstance(row[k], str) or not re.fullmatch(r"\d+\.\d+\.\d+", row[k]) for k in ("version", "previous"))
+                or not isinstance(row["summary"], list) or not isinstance(row["areas"], list)
+                or row["source_only"] != [] or bool(row["summary"]) != bool(row["areas"])
+                or not isinstance(row["files"], list) or any(not isinstance(p, str) for p in row["files"])):
+            _fail("public version delta needs adopter notes or empty continuity metadata")
+        for summary in row["summary"]:
+            validate_public_change_text(summary)
+        for area in row["areas"]:
+            if (not isinstance(area, dict) or set(area) != {"name", "change", "apply", "paths", "checks"}
+                    or not isinstance(area["paths"], list) or not area["paths"]
+                    or not isinstance(area["checks"], list)):
+                _fail("invalid public application area")
+            for text in [area["name"], area["change"], area["apply"], *area["checks"]]:
+                validate_public_change_text(text)
+    validate_public_change_text(changelog)
+    return {"status": "public_change_structure_pass", "editorial_review_required": True}
+
+
 def review_policy(reviewed=None):
     """Validate exact-byte exceptions; a reason/nonce is never human authority."""
     if reviewed is None:
@@ -391,6 +434,8 @@ def validate_harness_distribution(files, reviewed=None, *, expected_hashes=None,
     )}
     if mandatory - set(files):
         _fail("missing source entry, manual or neutral template")
+    validate_public_history(_json(files["docs/upgrade-index.json"], "invalid public version index"),
+                            files["docs/CHANGELOG.md"].decode("utf-8"))
     try:
         tree = ast.parse(files["oasis_harness/__init__.py"].decode("utf-8"))
         versions = [ast.literal_eval(node.value) for node in tree.body if isinstance(node, ast.Assign)

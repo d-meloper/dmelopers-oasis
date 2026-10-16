@@ -244,24 +244,6 @@ class SkillContracts(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(json.loads(result.stdout)["adopted_rule"])
 
-    def test_complete_sanitized_historical_inventory_is_retained_in_version_history(self):
-        archived = read_json(PACKAGE / "docs/upgrade-index.json")["history"]["adaptation_inventory"]
-        self.assertEqual(archived["package_version"], "1.2.0")
-        self.assertEqual(archived["source_file"], "docs/adaptation-map.json")
-        self.assertEqual(archived["source_sha256"], "44661ad3083e7e62b4a3575436d37d3c0d02a435c3f69ac756bbdda1e6bb18e8")
-        inventory = archived["inventory"]
-        # Pin the complete original data, not its former live destination layout.
-        self.assertEqual(digest(inventory), "26cbf87c2ac15519b100ef92ecc14b3d2f74a28fc9f80f26b6ccb1de33855b13")
-        self.assertEqual(inventory["source_skill_count"], 26)
-        files = [item for skill in inventory["skills"] for item in skill["files"]]
-        self.assertEqual(len(files), 69)
-        self.assertEqual(len({item["source_file_id"] for item in files}), 69)
-        for item in files:
-            self.assertRegex(item["sha256"], r"^[0-9a-f]{64}$")
-        serialized = json.dumps(inventory)
-        self.assertNotIn("source_path", serialized)
-        self.assertNotIn("C:\\", serialized)
-
     def test_evaluator_expectations_are_separate_from_installed_inputs(self):
         from tests.skill_evaluation_cases import DOMAIN_EXPECTATIONS, EVALUATION_EXPECTATIONS
         from oasis_harness.installation import package_files

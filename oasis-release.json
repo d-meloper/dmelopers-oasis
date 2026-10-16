@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2.0.7",
+  "version": "2.0.8",
   "channel": "stable",
   "mode": "source-and-artifacts",
   "files": [

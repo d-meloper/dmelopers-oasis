@@ -17,6 +17,19 @@ spec.loader.exec_module(delivery)
 
 
 class SourceDeliveryContracts(unittest.TestCase):
+    def test_public_notes_are_checked_before_backup_or_build_work(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            notes = Path(tmp) / "notes.md"
+            for title, body in (("Move test builds", "Use .oasis/local/deliveries/"),
+                                ("Shorten the test fixture destination", "Maintain the harness")):
+                notes.write_text(body, encoding="utf-8")
+                with patch.object(delivery, "git", return_value=""), patch.object(delivery, "source_head", return_value="head"), \
+                     patch.object(delivery.backup, "status", side_effect=AssertionError("backup reached")), \
+                     patch.object(delivery.build, "execute", side_effect=AssertionError("build reached")):
+                    with self.assertRaisesRegex(HarnessError, "operational detail"):
+                        delivery.prepare(Path(tmp) / "not-created", title, notes, SimpleNamespace())
+                self.assertFalse((Path(tmp) / "not-created").exists())
+
     def test_default_delivery_runs_stay_private_unique_and_preserve_existing_runs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "producer"; root.mkdir(); git(root, "init")

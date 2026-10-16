@@ -8,7 +8,7 @@ from oasis_harness.common import HarnessError, digest, run
 from tools import check_public_source
 from tools.source_policy import (
     NEUTRAL_PROJECT, README_SVGS, review_policy, scan_harness_file,
-    validate_harness_directory, validate_harness_distribution,
+    validate_harness_directory, validate_harness_distribution, validate_public_change_text,
 )
 
 
@@ -41,6 +41,37 @@ def fixture():
 
 
 class PublicSourceContracts(unittest.TestCase):
+    def test_public_history_rejects_operational_notes_and_keeps_maintenance_continuity(self):
+        files, reviewed = fixture()
+        clean = json.loads(files["docs/upgrade-index.json"])
+        self.assertTrue(any(not row["summary"] and not row["areas"] for row in clean["releases"]))
+        validate_harness_distribution(files, reviewed)
+        for label in ("private history", "maintenance prose", "fake user area", "changelog"):
+            changed = dict(files)
+            value = json.loads(json.dumps(clean))
+            row = next(row for row in value["releases"] if not row["areas"])
+            if label == "private history":
+                value["history"] = {"local_run": "original observations"}
+            elif label == "maintenance prose":
+                row["summary"] = ["Move the source test folder"]
+                row["source_only"] = ["Retained source run"]
+            elif label == "fake user area":
+                area = next(r["areas"][0] for r in value["releases"] if r["areas"])
+                area["change"] = "Move fixtures to .oasis/local/tmp/"
+            else:
+                changed["docs/CHANGELOG.md"] += b"\nMove the regression fixture destination.\n"
+            changed["docs/upgrade-index.json"] = json.dumps(value).encode("utf-8")
+            with self.subTest(label=label), self.assertRaisesRegex(HarnessError, "public|operational"):
+                validate_harness_distribution(changed, reviewed)
+
+    def test_public_note_filter_keeps_real_feature_descriptions(self):
+        validate_public_change_text("Reuse passed testcase evidence while preserving the failed run status.")
+        validate_public_change_text("Fix initialization through the existing control socket.")
+        for text in ("Use .oasis/local/deliveries for test builds", "Refresh the privacy pin",
+                     "Shorten the test fixture destination", "Exact publication candidate abc"):
+            with self.subTest(text=text), self.assertRaisesRegex(HarnessError, "operational detail"):
+                validate_public_change_text(text)
+
     def test_index_candidate_batch_preserves_binary_unicode_and_empty_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

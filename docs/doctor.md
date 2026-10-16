@@ -8,6 +8,8 @@ Use its skill's `references/workflow.md` for acquisition and recovery.
 
 The installed `.oasis/manual/upgrade-index.json` records predecessor deltas and
 paths/checks. Doctor intersects advisory notes with actual incoming differences.
+Maintenance revisions retain predecessor continuity without adding release
+descriptions. Summaries show changes affecting the installed harness.
 Missing/discontinuous history, repeated labels and unmapped paths receive complete
 byte review. Pin the selected repository/ref/commit/tree, compare ownership and
 saved bases, then use the three-way installer.

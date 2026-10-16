@@ -29,7 +29,7 @@ class UpgradeGuidanceTests(unittest.TestCase):
                      "apply":"Merge at authorized handoff","checks":["Scoped check"]}
         self.data = {"schema_version":1,"releases":[
             {"version":"1.0.1","previous":"1.0.0","summary":["Guide change"],"areas":[self.area],"source_only":[]},
-            {"version":"1.0.2","previous":"1.0.1","summary":["Artwork change"],"areas":[],"source_only":["No adopter changes"]}]}
+            {"version":"1.0.2","previous":"1.0.1","summary":[],"areas":[],"source_only":[]}]}
         write_json(self.index,self.data)
 
     def differences(self, *names):
@@ -38,7 +38,7 @@ class UpgradeGuidanceTests(unittest.TestCase):
     def test_skipped_versions_select_only_actual_areas_and_keep_local_review(self):
         result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md",".oasis/runtime/oasis_harness/__init__.py"))
         self.assertTrue(result["chain_complete"])
-        self.assertEqual([r["version"] for r in result["releases"]],["1.0.1","1.0.2"])
+        self.assertEqual([r["version"] for r in result["releases"]],["1.0.1"])
         self.assertEqual(result["affected_areas"][0]["actual_paths"],["AGENTS.md"])
         self.assertEqual(result["unmapped_paths"],[])
         self.assertEqual(result["local_review_paths"],["AGENTS.md"])
@@ -48,7 +48,23 @@ class UpgradeGuidanceTests(unittest.TestCase):
         result=doctor.upgrade_guidance(self.package,"1.0.1","1.0.2",self.differences(".oasis/runtime/oasis_harness/__init__.py"))
         self.assertTrue(result["chain_complete"])
         self.assertEqual(result["affected_areas"],[])
-        self.assertEqual(result["releases"][0]["source_only"],["No adopter changes"])
+        self.assertEqual(result["releases"],[])
+
+    def test_legacy_source_notes_are_readable_but_not_displayed(self):
+        self.data["releases"][0]["source_only"] = ["Local verification detail"]
+        self.data["releases"][1].update(summary=["Moved test builds into a local folder"],
+                                        source_only=["Source maintenance detail"])
+        write_json(self.index, self.data)
+        result = doctor.upgrade_guidance(self.package, "1.0.0", "1.0.2", self.differences("AGENTS.md"))
+        self.assertTrue(result["chain_complete"])
+        self.assertEqual(result["releases"], [{"version":"1.0.1", "previous":"1.0.0", "summary":["Guide change"]}])
+
+    def test_hidden_maintenance_keeps_unmapped_changed_paths_visible(self):
+        result = doctor.upgrade_guidance(self.package, "1.0.1", "1.0.2", self.differences("new-unmapped.txt"))
+        self.assertTrue(result["chain_complete"])
+        self.assertEqual(result["releases"], [])
+        self.assertEqual(result["unmapped_paths"], ["new-unmapped.txt"])
+        self.assertIn("not fully described", result["reason"])
 
     def test_repeated_version_labels_from_explicit_reset_are_conservative(self):
         reset={**self.data["releases"][0],"previous":"1.0.2"}
@@ -59,7 +75,7 @@ class UpgradeGuidanceTests(unittest.TestCase):
         self.assertIn("Repeated installed version",ambiguous["reason"])
         first=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md"))
         self.assertTrue(first["chain_complete"])
-        self.assertEqual(len(first["releases"]),4)
+        self.assertEqual(len(first["releases"]),2)
 
     def test_unknown_changed_paths_and_same_version_bytes_do_not_disappear(self):
         result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("new-unmapped.txt"))
@@ -71,7 +87,8 @@ class UpgradeGuidanceTests(unittest.TestCase):
     def test_missing_malformed_or_cyclic_metadata_falls_back_to_complete_diff(self):
         for data in ([],{"schema_version":2,"releases":[]},
                      {"schema_version":1,"releases":[{**self.data["releases"][1],"previous":"1.0.2"}]},
-                     {"schema_version":1,"releases":[{**self.data["releases"][1],"areas":[None]}]}):
+                     {"schema_version":1,"releases":[{**self.data["releases"][1],"areas":[None]}]},
+                     {"schema_version":1,"releases":[{**self.data["releases"][0],"summary":[]}]}):
             write_json(self.index,data)
             result=doctor.upgrade_guidance(self.package,"1.0.0","1.0.2",self.differences("AGENTS.md"))
             self.assertFalse(result["chain_complete"])

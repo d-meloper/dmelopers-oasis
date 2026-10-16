@@ -29,5 +29,6 @@ route is experimental upstream. Unknown server requests receive a protocol
 failure response and method diagnostic rather than an approval decision.
 
 [Verification boundaries](validation.md) distinguish schemas, local fixtures,
-live backend effects, visible UI and external operations. Historical review
-dates, observations and their limits live in [CHANGELOG](CHANGELOG.md).
+live backend effects, visible UI and external operations. Verify protocol
+availability against the actual installed host; implementation and schema
+inspection alone do not establish native adoption.

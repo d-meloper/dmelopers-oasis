@@ -19,7 +19,7 @@ from oasis_harness import backup, build, publication
 from oasis_harness.common import HarnessError, digest, file_hash, git, git_objects, read_json, write_json
 from oasis_harness.github import GitHub
 from tools.source_checks import select, test_consumers
-from tools.source_policy import scan_harness_file, validate_harness_distribution, review_policy, MAX_FILE_BYTES
+from tools.source_policy import scan_harness_file, validate_harness_distribution, validate_public_change_text, review_policy, MAX_FILE_BYTES
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -289,6 +289,8 @@ def current_policy():
 class SourcePublisher(publication.Publisher):
     def __init__(self, candidate, sha256, provider=None):
         super().__init__(candidate, sha256, provider, policy=current_policy())
+        validate_public_change_text(self.config["title"])
+        validate_public_change_text((self.dest / "notes.md").read_text(encoding="utf-8"))
         selected = source_config()
         if any(self.config.get(key) != selected.get(key) for key in
                ("repository", "repository_id", "base_branch", "operation", "channel", "required_checks")) or self.spec["account_id"] != selected["account_id"]:
@@ -360,6 +362,8 @@ def prepare(destination, title, notes, provider=None, *, full=False, remove_publ
     if git(ROOT, "status", "--porcelain=v1", "--untracked-files=all"):
         raise HarnessError("Source delivery requires clean owned committed source")
     head = source_head()
+    validate_public_change_text(title)
+    validate_public_change_text(Path(notes).read_text(encoding="utf-8"))
     backup_status = backup.status(ROOT, provider=provider)
     if not backup_status.get("source_main_match", backup_status.get("source_refs_match")):
         raise HarnessError("Private snapshot must match the actual source before public preparation")

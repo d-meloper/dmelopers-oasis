@@ -39,4 +39,4 @@ Pioneer and independent specialists preserve their concrete requests and
 unfinished chats across mode switches. Git/backup/publication keep the project's
 selected bindings. Read applicable skill experience before choosing an approach
 and consolidate it once at final completion under [knowledge](knowledge.md).
-Version-specific procedures and evidence are in [CHANGELOG](CHANGELOG.md).
+Harness changes and required migrations are in the [release notes](CHANGELOG.md).

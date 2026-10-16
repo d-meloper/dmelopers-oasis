@@ -1,370 +1,171 @@
-# Version history
+# Release notes
 
-This file retains versioned changes, migration procedures and historical evidence.
-Current operation follows the relevant manual and skill. A recorded observation
-does not authorize repeating its original operation. Raw identities, private paths
-and receipts remain local. The [machine index](upgrade-index.json) retains exact
-predecessor deltas and the complete captured adaptation inventory.
+These notes describe changes to harness behavior, compatibility and required
+migrations. Maintenance revisions without an adopter-facing change are omitted.
+The [upgrade index](upgrade-index.json) supports predecessor checks; actual file
+differences and local conflicts still determine the complete upgrade plan.
 
-## 2.0.4
+## 2.0.8
 
-Retained snapshots inside an owning Git checkout share that checkout's
-`.oasis/local/tmp/` instead of nesting another scratch tree inside the snapshot.
-An independent Git checkout keeps its own root. The nested layout reproduced
-Windows error 206 when Git fixture engines exceeded native path limits; the
-short owning-project path preserves internal storage and per-fixture cleanup.
-Retain the original failed run and its diagnostics. This changes only source
-tests and guidance; installed runtime and existing project settings are unchanged.
+Upgrade summaries show changes affecting the installed harness. Maintenance-only
+revisions no longer add release descriptions to those summaries. Complete file
+comparison and conflict review remain part of every upgrade. Core remains 2.0.0.
 
-## 2.0.3
-
-The installed validation manual links retained build evidence to the distributed
-publication manual. Source-only development guidance remains excluded from adopters.
-
-## 2.0.2
-
-Source delivery now defaults to a unique retained run under
-`.oasis/local/deliveries/`. Build snapshots, publication candidates and version
-drafts accept ignored, untracked internal operational paths while refusing
-source/ancestor outputs and linked/reparse paths. Explicit external destinations
-remain compatible. Tests create their disposable fixtures in `.oasis/local/tmp/`
-and remove each owned fixture on context exit.
-
-Keep receipts, exact source/output bytes, logs, coverage and candidate journals
-together, including failed or uncertain runs. The development guide distinguishes
-these retained records from scratch data and records safe retirement/archive
-handling. No historical evidence is rewritten or removed, no user settings or
-external backup relay are moved, and no blanket evidence cleanup is introduced.
-Use the ordinary inspected upgrade for the shared build/publication helper;
-source tooling and test-root selection are development-only. Core remains 2.0.0.
+Source publication preserves the reviewed PR description without appending
+operational metadata.
 
 ## 2.0.1
 
-The default control-socket client now performs HTTP Upgrade and masked WebSocket
-framing through the CLI's byte-forwarding proxy. Sending JSONL directly could
-time out despite a running compatible daemon, leaving first-install native
-initialization pending. Socket selection and explicit loopback URLs retain their
-existing meanings. No server startup, global setting change or RPC replay is added.
+First-install initialization can connect through the default control-socket
+proxy using the WebSocket protocol expected by a compatible running host. The
+previous protocol mismatch could leave initialization pending. Explicit loopback
+URLs and socket selection retain their existing meanings.
 
-Both paths share the existing WebSocket validation, message limits and deadlines.
-Proxy stdout is bounded with backpressure; private stderr and owned-process
-cleanup remain bounded. Independent protocol fixtures exercise real subprocess
-pipes. A Windows read-only check reached the existing daemon without endpoint
-environment variables and discovered all 24 skills in a disposable installation.
-That check created no chats or model turns; unregistered-project role creation
-and behavior on other installed host versions remain unverified.
-
-Apply the ordinary inspected upgrade and resume any retained initialization
-operation. Do not reinstall files or create duplicate roles after an uncertain
-native outcome. A missing/incompatible host endpoint still requires its actual
-prerequisite; this correction does not install or start that service.
+Apply an inspected ordinary upgrade and resume any retained initialization
+operation. Reconcile an uncertain native outcome before creating another role.
+A missing or incompatible host endpoint still requires its actual prerequisite.
 
 ## 2.0.0
 
-The owner selected package 2.0.0 for the accumulated evidence and workflow
-improvements. The role contract remains Core 2.0.0.
-
 Optional schema-2 JUnit receipts support read-only `check review`, concise
-summaries and declared product/experience/protected change boundaries. Diagnostics
-identify changed fingerprint fields and environment key names without exposing
-values. The default strict profile retains role identity; explicit role-neutral
-removes only the documented role/transport keys from both runner execution and
-fingerprinting. Meaningful consumed-input changes still require checks. Existing
-schema-1 receipts keep strict behavior; missing historical proof stays unknown.
+summaries and declared product, experience and protected change boundaries.
+Diagnostics identify changed fingerprint fields and environment key names
+without exposing values. The strict environment profile retains role identity;
+explicit `role-neutral` removes only the documented role and transport keys.
+Existing schema-1 receipts keep their strict behavior.
 
 Camel can attach receipts through `complete --check-receipt`; sufficient manual
-evidence remains valid. Existing summaries and pinned references avoid copying
-case/hash/scope tables into extra reports while retaining independent review.
-Successful collection retains exact task/cycle/result and native final/idle/archive
-proof. Duplicate collection reuses it without new native calls or evidence reads.
-Follow-up preserves the original receipt in task history.
+evidence remains valid. Successful collection retains exact task, cycle and result
+proof. Repeated collection reuses it; follow-up preserves the original receipt
+in task history.
 
-Successful assign/complete/collect CLI output omits repeated instructions and
-history, and displays collection proof before large evidence arrays. Python APIs,
-`--full`, saved state and recovery diagnostics retain their complete information.
-Invalid change declarations fail before expensive fingerprinting; path protections
-remain strict. PowerShell examples quote the literal JUnit report placeholder.
+Successful assign, complete and collect output is more concise and presents
+collection proof before large evidence arrays. Python APIs, `--full`, saved state
+and recovery diagnostics retain complete information. Invalid change declarations
+fail before expensive fingerprinting.
 
 Apply an inspected ordinary three-way upgrade, preserving project settings,
 knowledge, user skills, unfinished tasks and historical links. Saved prompts and
-receipts are not rewritten. No runner installation, new role, completion gate,
-periodic model request or automatic retry is introduced. Retained role trials
-cover the requested Windows scenarios; they do not establish universal speedups.
+receipts remain valid. The role contract remains Core 2.0.0.
 
 ## 1.2.9
 
-Core remains 2.0.0. Whole-assignment waits to the assigning Cameleer reuse the
-existing task/cycle/result notification instead of creating another wake-up.
-Collection/archive needs no separate dependency-finish or confirmation turn.
-Explicit partial/resource waits, other consumers, terminal failures/cancellation
-and new cycles/results retain their own scope; untyped historical records are
-preserved. Coordination guidance and the owning experience describe this boundary.
+Whole-assignment waits to the assigning Cameleer reuse the existing task, cycle
+and result notice. Collection and archival require no separate dependency-finish
+or confirmation turn. Partial waits, other consumers, terminal failures,
+cancellation and new cycles retain their own scope.
 
-Optional local `check run`/`check reuse` commands record exact JUnit case outcomes
-and declared consumed inputs before/after execution. Reuse checks runner,
-dependency/runtime, cwd, environment, evidence integrity and verification purpose.
-A normally finished exit-1 run can cover its individually passed unchanged cases;
-its overall failure remains visible and cannot authorize publication. Missing or
-changed proof, infrastructure errors and nonpassing cases prevent automatic reuse.
-This adds no runner dependency, mandatory form, completion gate or automatic retry.
-Broad runtime hashing can outweigh tiny test execution; existing sufficient case
-evidence remains the ordinary reuse path. Operational measurements remain local;
-these corrections do not establish an overall task-time or token reduction.
+Optional `check run` and `check reuse` commands record JUnit case outcomes and
+consumed inputs. Individually passed, unchanged cases from a normally finished
+exit-1 run can be reused while the overall failure stays visible. Changed or
+missing inputs, infrastructure failures and nonpassing cases prevent automatic
+reuse. See [validation](validation.md#reusing-a-testcase-subset).
 
 ## 1.2.8
 
-Core remains 2.0.0. Releasing the final issued-turn verifier queues activity for
-the waiting observer, so it can enter idle grace even when the preceding RPC's
-activity was already consumed. A forced ordering regression verifies the wake;
-closed pools retain their accepted-event drain behavior. The verified preceding
-full run remains the baseline, with only affected checks refreshed.
+The transient observer is notified when its final issued-turn verifier releases
+usage, allowing it to enter idle grace after completed work.
 
 ## 1.2.7
 
-Core remains 2.0.0. An issued turn on an externally loaded chat can receive global
-idle status without a connection-specific completion event. The shared owner now
-checks exact terminal IDs through one bounded metadata request on that event,
-releasing only confirmed usage. Duplicate idle is coalesced; active, newer or
-unidentified work stays owned with finite recovery diagnostics. Fast completion
-before the start response is retained. This adds no periodic query or model wait.
-The preceding integration was superseded when native cleanup exposed this lease
-leak; its partial evidence is retained separately from successful checks.
-A retained-chat native probe verified natural observer exit while its test host
-was still alive; owned resources were cleaned and settings/auth remained intact.
+An issued turn on an externally loaded chat can finish through a global idle
+event without a connection-specific completion event. Exact terminal identity
+now releases the completed usage. Duplicate idle events are coalesced; active,
+newer or unidentified work remains owned with bounded recovery diagnostics.
 
 ## 1.2.6
 
-Core remains 2.0.0. Pending observation without an eligible transition returns
-read-only instead of taking the project mutation lock to save diagnostic state.
-This removes foreground completion contention exposed by two fixed-task subruns
-in the first 400-test integration run. Actual terminal/dependency delivery keeps
-its existing lock and fresh checks. Failed evidence is retained; no mutation
-retry or lock takeover is added.
-
-## 1.2.5
-
-Core remains 2.0.0. The source privacy policy pins the reviewed synthetic RPC
-efficiency fixture, whose environment cleanup names a thread-ID variable without
-bundling an actual ID. Hard secret/path checks remain unchanged. The first
-preparation stopped at this scan before functional tests began; its evidence is
-retained. Runtime behavior is unchanged from the preceding implementation.
+Pending observation without an eligible transition stays read-only, avoiding
+contention with foreground completion. Actual terminal and dependency deliveries
+retain their lock and fresh-state checks.
 
 ## 1.2.4
 
-Core remains 2.0.0. Project commands and terminal observation share the existing
-transient owner through a bounded same-user local bridge. Upstream connections
-retain creation originators, so an uncertain creation can still be reconciled
-with its original receipt. Separate CLI leases do not close a peer's connection;
-request IDs, generation checks and independent deadlines preserve recovery
-without replaying an uncertain native mutation. The bridge exchanges UTF-8 JSON
-byte frames, never pickle, and installs no service or App Server.
+Project commands and terminal observation share a transient project/backend
+connection owner. Command exit does not close a peer's connection. Creation
+originators remain available for reconciling uncertain native results; request
+identity and independent deadlines preserve recovery without replaying mutations.
 
-Owned creation connections retain lifecycle notifications. Progress and token
-events do not trigger native history queries. Exact terminal and needed idle
-transitions request fresh native state; result submission still cannot replace
-actual latest-turn completion, nonempty final output, project binding or writer
-boundary checks. Uncovered threads retain changed-only filesystem observation,
-limited to one reconciliation per five seconds. Partial dependencies, same-cycle
-continuation, existing chats and independent project knowledge remain intact.
+Progress and token events do not trigger native history queries. Terminal and
+needed idle transitions request fresh native state. Result submission remains
+separate from actual latest-turn completion, nonempty final output and project
+binding. Uncovered chats use bounded, changed-only filesystem observation.
 
-The owner permits 60 seconds of idle reuse after registered work and command
-leases end, within its 24-hour observation lease. Active older owners are not
-replaced. Lease expiry and bounded resource cleanup remain distinct from RPC
-failure. Diagnostics separate native RPC, local IPC and reconciliation causes;
-they add no prompt or result bodies. Source checks include the installed runtime's
-actual waiting, deadline and connection-sharing consumers.
-
-The approach uses the documented App Server lifecycle and read/subscription
-boundaries, with connection-reuse principles from the pinned
-[OpenAI broker implementation](https://github.com/openai/codex-plugin-cc/blob/db52e28f4d9ded852ab3942cea316258ae4ef346/plugins/codex/scripts/app-server-broker.mjs).
-It does not adopt that implementation's single-active-stream ownership model.
-
-The installed, model-free protocol task repeats only the current candidate,
-counting native wire calls, local IPC, progress invalidations and notification
-delay separately. A historical RPC total is context, not a controlled speedup.
-The isolated native scenario verified early-result buffering, one partial
-continuation before producer shutdown, one terminal-ready manager notice,
-nonempty final output, archive/same-ID follow-up and unrelated chat preservation.
-Its evaluator required a corrected message-file argument and fresh follow-up
-history after archival ended the evaluator's subscription; passed task steps
-were retained. The final diagnostic-only send-counter adjustment is covered by
-the integrated source checks. No general elapsed-time or token saving is claimed.
-A different meaningful task transition can still cause a fresh check of a
-buffered recipient; quiet waiting and progress events do not require that read.
+The owner permits a short idle reuse period and ends after its observation
+lease. This adds no installed service or automatic App Server startup. See
+[sessions](sessions.md#workflow-observation) for operation and recovery.
 
 ## 1.2.3
 
-Core remains 2.0.0. All roles end a turn after independently possible work when
-a registered dependency blocks progress. A waiting turn does not complete its
-task or trigger another experience consolidation. Independent specialist chats
-retain their assignments and actual identities.
+Roles finish independent work and end their turn while a registered dependency
+blocks progress. A named partial result can resume its consumer before the
+producer finishes. Failure, cancellation, missing submissions and uncertain
+delivery remain distinct.
 
-Result submission is separate from native terminal readiness. A project/backend
-scoped non-model observer delivers one retained notice after the assigned turn
-actually ends; active recipients retain pending messages until idle. Confirmed
-dependency deliveries identify same-cycle continuation turns while preserving
-the original assignment. Previous-cycle dependencies cannot wake new work.
-Partial results resume the named portion without waiting for the whole producer.
-Failure, cancellation, missing submissions and uncertain delivery stay distinct.
+A bounded project/backend observer delivers one retained notice after the
+assigned native turn actually ends. Active recipients retain pending delivery
+until idle. Confirmed same-cycle continuation preserves the original assignment;
+previous-cycle dependencies cannot wake new work.
 
-The observer connects only to an existing selected backend, owns no server or
-model, and ends when pending notices resolve or its default 24-hour lease expires.
-Unsupported observation leaves a specific resume action. Connection loss permits
-one reconciliation/reconnect without replaying uncertain mutations. Ownership
-uses an OS-held lock, generation and actual process birth/executable information.
-
-File invalidations coalesce with bounded debounce and history-query rate. A
-same-watch burst of 100 events previously caused 103 history reads; the focused
-regression now permits at most four state reads. Unrelated-watch filtering,
-assigned latest-turn identity, nonempty final-phase output, idle status and fresh
-pre-archive checks remain. A single absolute native-operation deadline covers
-connection, RPC, event waiting, writes and cleanup; collect exposes --timeout
-while retaining the Python event wait budget. Consumed-input evidence supports
-check and source/result read reuse without removing independent review or
-requiring new project forms.
-
-Disposable native trials verified delayed terminal-ready delivery after the
-creating CLI exited, final output preservation, archive/same-ID restoration and
-unrelated chat preservation. Camel, Pioneer, Developer and an independent
-specialist each ended their initial waiting turn, resumed once from a partial
-result while its producer was still active, and ignored a duplicate finish.
-The Camel continuation retained its task cycle and collected successfully.
-The one-file comparison took 111 seconds for the baseline and 128 seconds for
-the candidate; neither produced periodic idle model requests in that case.
-These observations establish the exercised lifecycle boundaries, not a general
-speed/token saving or reproduction of earlier large polling workloads.
+Observation connects to an existing selected backend and ends when pending
+notices resolve or its lease expires. Unsupported observation leaves an explicit
+resume action. Connection loss permits bounded reconciliation without replaying
+an uncertain mutation. Whole-operation deadlines cover connection, RPC, event
+waiting, writes and cleanup; `collect --timeout` exposes that budget.
 
 ## 1.2.2
 
-Core remains 2.0.0. Reused request keys compare original input fingerprints
-before native mutations; legacy records keep their original prompts, receipts
-and identifiers. Definite creation rejection and uncertain delivery have separate
-recovery paths. Project/root checks cover completion and restoration, mode changes
-preserve independent roles, and new transition plans reject stale starting state.
-Consumed state fields and actual write deadlines receive explicit validation.
+Reused request keys compare original input fingerprints before native mutations.
+Definite creation rejection and uncertain delivery have separate recovery paths.
+Project/root checks cover completion and restoration, and mode changes preserve
+independent roles. New transition plans reject stale starting state.
 
-Skill and task listings support concise summaries. Installed skill listings use
-actual target files. Follow-ups retain the original goal and track current work;
-managed task rows reflect result and notice state without overwriting user notes.
+Task and skill listings offer concise summaries and inspect actual installed
+skill files. Follow-ups retain the original goal while tracking current work.
+Managed task rows reflect result and notice state without replacing user notes.
 Assignments carry the requested location without changing native working folders.
-Self-dependencies fail at input; dependency cycles remain advisory warnings.
+Self-dependencies fail at input; cycles remain advisory warnings.
 
-Shared experience uses one existing writer and one useful closing pass. Identity
-guidance links to its canonical manual. Acceptance inputs contain no answer keys;
-evaluation expectations remain in source-only tests. Owned local file/heading
-links are checked. Fifteen unused capability descriptors leave the new payload:
-upgrades remove unchanged copies, preserve edited copies without management and
-do not restore missing copies. All 24 skills remain active.
+Collection verifies the actual completed assignment turn and nonempty final
+agent output before integrating or archiving it. Pending and interrupted turns
+remain resumable. Send recovery uses retained turn and item anchors, including
+input added to an active turn.
 
-New send baselines retain a latest-turn/item anchor; recovery reads subsequent
-history, including input added to the same active turn. Command connections omit
-only selected output deltas. Git objects use verified binary batches with a byte
-budget, Doctor shares planning reads, and downloads enforce approved sizes.
-Fresh and reused validation share impact selection, installation/fixture consumers
-and verified literal-only version handling. Receipts retain minimal environment
-inputs; historical evidence keeps its original runner and unknown environment.
-Timeouts preserve partial failure logs, new evidence does not overwrite another
-run, and publication reloads state after locking. Initial PR bodies explain the
-change. Local status, installation diff and version-delta draft commands add
-inspection without automatic commits or delivery.
-
-Four isolated model exercises verified a State Integrity repair with eight
-passing product tests and lesson handoff, a small UI edit without a knowledge
-change, read-only Review, and consolidation that preserved existing valid project
-knowledge. A native chat trial exposed premature archive interrupting the final
-Camel response. Collection now verifies the actual completed assignment turn and
-final agent output before merge/archive, using a bounded connection-local file
-event subscription while necessary. Unsupported event support leaves an explicit
-resumable pending result; failed/interrupted turns are not successful integration.
-The same-ID retry verified completion arriving during an active parent turn,
-final output preservation, archive/restoration and unrelated chat preservation.
-Desktop APIs independently read the actual messages and archived test chats.
-The owned temporary test server was stopped and existing configuration preserved.
-Native descendant cascade remains fixture coverage; no pixel-level UI claim or
-model speed/usage guarantee follows from these trials.
-
-Source validation fixtures inspect the current skill UI metadata rather than
-retired descriptors. The loopback fixture keeps its bounded handshake and uses
-explicit shutdown for initialized connections, with an idle-gap regression;
-ordinary suite scheduling must not masquerade as a native protocol failure.
-Source-only correction commits retain their hook-generated versions in the
-machine index; the reviewed public package remains the owner-selected 1.2.2.
+Installation diff and local status commands add read-only inspection. Fifteen
+unused capability descriptors leave the payload: upgrades remove unchanged
+copies, preserve edited copies without management and do not recreate missing
+copies. All 24 skills remain active.
 
 ## 1.2.1
 
-All 24 skills read applicable experience before choosing an approach and
-consolidate useful lessons once before final completion. The common knowledge
-policy preserves existing project owners, merges duplicate advice and removes
-advice only when its actual conditions are disproved or superseded. Source
-BestPractice scaffolding is removed from the distribution; existing project
-copies are preserved through ownership release. Historical procedures and
-provenance are collected here.
+All skills read applicable experience before choosing an approach and consolidate
+useful lessons once before final completion. The knowledge policy preserves
+existing project owners, combines duplicate advice and replaces advice only
+when its actual conditions are disproved or superseded. Existing project-owned
+knowledge files are preserved when upstream ownership ends.
 
-The native client transport bounds standard-I/O and WebSocket RPC writes,
-retains response and notification dispatch, and keeps diagnostic stderr private.
-Its host limits and unsupported-request behavior are documented in the session
-manual. These implementation mechanisms do not certify a native UI or live
-installation outcome.
+The native client bounds standard-I/O and WebSocket RPC writes while preserving
+concurrent replies and notifications. First-turn Plan uses matching verified
+creation settings only when native saved settings are absent. Cold recipients
+retain current model, effort and permission selections.
 
 ## 1.2.0
 
 Core 2.0.0 assigns investigation, implementation and checks to Camel, with direct
-completion to Cameleer and same-ID collection/archive/restore. Calf was retired;
-its useful implementation material moved into Camel references. Behavioral
-packets, core seals, approval/ownership ACK proofs and the plan-wait sequence were
-removed. Planning starts from the supplied request through native Plan or one
-manual mode/start instruction. All 24 skill families became active on installation.
+completion to Cameleer and same-ID collection, archival and restoration. Calf is
+retired; useful implementation guidance moves into Camel references. Behavioral
+packets, core seals and approval/ownership ACK requirements are removed.
 
-First-input settings use verified creation evidence only when saved settings
-are absent. Cold resume preserves current selections. Explicit caller-owned
-loopback WebSocket adds bounded sends and close. Retained passing source tests
-can cover unchanged inputs while changed shared runners, initializers and fixture
-consumers receive fresh checks. Historical local version resets are recorded
-chronologically in the machine index.
+Planning starts from the supplied request through native Plan or one manual
+mode/start instruction. All 24 bundled skill families are active after
+installation. Explicit caller-owned loopback WebSocket connections support
+bounded sends and close.
 
 ### Core 1 to Core 2 migration procedure
 
-The following procedure is retained for installations making this version
-transition; its role names and paths belong to that history.
-
-
-Package 1.2.0 introduces Core 2.0.0: Camel implements and checks assignments,
-completion goes directly to Cameleer, and Calf is retired. New installs contain
-no Calf. Core metadata is descriptive; behavioral hash seals, protected keys,
-packets and approval/ACK proofs are removed.
-
-Existing Camel/Calf assignments finish before transition. Retain real chat IDs,
-work locations and result links; do not forcibly relabel or terminate old work.
-The upgrade plan reports unfinished legacy work before writes, then can be
-reprepared after its terminal result.
-
-Useful baseline Calf implementation knowledge is in Camel's
-`references/best-practices.md`. For project-modified Calf files, preserve exact
-originals as inactive migration history and move reviewed useful local notes to
-Camel references before retirement. Ambiguous custom bodies surface a content
-conflict; retired reporting/admin procedures do not become new active rules.
-The migration plan shows exact affected bytes and destinations. Supply
-`--calf-migration <file>` to `install upgrade` or `doctor audit|plan` when custom
-Calf content needs resolution. This uses schema 1 with a `files` array of `path`,
-`before_sha256` and `after_base64`: the existing Calf path, its actual current hash
-and reviewed useful-note UTF-8 bytes. Empty note bytes preserve the inactive
-original only. The hash resolves current content, not authority.
-
-Exact custom originals are retained under
-`.oasis/state/retired-skills/oasis-calf/<sha256>/<relative>`; useful notes go to
-`.agents/skills/oasis-camel/references/calf-migration/<relative>` with a link from
-best practices. Existing destination edits remain real file conflicts.
-
-Earlier chat/task records stay readable. New Calf creation returns a retirement
-notice without creating a session. Subsequent assignments use actual Camel chat
-IDs, direct terminal notification and restoration of the same archived Camel.
-
-### Incoming installer for that transition
-
-
-For Core 1 projects, use the inspected incoming source's `oasis.py` for audit,
-plan and apply. The old installed helper still enforces the old core seal and
-cannot apply the unfinished-work wait, all-skill mapping or Calf migration:
+Use the inspected incoming source's `oasis.py` for audit, plan and apply. The
+old installed helper still enforces the old core seal and cannot apply this
+transition:
 
 ```powershell
 python -B -X utf8 <incoming-source>/oasis.py doctor audit --target <project> --package <incoming-source> --output <new-audit-file>
@@ -372,216 +173,47 @@ python -B -X utf8 <incoming-source>/oasis.py doctor plan --target <project> --pa
 python -B -X utf8 <incoming-source>/oasis.py install apply --plan <reviewed-plan-file>
 ```
 
-Before transitioning an existing Camel/Calf project to Core 2.0.0, let active work
-finish. Preserve chat/task links and the project's mode, Git choices, installed
-and user-created skills, settings and knowledge. Transfer useful locally modified
-Calf implementation material into Camel references, then retire the owned Calf
-skill. Keep historical originals for recovery; reporting, manager creation,
-approval and ownership ACK text is retired context, not new Camel guidance.
-Local conflicts use the same installer comparison and resolution path.
+Let ongoing Camel/Calf assignments finish before transition. Preserve actual
+chat IDs, work locations, result links, mode, Git choices, settings, user skills
+and project knowledge. The upgrade plan reports unfinished legacy work before
+writes and can be prepared again after its terminal result.
 
+Baseline Calf implementation guidance is in Camel's `references/best-practices.md`.
+For project-modified Calf files, preserve exact originals as inactive migration
+history and move reviewed useful notes to Camel before retirement. Ambiguous
+custom content remains a conflict; retired reporting and administrative procedures
+do not become active Camel rules.
 
-### Recorded native trial
+Supply `--calf-migration <file>` to `install upgrade` or `doctor audit|plan` when
+custom Calf content needs resolution. Schema 1 has a `files` array of `path`,
+`before_sha256` and `after_base64`: the existing Calf path, its actual current
+hash and reviewed useful-note UTF-8 bytes. Empty note bytes preserve the inactive
+original only. The hash binds current content rather than granting authority.
 
-An owner-requested Core 2 trial on Windows with Codex 0.162.0-alpha.17.2 used
-real native chats, model turns and an isolated adopter. Native Plan produced a
-plan item without changing the fixture; both the first input of a fresh Camel
-and a resumed Camel preserved inherited settings. Camel sent completion
-directly, Cameleer inspected the result and collected/archived it, and follow-up
-restored the same ID and retained history before another completion/archive.
-Native message IDs and archived-list readback verified those effects. This is
-backend and model evidence, not a visual toolbar check, active-turn steering,
-descendant archive test or legacy-chat migration demonstration. The trial used
-an explicitly owned loopback server; the production transport limitation is
-documented in [sessions](sessions.md). Private trial receipts stay local.
+Exact custom originals remain under
+`.oasis/state/retired-skills/oasis-calf/<sha256>/<relative>`; useful notes go to
+`.agents/skills/oasis-camel/references/calf-migration/<relative>` with a link from
+best practices. Existing destination edits remain file conflicts.
 
+Earlier chat/task records stay readable. New Calf creation returns a retirement
+notice without creating a chat. Subsequent assignments use actual Camel chat IDs,
+direct terminal notification and restoration of the same archived Camel.
 
-### Official-method review record
+## 1.1.3
 
-Official information reviewed on 2026-10-13 informed Package 1.2.0. Progressive
-skill loading, native role inputs, built-in Plan instructions, targeted reads,
-saved-settings resume, archive scope, fresh skill discovery and message
-reconciliation were adopted as documented mechanisms. Benefits were not measured
-as live speed or model-quality improvements.
+Doctor adds predecessor-aware upgrade guidance intersected with actual changed
+managed files. Skipped versions retain complete three-way review; missing,
+cyclic, repeated-version or unmapped history falls back to actual byte review.
 
-A separately requested Windows native trial verified Plan
-output with the installed role input, direct completion, model-driven collection,
-archive and same-ID restoration. It also exposed the fresh-settings and cold
-resume defects corrected above. Visual toolbar state, active-turn steering and
-descendant archive effects remain unverified. The harness starts no diagnostic
-turn, server or background monitor automatically and changes no global settings.
+## 1.1.1
 
-## Evidence with an unestablished original version
+Independent specialist chats retain their identities, requested scope and
+unfinished work across mode changes and unrelated role archival. Their shared
+contract lives in `LocalGitWorkflow.md`.
 
-The original package/date for the following adaptation sources and evidence
-cases is not established. Their sanitized snapshot was retained with Package
-1.2.0. Exact raw source inventories and hashes are preserved in the machine
-index; no version is inferred from a case label.
+## 1.1.0
 
-### Adaptation provenance
-
-
-Every source workflow and file is accounted for by an opaque source identity,
-content digest, disposition and maintained destination. Raw source paths and
-private provenance remain outside the deliverable. The JSON is the complete file
-map; this table is its human discovery view. Source approval never transfers.
-Source identities and digests retain the original adaptation inventory.
-Destinations follow maintained resources: Core 2 merges useful Calf implementation
-knowledge into Camel and retires the Calf skill. Retired behavior validators have
-no active destination; their identities and digests remain in the JSON and their
-originals remain in Git history. Doctor and Pioneer are later additions; the current inventory has
-24 active skills, including the 15 formerly optional families.
-
-| Source workflow | Generic owner | Treatment |
-| --- | --- | --- |
-| calf | oasis-camel references/best-practices.md | merged in Core 2 |
-| camel | oasis-camel | generalized |
-| cameleer | oasis-cameleer | generalized |
-| dependency-security | oasis-dependency-security | generalized |
-| engineering-knowledge | oasis-knowledge | generalized |
-| github-release | oasis-github-publication | generalized |
-| input-animation | oasis-interaction-timing | generalized |
-| local-build | oasis-build-package | generalized |
-| model-rigging | oasis-asset-pipeline | generalized |
-| notion-release | oasis-published-content | generalized |
-| oasis | oasis-maintenance | generalized |
-| preference-design | oasis-interface-design | generalized |
-| public-source | oasis-github-publication | merged |
-| release-session | oasis-camel | merged |
-| rendering | oasis-rendering-performance | generalized |
-| review | oasis-review | generalized |
-| runtime-lifecycle | oasis-runtime-lifecycle | generalized |
-| skill-manager | oasis-skill-manager | generalized |
-| smartscreen-report | oasis-distribution-reputation | generalized |
-| state-integrity | oasis-state-integrity | generalized |
-| store-build | oasis-build-package | merged |
-| support-automation | oasis-support-automation | generalized |
-| support-knowledge | oasis-support-knowledge | generalized |
-| test-release | oasis-github-publication | merged |
-| update-development | oasis-update-delivery | generalized |
-| virustotal | oasis-artifact-security | generalized |
-
-The independent Git operations skill is new generic source-profile/backup scope.
-Core GitHub publication combines official/test/source-publication boundaries;
-build-package combines ordinary and store-targeted build guidance. Store identity,
-actual producer and external submission remain project-specific prerequisites.
-
-The fifteen capability families are all installed into active discovery. Each
-includes prerequisites, decisions, recovery and positive/negative/ambiguous scenarios.
-No provider/tool is installed by these files. Domain scripts are not renamed into
-fake generic executables: their decisions become tool-guided workflow resources.
-
-Resources required by installed skills live in the seed or self-contained skill
-directory. Shared external tools/skills are used only when available; their
-originals, credentials and caches are never bundled. Mapping coverage is structural;
-semantic scenarios and actual project adoption remain distinct evidence.
-
-### Historical failure mechanisms
-
-
-This is sanitized historical evidence, not a project runbook or authority to
-repeat old operations. The current identity and owning workflow govern. Private
-raw receipts, source paths, accounts, runtime state and operational approvals stay
-with the originating project. A source audit, reproduced fixture, live operation
-and later correction are different evidence boundaries.
-
-| Case | Observed mechanism or evidence limit | Current prevention / meaningful test |
-| --- | --- | --- |
-| K01 Imported authority | Reference documents contained project-specific scopes and approvals. | Treat imported facts as evidence; bind actual target authority independently. Test instruction-like material in an evidence case. |
-| K02 Package coverage | A verified archive alone did not establish target adoption. | Extract and inspect actual bytes; map every skill/resource disposition; validate installed links and actual discovery separately. |
-| K03 Product contamination | Runtime technology, identities and historical conventions were interleaved with reusable guidance. | Separate generic decisions, platform conditions, bounded profiles and project bindings; never bundle operational state. |
-| K04 Runtime object ownership | Internal subagents were once substituted for independently visible persistent chats. | Use the requested Codex object and reconcile its actual identity; preserve bounded subagents as a different capability. |
-| K05 Identifier mismatch | A UI project identifier was rejected by another runtime API. | Resolve the supported native identity using the canonical root; distinguish identifier mismatch from permission denial. |
-| K06 Uncertain creation | Creation, saved settings, first turn and discovery were separate facts. | Reconcile the actual chat ID before retry; title changes do not affect task links. Keep model behavior separate from metadata. |
-| K07 Selected checkout | Equal branch tips did not establish which checkout was used. | When a result depends on a branch or worktree, check its actual source location; do not add session readiness proofs to unrelated work. |
-| K08 Planning mode | Prompt wording did not establish actual native Plan mode. | Use the supported native collaboration mode with built-in instructions, or the manual fallback once. Start the requested planning without an extra signal; implementation follows the user's instruction. |
-| K09 Policy transition | Switching to historical source could replace newly verified hooks with old guards. | Exercise old-to-new transition and retain enforcement throughout; close any exact temporary bootstrap exception. |
-| K10 Active legacy work | Idle-looking state did not establish that a task had finished. | Finish ongoing Camel/Calf work before Core 2 migration; preserve its source and result references for later resume. |
-| K11 Working bytes | Object backup did not preserve dirty, staged, untracked, ignored bytes or worktree administration. | Snapshot these independently when migration needs preservation; compare original bytes and peer indexes. |
-| K12 Lineage types | A tree object was mistakenly described as a parent commit; equal trees hid distinct history. | Verify object types, actual parents, ancestry and patch equivalence independently; preserve unique history. |
-| K13 Integration versus parity | Reviewed source union passed while a focused output-variant asset comparison failed. | Check declared source-to-output relationships, including binaries, beyond path inventory. Preserve the failed suite. |
-| K14 Later parity correction | A later fix changed eight distribution assets; four source/variant groups then matched with original source bytes unchanged. | Exact blob comparisons close byte parity only; neither the earlier integration nor later patch establishes installed visual acceptance. |
-| K15 Hook environment | Inherited repository variables redirected scripts/temporary repositories despite changed working directory. | Clear repository-local environment for isolated children and verify parent refs/config/index remain unchanged. |
-| K16 Native path conversion | A real hook passed an MSYS path to native PowerShell with conversion unavailable. | Use explicit native paths; fixtures cover spaces, Unicode, disabled conversion and the actual executing hook root. |
-| K17 Cross-host text | A UTF-8 receipt was decoded using legacy host defaults and corrupted a Unicode path. | Specify receipt encoding; run supported host versions rather than treating one shell pass as universal. |
-| K18 Diagnostic stderr | Successful test diagnostics on stderr were promoted into a process failure. | Preserve stdout/stderr and judge process status correctly; test benign stderr and genuine nonzero exits. |
-| K19 Commit versus backup | A commit survived a failed synchronous hook, as designed. | Require independent backup success with exact triggering SHA; do not infer coverage from commit exit status. |
-| K20 Backup identity/history | Retention schema, catalog ancestry, activation and remote identity were independent contracts. A new relay can also collide with a sibling ownership record. | Bind immutable identity, preserve compatible history and inactive restores; check ownership records before creating any sibling relay and never import another project's binding. |
-| K21 Restore scope | A remote-only restore proved an earlier catalog, not subsequent ref changes. | Record the exact snapshot proof and verify finalized refs separately; inspect uncertain pushes before retry. |
-| K22 Failure accounting | Overall migration completion coexisted with failed/manual/deferred product checks. | Preserve outcomes individually; never convert a skipped prerequisite, absent runtime or unknown result into PASS. |
-| K23 Policy denial | Automatic review rejected cleanup/probe commands. | Report the denied operation and reason; do not re-express it through another route. Preserve retained evidence. |
-| K24 Complete-checkout consumer | A projection read the entire checkout, including new untracked files. | Coordinate overlapping writes during that concrete read, or use an immutable snapshot. Disjoint paths alone do not make a whole-tree read consistent. |
-| K25 Installation preflight race | A stale prepared install can overwrite a destination changed after inspection. A temporary recovery fixture reproduced a later foreign write being overwritten after a one-time preflight. | Bind expected-old bytes and validate them under the write lock immediately before each apply or recovery operation; preserve both versions on conflict. |
-| K26 Lock ownership | Releasing a lock after a failed acquisition can remove another operation's lock. | Only successful acquirers release their own exact token; test contention and replaced-token cleanup. |
-| K27 Interrupted installation | Partially copied files do not prove an installed baseline. | Journal exact operations, retain recoverable old bytes, distinguish resume/rollback, and verify the final manifest. |
-| K28 Baseline versus specialization | Treating edited local guidance as untouched upstream can silently discard specialization. | Keep upstream base bytes and current hashes distinct; merge disjoint changes and surface same-field conflicts. |
-| K29 Skill discovery | A library file existing outside the active directory did not establish discovery or provider availability. | Install all 24 bundled skills into active discovery, preserve user edits and verify actual native catalog/provider availability separately. |
-| K30 Knowledge proof | Extensive local support cases had no performed live model answers. | Label scenarios as design until executed; withhold expected answers and preserve actual semantic/live gaps. |
-| K31 Byte baselines versus text conversion | Windows Git text conversion can change a content-addressed installation baseline even when its filename is a hash. | Mark only baseline blobs as non-text. A real temporary Git fixture verifies staged and restored mixed-newline bytes with autocrlf enabled, while ordinary text keeps its existing normalization. |
-| K32 Retained object closure | Checking only the current index or HEAD does not establish that older retained branches, tags or reflog commits have no external object dependencies. | Inspect the retained commit closure for unsupported submodule/LFS requirements; a complete Git object graph alone does not prove those external bytes are recoverable. |
-| K33 Empty restore target | An initially empty restore directory may acquire foreign files during a lengthy remote intake. | Reserve exact destination ownership and check it again before checkout; inject a competing writer during intake and require preservation instead of destructive reset. |
-| K34 Effective Git configuration | Neutral transport settings can be lost when later local relay/restore commands inherit global configuration. Absence of a local hook setting does not prove hooks are inactive. | Apply the intended isolated environment to the whole owned operation and verify effective hooks/configuration, including global inheritance. |
-| K35 Durable external intent | A process can end after an external-operation intent is saved but before an exception or response is recorded. | Treat unresolved intent as uncertain, reconcile actual identity, and refuse blind repeated creation/upload; test abrupt termination separately from handled transport errors. |
-| K36 Protocol bytes | Native text-mode subprocess input on Windows can translate LF into CRLF and change Git object bytes or line-oriented protocol meaning. | Encode protocol input explicitly and send bytes; verify exact object hashes and expected-old ref transactions using Unicode paths. |
-| K37 Large atomic backup | Normal retained history can exceed Windows command-line length when every exact refspec is passed as an argument. | Use a token-owned external Git transport configuration, isolated effective settings and one atomic push. A real 260-tag fixture exceeds 32K configuration text and reconciles a lost acknowledgement without a second push. |
-| K38 Historical merge evidence | A resumed publication can encounter advanced base-branch metadata after its approved merge already exists. | Bind the immutable merged commit's exact parent and tree, plus PR repository/head identity. Local fixtures accept later metadata but reject an unapproved merge parent before further writes. |
-| K39 Saved versus active settings | Live diagnostic chats exposed different permission and reasoning field representations in saved settings and active turn contexts. | Read the actual current record, preserve supported profile provenance and effective policy, recognize verified reasoning aliases, and reject contradictory or unknown representations before creation. Never fill missing settings with broader defaults. |
-| K40 Reporting after completion | A real neutral build completed and wrote verified evidence, then its CLI failed while printing a Unicode path through a legacy Windows encoding. | Use lossless ASCII-safe JSON for redirected results/errors; reconcile completed receipts and hashes before retrying work. Test successful and failing commands with a legacy output encoding. |
-| K41 Installed operating manuals | Fresh live chats could discover skills but lacked the original package's operating manuals. | Include versioned manuals in the installed payload and link them from the project guide; validate installed operation after separation from the distribution folder. |
-| K42 Narrow authority retrieval | Live role diagnostics emitted excessive conversation content while locating one human approval. The requested file work still passed, but the retrieval was a separate procedural deviation. | Select the smallest available range and filter exact human authority in memory before emitting evidence. Preserve the deviation and do not mistake later filtering for a previously narrow read. |
-
-K25-K28 are deterministic installer/lock mechanisms retained from implementation
-review. Their current fixture outcomes must be read from this package's test run;
-this document does not assert a historical live deployment failure. Do not replace
-raw failed evidence after a later passing run or encode one historical file count,
-version, branch snapshot or model selection as a universal policy.
-
-K31 has a performed local Git fixture. K32-K35 and the sibling-record extension
-to K20 were identified by implementation source review; they are not claims that
-an external service lost data or that live recovery succeeded. Consult the final
-test evidence for their correction status.
-
-K36-K38 were found during this package's implementation review and exercised in
-local subprocess/Git or injected-service fixtures. They do not establish live
-GitHub publication or recovery success.
-
-K39-K42 were observed in explicitly authorized neutral live diagnostics. Keep
-their original failure and subsequent correction evidence local; no account,
-project path, conversation identifier or historical approval travels with this
-generic lesson. Existing-chat adoption needs an explicit verified reload rather
-than an assumption that writing new instructions changed a running conversation.
-
-### Historical migration evaluation inputs
-
-These requests were evaluation inputs, not performed outcomes.
-
-| Request/state | Useful behavior to evaluate |
-|---|---|
-| Active Camel/Calf work remains during migration | Defer transition until work finishes, then transfer useful local Calf knowledge |
-| Locally specialized Calf text contains retired procedures | Preserve historical originals; carry only useful implementation knowledge into current Camel guidance |
-
-### Original role-trial boundary
-
-Historical v1 trials exercised original role chats, Calf-to-Camel reporting,
-discovery, recovery and isolated publication. They do not verify Core 2 direct
-completion, automatic collection, Plan or migrated chat adoption.
-[Historical failure mechanisms](#historical-failure-mechanisms) retain mechanisms and limits.
-
-
-### Windows backup path observation
-
-On Windows, choose short physical relay and restore paths and inspect their
-resolved locations. Packaged desktop apps may redirect AppData into a longer
-per-app directory. A real source trial hit `Filename too long` while creating a
-ref lock, before remote transfer; preserving the unfinished binding and explicitly
-relocating that empty setup to a shorter external path allowed exact backup and
-remote-only restore. This verifies that path-specific recovery, not unrestricted
-long-path support. Existing completed bindings need a reviewed migration.
-
-
-### Merged-PR response observation
-
-A live merged-PR read using REST version `2026-03-10` omitted the
-legacy field after successful publication, exposing the previous resume failure.
-GitHub documents the removal in its [REST breaking changes](https://docs.github.com/en/rest/about-the-rest-api/breaking-changes)
-and the replacement in its [GraphQL PullRequest reference](https://docs.github.com/en/graphql/reference/pulls#pullrequest).
+Persistent Pioneer and Oasis modes define the project's working arrangement.
+Fresh empty projects default to Pioneer; legacy projects preserve Oasis and
+their existing roles. Doctor supports reviewed compatible upgrades while
+preserving settings and project knowledge.

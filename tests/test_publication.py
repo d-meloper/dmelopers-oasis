@@ -183,7 +183,13 @@ class PublicationContracts(unittest.TestCase):
             root=Path(tmp)/"candidate";fixture_candidate(root);provider=GitHubFixture()
             spec=read_json(root/"candidate.json");spec["config"].update(operation="source", tag=None, make_latest=False);spec["assets"]={};sha=digest(spec)
             write_json(root/"candidate.json",spec);write_json(root/"state.json",{"candidate_id":sha,"phase":"prepared","events":[]})
-            result=Publisher(root,sha,provider).execute("actual caller")
+            from unittest.mock import patch
+            with patch.object(provider, "request", wraps=provider.request) as calls:
+                result=Publisher(root,sha,provider).execute("actual caller")
+            bodies = [call.args[2]["body"] for call in calls.call_args_list
+                      if len(call.args) > 2 and call.args[:2] == ("POST", "/repos/fixture/public/pulls")]
+            self.assertEqual(bodies, [(root / "notes.md").read_text(encoding="utf-8")])
+            self.assertNotIn(sha, bodies[0])
             self.assertEqual(result["phase"],"source_verified")
             self.assertFalse(provider.releases)
             self.assertGreater(provider.anonymous,0)
