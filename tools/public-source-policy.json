@@ -14,11 +14,11 @@
     },
     "oasis_harness/sessions.py": {
       "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "42933f742190bfd981561ca8d46375e90aad741a6fa9e6840b7ddb162f24de74"
+      "sha256": "bfe690655f50f2f1cf9a9789e8a864c625d2e6e4386ce594b8df3280696a9b78"
     },
     "oasis_harness/workflows.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
-      "sha256": "ebba97230eb26dbe74e31952533c4494449e24217c7fb8ce3708caf154207c6d"
+      "sha256": "a50139f1d8681ffd4404a89e754bd1b63857e111451f2b56eea2a402c785f9cf"
     },
     "tests/test_check_results.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
@@ -26,11 +26,11 @@
     },
     "tests/test_public_source.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
-      "sha256": "8c34135ade971563d727f7cee2a9f38ea83066c53ce210f9c989f48ad35c7aaf"
+      "sha256": "f4e01b3917db6637a83db2162c158f67135fd206cb521c82fc4f3bea847b3ad1"
     },
     "tests/test_rpc_efficiency.py": {
       "reason": "Reviewed complete installed synthetic wire/IPC fixture and reserved environment-key cleanup. Contains no live thread identifier, credential or personal path; hard secret/path checks remain.",
-      "sha256": "17e742eff2513efd6e95277b3ecae2594f26a438f9c852236ef7495d85e09547"
+      "sha256": "ddc3f7fddf2e77effb4ed2134bbbc07559341551ac88a59882bcd3fd7644e6a5"
     },
     "tests/test_sessions.py": {
       "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
@@ -43,6 +43,22 @@
     "tools/source_policy.py": {
       "reason": "Reviewed bounded scanner literals and public change structure checks. Exact artwork pins and hard privacy/XML checks remain; known operational note patterns do not certify editorial relevance or permit private payloads.",
       "sha256": "009a9c2273eb6e288e77110c4d9cb512bc6cfbea74debc38488bbe692c7a2bf5"
+    },
+    "oasis_harness/desktop_sessions.py": {
+      "sha256": "988bc148e896e31385e65413fdda4f07adf0d510e99b9bf8d6a06a5f0a64004c",
+      "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
+    },
+    "tests/test_desktop_sessions.py": {
+      "sha256": "d53066130113e4f8330208c584be49f909a5b7bd3197fc1a6a7902edfd0ed87d",
+      "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
+    },
+    "tests/test_desktop_workflows.py": {
+      "sha256": "650a4575f137e35d9b6b2b5d37eefd5d531cce777f651c01ea71074aced7a408",
+      "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
+    },
+    "oasis_harness/shared_runtime.py": {
+      "sha256": "2a7fbe36d8311eac34b7805f56b99ac59ce7ce0bee2a52c01ce166d2f02212a4",
+      "reason": "Reviewed shared native connection ownership, Desktop backend selection and caller-identity field literals. Contains no live chat ID, credential or personal path; hard privacy checks remain."
     }
   },
   "schema_version": 1

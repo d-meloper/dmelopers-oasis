@@ -1418,6 +1418,113 @@
         "tools/source_delivery.py",
         "tools/source_policy.py"
       ]
+    },
+    {
+      "areas": [
+        {
+          "name": "Desktop Camel assignment",
+          "change": "Create and deliver the initial task through the Desktop application; preserve actual IDs, saved selections and uncertain outcomes across follow-up, completion and archive.",
+          "apply": "Apply an inspected ordinary upgrade. Existing external-host chats keep their current work and ownership. Use the retained task recovery command for uncertain native outcomes.",
+          "paths": [
+            "oasis_harness/desktop_sessions.py",
+            "oasis_harness/desktop_tools.py",
+            "oasis_harness/notifications.py",
+            "oasis_harness/sessions.py",
+            "oasis_harness/shared_runtime.py",
+            "oasis_harness/workflows.py",
+            "docs/sessions.md",
+            "docs/workflows.md"
+          ],
+          "checks": [
+            "One native create includes the initial request and verifies its actual input and turn.",
+            "Known and unknown response-loss outcomes do not create duplicate chats or replay delivery.",
+            "Native Plan and implementation mode transitions preserve explicit manual fallback."
+          ]
+        },
+        {
+          "name": "Dispatch before product investigation",
+          "change": "Send compact goals, constraints and references first, without separate readiness turns or unrelated preparation.",
+          "apply": "Use one workflow assign operation and proceed after accepted delivery; leave product investigation and validation to Camel.",
+          "paths": [
+            "seed/.agents/skills/oasis-cameleer/"
+          ],
+          "checks": [
+            "Accepted task delivery targets one minute; native I/O has a bounded command budget."
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/sessions.md",
+        "docs/workflows.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/desktop_sessions.py",
+        "oasis_harness/desktop_tools.py",
+        "oasis_harness/notifications.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/shared_runtime.py",
+        "oasis_harness/workflows.py",
+        "seed/.agents/skills/oasis-cameleer/SKILL.md",
+        "seed/.agents/skills/oasis-cameleer/references/best-practices.md",
+        "tests/test_desktop_sessions.py",
+        "tests/test_desktop_tools.py",
+        "tests/test_desktop_workflows.py",
+        "tools/public-source-policy.json"
+      ],
+      "previous": "2.0.8",
+      "source_only": [],
+      "summary": [
+        "Keep Desktop Camel chats available for owner steering and dispatch their initial task through one native creation."
+      ],
+      "version": "2.0.9"
+    },
+    {
+      "version": "2.0.10",
+      "previous": "2.0.9",
+      "summary": [],
+      "areas": [],
+      "source_only": [],
+      "files": [
+        "tools/public-source-policy.json"
+      ]
+    },
+    {
+      "version": "2.0.11",
+      "previous": "2.0.10",
+      "summary": [
+        "Include the Desktop task adapter and native pipe transport in installed projects."
+      ],
+      "areas": [
+        {
+          "name": "Desktop runtime distribution",
+          "change": "Ship the native task modules during fresh installation and ordinary upgrades.",
+          "apply": "Apply the ordinary inspected upgrade, preserving installed project settings and task links.",
+          "paths": [
+            "oasis_harness/installation.py"
+          ],
+          "checks": [
+            "Installed workflow commands can import the Desktop task adapter and transport."
+          ]
+        }
+      ],
+      "source_only": [],
+      "files": [
+        "docs/CHANGELOG.md",
+        "oasis_harness/installation.py",
+        "tests/test_rpc_efficiency.py",
+        "tools/public-source-policy.json"
+      ]
+    },
+    {
+      "version": "2.0.12",
+      "previous": "2.0.11",
+      "summary": [],
+      "areas": [],
+      "source_only": [],
+      "files": [
+        "tests/test_public_source.py",
+        "tools/public-source-policy.json"
+      ]
     }
   ]
 }

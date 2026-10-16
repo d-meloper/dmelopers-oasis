@@ -5,6 +5,25 @@ migrations. Maintenance revisions without an adopter-facing change are omitted.
 The [upgrade index](upgrade-index.json) supports predecessor checks; actual file
 differences and local conflicts still determine the complete upgrade plan.
 
+## 2.0.11
+
+Fresh installation and ordinary upgrades include the Desktop task adapter and
+its native pipe transport.
+
+## 2.0.9
+
+Desktop Camel assignment creates the chat and delivers its initial task through
+the application's native tools, keeping the chat available for owner steering.
+Follow-up, terminal notices and archive/restore retain the same actual chat IDs.
+Uncertain creation or delivery is recovered without automatic replay.
+
+Cameleer dispatches compact goals and constraints first, targeting accepted
+delivery within one minute without a separate readiness turn. The native I/O
+budget is 30 seconds; host availability and model preparation remain separate.
+Apply an inspected ordinary upgrade to installed projects. Existing chats owned
+by an external host keep their current work and ownership. Unsupported custom
+permission inheritance fails before creation; native Plan uses one manual step.
+
 ## 2.0.8
 
 Upgrade summaries show changes affecting the installed harness. Maintenance-only

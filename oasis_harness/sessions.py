@@ -971,8 +971,36 @@ def command_server(originator):
     """Command connections suppress unused deltas; general clients retain all events."""
     scope = _command_context.get()
     if scope is not None:
+        if (scope[1] or originator).startswith("oasis_desktop_"):
+            from .desktop_sessions import DesktopServer
+            return DesktopServer(originator)
+        if desktop_selected(scope[0]):
+            # General mode/discovery RPCs retain their full App Server contract;
+            # the Desktop observer implements only task operations.
+            return AppServer(originator, notification_profile="command")
         from . import shared_runtime
         return shared_runtime.connect(scope[0], scope[1] or originator)
+    return AppServer(originator, notification_profile="command")
+
+
+def desktop_selected(root=None):
+    """Keep an accepted Desktop assignment on its actual owning application."""
+    if os.environ.get("OASIS_SESSION_BACKEND") == "desktop":
+        return True
+    if root is None:
+        return False
+    path = contained(root, ".oasis/local/tasks/state.json")
+    if not path.exists():
+        return False
+    value = read_json(path)
+    return any(row.get("native_backend") == "desktop" and not row.get("archived")
+               for row in value.get("tasks", []) if isinstance(row, dict))
+
+
+def observer_server(originator):
+    if desktop_selected() or originator.startswith("oasis_desktop_"):
+        from .desktop_sessions import DesktopServer
+        return DesktopServer(originator)
     return AppServer(originator, notification_profile="command")
 
 
@@ -981,6 +1009,7 @@ def latest_settings(path):
     found = False
     with Path(path).open(encoding="utf-8") as stream:
         for line in stream:
+            remaining_timeout()
             record = json.loads(line)
             if not isinstance(record, dict):
                 raise HarnessError("Native rollout record must be an object")
@@ -1418,6 +1447,8 @@ def _message_text(item):
 def _delivery_matches(items, value):
     matches, first = 0, None
     for turn, item, allowed in items:
+        if value.get("desktop_source_id") is not None and item.get("sourceThreadId") != value["desktop_source_id"]:
+            continue
         if item.get("type") == "userMessage" and (item.get("clientId") == value["message_id"] or (
                 not item.get("clientId") and allowed and _message_text(item) == value["text"])):
             matches += 1
@@ -1557,7 +1588,7 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
     value = read_json(path) if path.exists() else {
         "schema_version": 1, "thread_id": thread_id, "text": text, "message_id": str(uuid.uuid4()),
         "planning": planning, "execution": execution, "state": "not_started"}
-    if not isinstance(value, dict) or value.get("state") not in ("not_started", "started", "uncertain", "accepted", "rejected", "manual_plan"):
+    if not isinstance(value, dict) or value.get("state") not in ("not_started", "started", "uncertain", "accepted", "rejected", "manual_plan", "manual_mode"):
         raise HarnessError("Invalid delivery record; preserve it for recovery")
     if value.get("thread_id") != thread_id or value.get("text") != text:
         raise HarnessError("Delivery path already belongs to another message; preserve it and use its existing action")
@@ -1576,13 +1607,19 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
         raise HarnessError("Native thread status must contain type text")
     if expected_binding is not None:
         value["expected_binding"] = expected_binding
+    if getattr(server, "desktop_managed", False):
+        source_id = require_text(server.source_id, "Desktop delivery source chat ID")
+        if (value.get("desktop_source_id") not in (None, source_id)
+                and value["state"] not in ("started", "uncertain")):
+            raise HarnessError("Desktop delivery belongs to another source chat")
+        value.setdefault("desktop_source_id", source_id)
     if value["state"] in ("started", "uncertain"):
         reconcile_delivery(server, value)
         write_json(path, value)
         return value
     settings = saved = None
     collaboration = None
-    if (native.get("status") or {}).get("type") == "notLoaded":
+    if (native.get("status") or {}).get("type") == "notLoaded" and not getattr(server, "desktop_managed", False):
         settings, saved = _actual_settings(server, thread_id, thread=native)
         _resume_current(server, native, settings)
     if planning or execution:
@@ -1602,12 +1639,22 @@ def send_once(path, thread_id, text, server, *, planning=False, execution=False,
             return value
     elif execution:
         # Only an explicit implementation follow-up requests this mode change.
-        collaboration = _collaboration(settings, "default")
+        if getattr(server, "desktop_managed", False):
+            if (saved.get("collaboration_mode") or {}).get("mode") != "default":
+                value["state"] = "manual_mode"
+                if not value.get("manual_instruction_shown"):
+                    value["manual_instruction_shown"] = True
+                    write_json(path, value)
+                    return {**value, "instruction": f"Switch chat {thread_id} to actual default mode, then resume this retained implementation request."}
+                write_json(path, value)
+                return value
+        else:
+            collaboration = _collaboration(settings, "default")
     if "before_turn_ids" not in value and "history_anchor" not in value:
         _capture_anchor(server, value)
     params = {"threadId": thread_id, "input": [{"type": "text", "text": text}],
               "clientUserMessageId": value["message_id"]}
-    if skill:
+    if skill and not getattr(server, "desktop_managed", False):
         params["input"].append({"type": "skill", "name": skill["name"], "path": skill["path"]})
     if collaboration is not None:
         params["collaborationMode"] = collaboration

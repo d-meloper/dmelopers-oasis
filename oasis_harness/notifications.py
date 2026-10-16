@@ -30,10 +30,12 @@ class _CleanupError(HarnessError):
     pass
 
 
-def _backend():
+def _backend(root=None):
     # Persist a fingerprint, never an endpoint credential or account setting.
     endpoint = os.environ.get("OASIS_APP_SERVER_URL")
     home = sessions.canonical_root(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+    if sessions.desktop_selected(root):
+        return digest({"backend": "desktop-tools", "pipe": os.environ.get("CODEX_APP_TOOLS_PIPE_PATH"), "codex_home": home})
     if endpoint is not None:
         address, port, target, _ = sessions._LoopbackWebSocket.endpoint(endpoint)
         return digest({"backend": "websocket", "endpoint": [address, port, target], "codex_home": home})
@@ -43,15 +45,17 @@ def _backend():
                    "codex_home": home, "executable": sessions.canonical_root(executable) if executable else None})
 
 
-def _environment():
+def _environment(root=None):
     # Child cwd is the package location, so resolve selected relative paths now.
     extra = {key: sessions.canonical_root(os.environ[key]) for key in ("CODEX_HOME", "OASIS_APP_SERVER_SOCKET")
              if os.environ.get(key)}
+    if sessions.desktop_selected(root):
+        extra["OASIS_SESSION_BACKEND"] = "desktop"
     return clean_environment(extra)
 
 
 def _directory(root):
-    return contained(root, ".oasis/local/notifications/" + _backend())
+    return contained(root, ".oasis/local/notifications/" + _backend(root))
 
 
 def _identity(pid):
@@ -153,7 +157,7 @@ def _read(root):
         return None
     row = read_json(path)
     if (not isinstance(row, dict) or row.get("schema_version") != 1
-            or row.get("backend") != _backend()
+            or row.get("backend") != _backend(root)
             or not isinstance(row.get("target"), str)
             or sessions.canonical_root(row.get("target", "")) != sessions.canonical_root(root)
             or not isinstance(row.get("token"), str) or not isinstance(row.get("status"), str)
@@ -211,7 +215,7 @@ def ensure_running(root, *, lifetime=DEFAULT_LIFETIME):
             token = uuid.uuid4().hex
             now = time.time()
             from .shared_runtime import PROTOCOL
-            row = {"schema_version": 1, "target": str(root), "backend": _backend(), "token": token,
+            row = {"schema_version": 1, "target": str(root), "backend": _backend(root), "token": token,
                    "generation": (previous or {}).get("generation", 0) + 1,
                    "shared_protocol": PROTOCOL,
                    "status": "starting", "created_at": now, "expires_at": now + lifetime,
@@ -221,7 +225,7 @@ def ensure_running(root, *, lifetime=DEFAULT_LIFETIME):
             command = [sys.executable, "-B", "-X", "utf8", "-m", "oasis_harness.notifications", str(root), token]
             try:
                 child = subprocess.Popen(command, cwd=Path(__file__).resolve().parents[1],
-                                         env=_environment(), stdin=subprocess.DEVNULL,
+                                         env=_environment(root), stdin=subprocess.DEVNULL,
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if os.name == "nt" else 0,
                                          start_new_session=os.name != "nt")
@@ -372,6 +376,9 @@ def _observe(root, server, deadline, step, stop_guard=None, *, runtime=None):
     try:
         while time.monotonic() < deadline:
             if dirty:
+                if sessions.desktop_selected(root) and not getattr(server, "desktop_managed", False):
+                    raise sessions.NativeError("observer/backend", {"code": -32601,
+                        "message": "Desktop tasks require their native observer; preserve this older host and resume the task command"})
                 consumed = _journal_stamp(root)
                 record = getattr(server, "record_reconciliation", None)
                 if callable(record):

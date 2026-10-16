@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "version": "2.0.8",
+  "version": "2.0.12",
   "channel": "stable",
   "mode": "source-and-artifacts",
   "files": [
@@ -96,6 +96,8 @@
     "oasis_harness/check_results.py",
     "oasis_harness/cli.py",
     "oasis_harness/common.py",
+    "oasis_harness/desktop_sessions.py",
+    "oasis_harness/desktop_tools.py",
     "oasis_harness/doctor.py",
     "oasis_harness/github.py",
     "oasis_harness/gitops.py",
@@ -156,6 +158,9 @@
     "tests/test_common.py",
     "tests/test_deadlines.py",
     "tests/test_dependencies.py",
+    "tests/test_desktop_sessions.py",
+    "tests/test_desktop_tools.py",
+    "tests/test_desktop_workflows.py",
     "tests/test_distribution.py",
     "tests/test_doctor.py",
     "tests/test_github.py",

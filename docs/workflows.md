@@ -42,7 +42,7 @@ changed-operation responses retain full recovery diagnostics.
 
 | Command | Work |
 |---|---|
-| `workflow assign` | Create Camel, deliver goal/context and retain its connection |
+| `workflow assign` | Create Camel with goal/context and retain its actual chat/turn IDs |
 | `workflow complete` | Record result submission; notify Cameleer after native terminal readiness |
 | `workflow collect` | Record reviewed/integrated result and archive the finished Camel |
 | `workflow task-resume` | Restore the same Camel for follow-up or unfinished work |
@@ -56,7 +56,21 @@ reminder identifies this step; it does not perform a retrospective after sending
 completion or prove that reference edits occurred.
 
 `assign` takes target, Cameleer ID and goal, with optional context, location,
-title and request ID. `complete` accepts a free-form result/check summary and
+title and request ID. Inside Desktop it uses the inherited native tools pipe:
+one create starts the initial assignment in the application's own chat, so the
+owner can open it and steer the work. It does not load that chat in an external
+App Server. Dispatch the compact goal, constraints and known references first;
+leave product investigation and validation to Camel. Aim to finish creation and
+accepted delivery within one minute, without a separate readiness turn or
+unrelated preparation. The command has a 30-second I/O budget; model preparation
+and application availability remain outside that bound.
+Known created IDs survive readback failures. An uncertain create is never
+automatically repeated. If the create response lost its ID, `task-resume
+--camel-id <actual-created-chat-id>` verifies that chat's exact original input
+and settings before binding it to the retained task. Existing chats owned by an external host retain their
+current ownership; this path does not stop their work or change installed projects.
+
+`complete` accepts a free-form result/check summary and
 completed, failed or cancelled outcome and returns after submission. It does not
 wake Cameleer before the assigned native turn is terminal-ready. Cameleer checks
 the request, diff and performed checks, reusing matching consumed-input evidence

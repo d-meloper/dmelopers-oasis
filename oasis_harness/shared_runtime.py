@@ -32,9 +32,9 @@ _READ_METHODS = frozenset(("thread/read", "thread/list", "thread/turns/list", "t
 
 def runtime_identity(root):
     from . import notifications
-    modules = ("sessions.py", "shared_runtime.py", "notifications.py", "workflows.py")
+    modules = ("sessions.py", "shared_runtime.py", "notifications.py", "workflows.py", "desktop_tools.py", "desktop_sessions.py")
     source = {name: hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in modules}
-    return digest({"protocol": PROTOCOL, "root": sessions.canonical_root(root), "backend": notifications._backend(),
+    return digest({"protocol": PROTOCOL, "root": sessions.canonical_root(root), "backend": notifications._backend(root),
                    "python": sessions.canonical_root(sys.executable), "version": list(sys.version_info[:3]),
                    "package": sessions.__version__, "source": source})
 
@@ -141,7 +141,7 @@ def _same_user(connection, *, server_side):
 class Pool:
     """Originator-preserving upstreams with one aggregate native event reader."""
     def __init__(self, factory=None):
-        self.factory = factory or (lambda originator: sessions.AppServer(originator, notification_profile="command"))
+        self.factory = factory or sessions.observer_server
         self.lock = threading.RLock()
         self.changed = threading.Condition(self.lock)
         self.channels = {}
@@ -583,6 +583,14 @@ class _Events:
 
 
 class _Facade:
+    @property
+    def desktop_managed(self):
+        return sessions.desktop_selected() or self.originator.startswith("oasis_desktop_")
+
+    @property
+    def source_id(self):
+        return os.environ.get("CODEX_THREAD_ID")
+
     def __init__(self, pool, originator, *, read_epoch=None):
         self.pool, self.originator = pool, originator
         self.read_epoch = read_epoch

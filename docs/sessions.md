@@ -1,13 +1,31 @@
 # Codex session adapter
 
-The adapter uses native App Server to create chats, start requested
-turns, set Plan mode and archive/restore actual IDs. Its
+Desktop Camel assignments use the application's inherited native tools pipe to
+create a chat with its initial request, send follow-ups and manage actual IDs.
+The general adapter also uses native App Server to create chats, start requested
+turns, set supported Plan mode and archive/restore actual IDs. Its
 [official protocol](https://learn.chatgpt.com/docs/app-server) describes available
 methods; installed availability and actual effects need their own evidence.
 
 ## Transport and RPC
 
-The default client connects to an existing daemon/control socket through
+Desktop dispatch requires its actual caller chat/turn and same local project.
+It reads saved model, reasoning and supported built-in permissions, explicitly
+selects model/effort and verifies the child's actual saved selections and exact
+accepted input/turn. Unverified custom permission inheritance fails before create.
+Missing or changed native tool contracts remain errors; no external writer is
+started as a fallback. Native tools currently lack a Plan setter: a requested
+Plan assignment starts only a holding turn and returns one manual instruction.
+Prompt/context must fit the native history readback limit. A response lost after
+writing begins retains uncertainty even with the same call ID.
+The pipe uses bounded, same-user, cancellable Windows I/O. Scoped Windows
+filesystem change events wake completion checks without periodic history or
+model requests. Before archive, a read-only native state snapshot checks the
+complete persisted spawn-edge closure against the scoped chat IDs. Unknown
+schema, owner or inventory stops archival; the exact rollout location verifies
+archive/restore acceptance. No app database, user settings or shared host is modified.
+
+The general App Server client connects to an existing daemon/control socket through
 `codex app-server proxy`. The proxy forwards bytes: the client performs the
 HTTP Upgrade handshake and sends masked WebSocket frames before native RPC.
 It does not send JSONL directly to the socket. `OASIS_APP_SERVER_SOCKET`
