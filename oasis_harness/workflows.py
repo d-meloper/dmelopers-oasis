@@ -272,6 +272,27 @@ def _lifecycle_once(path, thread_id, server, root, *, restore=False, scoped=(), 
     if expected_binding is not None:
         native = native if native is not None else server.call("thread/read", {"threadId": thread_id, "includeTurns": False})["thread"]
         sessions.check_thread_binding(native, thread_id, expected_binding)
+    if getattr(server, "desktop_managed", False):
+        wanted = not restore
+        if server.archive_state(thread_id) == wanted:
+            value["state"] = "accepted"
+            write_json(path, value)
+            return value
+        if value["state"] in ("started", "uncertain"):
+            return value
+        if not restore and any(identity not in scoped for identity in server.archive_descendants(thread_id)):
+            raise HarnessError("Native archive would include an unrelated descendant; preserve that chat")
+        value["state"] = "started"
+        write_json(path, value)
+        try:
+            server.call(method, {"threadId": thread_id})
+            value["state"] = "accepted" if server.archive_state(thread_id) == wanted else "uncertain"
+        except Exception as exc:
+            value.update(state="uncertain", error=str(exc))
+            write_json(path, value)
+            raise
+        write_json(path, value)
+        return value
     if value["state"] in ("started", "uncertain"):
         if thread_id in _listing(server, root, archived=not restore):
             value["state"] = "accepted"
@@ -675,7 +696,7 @@ def _delivery_path(root, row, kind):
 
 def _assign_delivery(root, row, server):
     delivery = sessions.send_once(_delivery_path(root, row, "assign"), row["camel_thread_id"], row["prompt"], server,
-                                  planning=row.get("planning", False), skill=_role_skill(root, "Camel"),
+                                  planning=row.get("planning", False), execution=row.get("execution", False), skill=_role_skill(root, "Camel"),
                                   expected_binding=_binding(root, _task_project(row)))
     row["phase"] = "assigned" if delivery["state"] == "accepted" else delivery["state"]
     row["assignment_delivery"] = delivery
@@ -701,6 +722,98 @@ def _request_match(row, sha, fields, *, hash_field="input_sha256"):
         raise HarnessError("Legacy request ID has different recorded inputs; preserve the original action")
 
 
+def _desktop_assignment(root, state, row, *, cameleer_id, goal, context, location, planning, title, key, sha, factory):
+    """One Desktop create with its initial request; never load a second writer."""
+    from .desktop_tools import DesktopNotSent
+    if row is None:
+        identity = uuid.uuid4().hex
+        originator = "oasis_desktop_" + identity
+        with _open(factory, root, originator) as server:
+            project, settings, _ = server.prepare_assignment(cameleer_id, root)
+        prompt = (f"Apply $oasis-camel. Task ID: {identity}. Cameleer chat ID: {cameleer_id}.\n"
+                  "Use these actual IDs for workflow complete.\n\n" + goal)
+        if context:
+            prompt += "\n\n" + (context if isinstance(context, str) else json.dumps(context, ensure_ascii=False))
+        prompt += "\n\nAssigned work location: " + (location or str(root))
+        prompt = _completion_prompt(prompt)
+        creation_prompt = prompt
+        if planning:
+            creation_prompt = ("Wait for the owner to enable actual Codex Plan mode in this chat. "
+                      "Cameleer will resume the retained task to start the requested planning. "
+                      "Do not begin planning or implementation in this initial turn.\n\nAssigned request:\n" + prompt)
+        row = {"id": identity, "request_key": key, "input_sha256": sha, "role": "Camel", "project_id": project,
+               "native_backend": "desktop", "cameleer_thread_id": cameleer_id, "camel_thread_id": None,
+               "goal": goal, "prompt": prompt, "planning": planning, "location": location or str(root),
+               "phase": "creating", "cycle": 0, "history": []}
+        receipt = {"schema_version": 1, "originator": originator, "native_backend": "desktop", "target": str(root),
+                   "project_id": project, "source_thread_id": cameleer_id, "parent_thread_id": cameleer_id,
+                   "role": "Camel", "settings": settings, "creation_prompt": creation_prompt, "title": title or
+                   f"camel_{sessions.letters(len(state['tasks']) + 1)}_{' '.join(goal.split())[:100]}", "phase": "prepared"}
+        row["session_receipt"] = str(contained(root, f".oasis/local/sessions/{originator}/receipt.json"))
+        state["tasks"].append(row)
+        write_json(row["session_receipt"], receipt)
+        write_json(_task_path(root), state)
+    receipt = read_json(row["session_receipt"])
+    if (row["phase"] in TERMINAL or receipt["phase"] == "manual_plan"
+            or (row.get("assignment_delivery") or {}).get("state") == "accepted"):
+        return copy.deepcopy(row)
+    if not receipt.get("thread_id") and receipt["phase"] != "prepared":
+        row["phase"] = "creation_uncertain"
+        row["instruction"] = (f"Preserve this request. Use workflow task-resume --target <project> --task-id {row['id']} "
+                              "--camel-id <actual-created-chat-id> to verify the original input; do not create another Camel.")
+        write_json(_task_path(root), state)
+        _render_tasks(root, state)
+        return copy.deepcopy(row)
+
+    def created(identity):
+        sessions.require_text(identity, "Created Desktop chat ID")
+        receipt.update(thread_id=identity, phase="created")
+        row.update(camel_thread_id=identity, phase="assignment_uncertain")
+        # Retain a known creation even when subsequent settings/input readback fails.
+        write_json(row["session_receipt"], receipt)
+        write_json(_task_path(root), state)
+
+    try:
+        with _open(factory, root, receipt["originator"]) as server:
+            if receipt.get("thread_id"):
+                result = server.recover_assignment(receipt["thread_id"], cameleer_id, root, receipt["creation_prompt"],
+                                                   receipt["settings"], receipt["project_id"])
+            else:
+                receipt["phase"] = "creation_started"
+                write_json(row["session_receipt"], receipt)
+                result = server.create_assignment(cameleer_id, root, receipt["title"], receipt["creation_prompt"],
+                    receipt["settings"], receipt["project_id"], row["id"], on_created=created)
+            if receipt.get("thread_id") != result["thread_id"]:
+                raise HarnessError("Desktop acceptance returned another created chat ID")
+            delivery = {"schema_version": 1, "thread_id": result["thread_id"], "text": receipt["creation_prompt"],
+                        "message_id": row["id"], "call_id": row["id"], "turn_id": result["turn_id"],
+                        "state": "accepted", "planning": row["planning"], "execution": False,
+                        "expected_binding": _binding(root, receipt["project_id"])}
+            write_json(_delivery_path(root, row, "prelude" if row["planning"] else "assign"), delivery)
+            receipt.update(phase="manual_plan" if row["planning"] else "assigned", creation_verified=True)
+            write_json(row["session_receipt"], receipt)
+            row.update(camel_thread_id=result["thread_id"], phase="manual_plan" if row["planning"] else "assigned")
+            if row["planning"]:
+                row["prelude_delivery"] = delivery
+                row["instruction"] = (f"Enable actual Codex Plan mode in chat {result['thread_id']}, then use workflow task-resume "
+                                      f"--target <project> --task-id {row['id']} to start the retained planning request.")
+            else:
+                row["assignment_delivery"] = delivery
+                row.pop("instruction", None)
+            row.pop("error", None)
+    except Exception as exc:
+        if isinstance(exc, DesktopNotSent) and not receipt.get("thread_id"):
+            receipt["phase"] = "prepared"
+            write_json(row["session_receipt"], receipt)
+        row.update(phase="assignment_uncertain" if receipt.get("thread_id") else "creation_uncertain", error=str(exc))
+        write_json(_task_path(root), state)
+        _render_after_failure(root, state, exc)
+        raise HarnessError(f"Task {row['id']} is retained; recover only this Desktop assignment: {exc}") from exc
+    write_json(_task_path(root), state)
+    _render_tasks(root, state)
+    return copy.deepcopy(row)
+
+
 @_arm_notifications
 def assign(target, cameleer_id, goal, *, context=None, location=None, planning=False, title=None,
            request_id=None, factory=sessions.command_server):
@@ -721,6 +834,11 @@ def assign(target, cameleer_id, goal, *, context=None, location=None, planning=F
         if row is not None:
             _request_match(row, sha, {"cameleer_thread_id": cameleer_id, "goal": goal,
                                     "location": location or str(root), "planning": planning})
+        from . import desktop_sessions
+        if (row is not None and row.get("native_backend") == "desktop" or row is None
+                and factory is sessions.command_server and desktop_sessions.available()):
+            return _desktop_assignment(root, state, row, cameleer_id=cameleer_id, goal=goal, context=context,
+                location=location, planning=planning, title=title, key=key, sha=sha, factory=factory)
         if row is None:
             identity = uuid.uuid4().hex
             originator = "oasis_session_" + identity
@@ -887,13 +1005,14 @@ def register(subparsers):
     p.add_argument("--target", required=True)
     p.add_argument("--task-id", required=True)
     p.add_argument("--message-file")
+    p.add_argument("--camel-id", help="Verify the actual created Desktop chat after a lost create response")
     choice = p.add_mutually_exclusive_group()
     choice.add_argument("--plan", action="store_true")
     choice.add_argument("--implementation", action="store_true")
     p.add_argument("--request-id")
     p.set_defaults(func=lambda args: resume_task(args.target, args.task_id,
         Path(args.message_file).read_text(encoding="utf-8") if args.message_file else None,
-        planning=args.plan, implementation=args.implementation, request_id=args.request_id))
+        planning=args.plan, implementation=args.implementation, request_id=args.request_id, camel_id=args.camel_id))
     p = commands.add_parser("dependency-wait")
     p.add_argument("--target", required=True)
     p.add_argument("--producer-id", required=True)
@@ -1254,7 +1373,8 @@ def _collect(target, task_id, *, result=None, checks=None, merge=None, merged_re
 
 
 @_arm_notifications
-def resume_task(target, task_id, message=None, *, planning=False, implementation=False, request_id=None, factory=sessions.command_server):
+def resume_task(target, task_id, message=None, *, planning=False, implementation=False, request_id=None,
+                camel_id=None, factory=sessions.command_server):
     root, _ = _root(target)
     if not isinstance(planning, bool) or not isinstance(implementation, bool) or planning and implementation:
         raise HarnessError("Choose either planning or implementation follow-up")
@@ -1263,6 +1383,20 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
     with operation_lock(contained(root, ".oasis/local/operations.lock")):
         state = _tasks(root)
         row = _task(state, task_id)
+        if camel_id is not None:
+            sessions.require_text(camel_id, "Actual created Desktop chat ID")
+            if row.get("native_backend") != "desktop" or row.get("assignment_delivery"):
+                raise HarnessError("Explicit creation recovery requires an unresolved Desktop assignment")
+            receipt = read_json(row["session_receipt"])
+            if receipt.get("thread_id") not in (None, camel_id):
+                raise HarnessError("Preserve the already acknowledged Desktop chat ID")
+            with _open(factory, root, receipt["originator"]) as server:
+                server.recover_assignment(camel_id, row["cameleer_thread_id"], root, receipt["creation_prompt"],
+                                          receipt["settings"], receipt["project_id"])
+            receipt.update(thread_id=camel_id, phase="created")
+            row["camel_thread_id"] = camel_id
+            write_json(row["session_receipt"], receipt)
+            write_json(_task_path(root), state)
         if message is None and row.get("completion"):
             return copy.deepcopy(row)
         if message is not None:
@@ -1298,6 +1432,20 @@ def resume_task(target, task_id, message=None, *, planning=False, implementation
                             "instruction": "Reconcile the retained archive outcome before delivering the follow-up."}
                 row["archived"] = True
                 write_json(_task_path(root), state)
+        if row.get("native_backend") == "desktop" and row.get("prelude_delivery") and message is None:
+            with _open(factory, root, "oasis_resume_plan_" + row["id"], channel=_task_channel(row)) as server:
+                _assign_delivery(root, row, server)
+            if row["phase"] == "assigned":
+                row.pop("instruction", None)
+            write_json(_task_path(root), state)
+            _render_tasks(root, state)
+            return copy.deepcopy(row)
+        if row.get("native_backend") == "desktop" and not row.get("assignment_delivery") and not row.get("prelude_delivery"):
+            recovered = _desktop_assignment(root, state, row, cameleer_id=row["cameleer_thread_id"], goal=row["goal"],
+                context=None, location=row["location"], planning=row["planning"], title=None,
+                key=row["request_key"], sha=row["input_sha256"], factory=factory)
+            if message is None or not recovered.get("assignment_delivery"):
+                return recovered
         if not row.get("camel_thread_id"):
             receipt = read_json(row["session_receipt"])
             if receipt.get("phase") != "creation_rejected":
@@ -1505,7 +1653,7 @@ def notification_targets(root, server):
 
 def _notification_pending(root, state):
     for row in state["tasks"]:
-        if row.get("archived") or not row.get("camel_thread_id") or not row.get("assignment_delivery"):
+        if row.get("archived") or row.get("phase") in ("manual_plan", "manual_mode") or not row.get("camel_thread_id") or not row.get("assignment_delivery"):
             continue
         if row.get("completion"):
             if _notice(root, row)["state"] != "accepted":
@@ -1569,7 +1717,7 @@ def notification_step(root, server, *, changed_threads=None, cache=None):
         identity = row.get("camel_thread_id")
         completion = row.get("completion") or {}
         if (not identity or not row.get("assignment_delivery") or row.get("archived")
-                or row.get("phase") in ("creating", "creation_uncertain", "assignment_uncertain")):
+                or row.get("phase") in ("creating", "creation_uncertain", "assignment_uncertain", "manual_plan", "manual_mode")):
             continue
         if completion and _notice(root, row)["state"] == "accepted":
             continue

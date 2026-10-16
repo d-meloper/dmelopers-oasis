@@ -35,7 +35,8 @@ def fixture():
         name: {"sha256": digest(files[name]),
                "reason": "Fixture review of bounded scanner patterns and metadata field names; no live host data."}
         for name in ("oasis_harness/check_results.py", "oasis_harness/knowledge.py", "oasis_harness/publication.py",
-                     "oasis_harness/sessions.py", "oasis_harness/workflows.py")
+                     "oasis_harness/desktop_sessions.py", "oasis_harness/sessions.py",
+                     "oasis_harness/shared_runtime.py", "oasis_harness/workflows.py")
     }
     return files, reviewed
 

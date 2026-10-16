@@ -199,6 +199,8 @@ def run_fixed_scenario(package=PACKAGE, *, lifetime=8, payload=None, shared_wait
         with WorkflowWire(root) as wire:
             env = clean_environment({"OASIS_APP_SERVER_URL": wire.url})
             env.pop("CODEX_THREAD_ID", None)
+            env.pop("CODEX_APP_TOOLS_PIPE_PATH", None)
+            env.pop("OASIS_SESSION_BACKEND", None)
             env.pop("PYTHONPATH", None)
             worker = "import sys,json;sys.path.insert(0,sys.argv[1]);from oasis_harness import notifications;print(json.dumps(notifications.ensure_running(sys.argv[2],lifetime=float(sys.argv[3]))))"
             start = time.monotonic()

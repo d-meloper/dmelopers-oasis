@@ -6,6 +6,24 @@ Assign visible Camel chats and retain their actual IDs, goal, location and resul
 links in task context. Titles help scanning. Reconcile uncertain creation
 before creating a replacement.
 
+## Dispatch before product investigation
+
+Aim for accepted Camel task delivery within 60 seconds of an actionable owner
+request. Before assignment, read applicable coordination experience and only
+the relevant active task/context needed to avoid duplicate or conflicting work.
+Use the verified project/settings binding and one `workflow assign` operation
+to create and deliver the compact goal, known constraints and useful references.
+Preserve the owner's ability to add instructions or change direction in that chat.
+
+Product documentation, implementation choices, tests, commits and publication
+belong to Camel or later integration and do not gate initial dispatch. An
+observed slow handoff spent most of its time on those preparatory reads and
+stale transport recovery while assignment itself took seconds. Use the retained
+operation and its exact recovery step if delivery is uncertain; do not repeat
+creation, reset settings or investigate unrelated hosts. Accept the verified
+delivery receipt without waiting for Camel's ready reply or first work result.
+Native/model latency can exceed the target; retain that boundary honestly.
+
 ## Collect the result once
 
 Inspect the direct result, requested diff and performed checks. Reuse matching

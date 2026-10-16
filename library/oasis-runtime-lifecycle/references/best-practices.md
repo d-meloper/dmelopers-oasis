@@ -47,6 +47,17 @@ does not prove completion-event coverage. For an otherwise unsubscribed issued
 turn, verify its exact terminal ID once after idle before releasing usage;
 stale idle alone cannot release newer active work.
 
+When a Desktop chat must stay steerable in its application, create and send
+through that application's own tools. Loading it in an independent App Server
+can acquire the writer and make the UI report that it is open elsewhere.
+An unsubscribe acknowledgement does not establish immediate writer release.
+For combined create-and-first-input tools, persist the actual returned chat ID
+before settings/input readback; a later verification failure must not lose that
+known creation. Verify exact delegation source, input and native turn identity,
+including native function-output representations. The same call ID does not
+authorize replay after response loss. Recover a lost ID only against the retained
+original input and settings, rather than a title or a new creation.
+
 For bounded history recovery, verify whether a cursor includes its anchor and
 include changes to an active turn. Reject older text matches; if paging becomes
 unsupported, use strong delivery identity or retain uncertainty.
@@ -90,6 +101,14 @@ owned handles with an independent bounded cleanup budget even after the request
 deadline expires. Count native sends at the actual writer, separately from local
 IPC requests and pre-send attempts; retain consumed source hashes with the run
 rather than reconstructing them from later files.
+
+Windows overlapped cancellation retains buffer/handle ownership until kernel
+completion. A scoped filesystem wait must also tolerate unrelated same-directory
+changes and spurious condition wakeups until its fixed deadline; returning an
+empty batch early can be misread as a disconnected observer. A bounded recency
+list cannot prove the absence of archive descendants. Use an exhaustive native
+inventory or an exact-owner read-only persisted spawn-edge snapshot, failing
+before archival on unknown schema, ambiguity or incomplete closure.
 
 Use the [evaluation inputs](acceptance.md) for a relevant later evaluation;
 they contain requests and conditions, not performed evidence or expected answers.

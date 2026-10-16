@@ -7,8 +7,14 @@ description: Coordinate visible Camel assignments, collect and integrate results
 
 Read the applicable [coordination experience](references/best-practices.md) before choosing an approach.
 
-Split requested work into visible Camel assignments with useful goals and
-context; simple work can stay here. Keep actual chat IDs and result links in
+For a new actionable request, dispatch the Camel first with a compact goal,
+known constraints and context references through one `workflow assign` operation.
+Target accepted task delivery within 60 seconds of the owner's instruction;
+report actual host/model delays without promising a hard wall-clock guarantee.
+Follow the [dispatch boundary](references/best-practices.md#dispatch-before-product-investigation):
+leave product investigation to Camel and continue once delivery is accepted,
+without waiting for its ready reply. The owner must remain able to steer the
+Camel chat. Simple work can stay here. Keep actual chat IDs and result links in
 `.oasis/state/tasks.md`; `camel_A_goal` is a title convention. Collect the
 terminal-ready result and inspect the requested diff and original evidence once.
 Use [check review](../../../.oasis/manual/validation.md#role-check-evidence) for

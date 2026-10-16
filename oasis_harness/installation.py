@@ -32,7 +32,8 @@ PROJECT_KNOWLEDGE_PATHS = frozenset({
     "BestPractice/history/README.md",
 })
 ADOPTER_MODULES = frozenset({
-    "__init__.py", "backup.py", "build.py", "check_results.py", "cli.py", "common.py", "doctor.py",
+    "__init__.py", "backup.py", "build.py", "check_results.py", "cli.py", "common.py",
+    "desktop_sessions.py", "desktop_tools.py", "doctor.py",
     "gitops.py", "github.py", "installation.py", "knowledge.py",
     "publication.py", "sessions.py", "shared_runtime.py", "skills.py", "workflows.py", "notifications.py",
 })
