@@ -195,6 +195,28 @@ Interrupted operations retain target IDs and outcomes for reconciliation.
 Transition plans bind their reviewed basis. A changed basis needs a fresh plan;
 waiting and independent bindings remain visible rather than being replaced.
 
+For reused role chats, `plan` records `project_bindings` without changing native
+metadata. A matching root with an explicit null membership is `unassigned`;
+another assigned project or a different root remains a conflict. Missing
+membership information and a missing or ambiguous registered project stop
+planning. In Desktop, the plan checks its actual stored membership separately
+from App Server, using each catalog's own project ID.
+
+`start` checks both catalogs before effects and repairs only planned missing
+memberships. The local binding journal records intent, previous assignment,
+RPC outcome, readback and model/permission selections. Strict binding checks
+still run after repair. Metadata repair starts no turn and does not resume the
+current chat; reusing an existing role creates no duplicate role chat.
+
+`binding_uncertain`, `binding_not_applied` and `binding_unsupported` keep the
+same initialization receipt with recovery instructions. Resume to reconcile
+actual metadata; an issued update is not replayed. A compatible App Server
+must support `thread/metadata/update` with `projectId`. When that interface is
+unavailable, repair through a supported existing host, verify its stored
+assignment and resume. Desktop membership alone does not establish App Server
+membership. A Desktop check retained in the plan requires that Desktop tools
+environment during recovery.
+
 ## Recovery and evidence
 
 Retained action state binds actual task/chat IDs and result references. Native

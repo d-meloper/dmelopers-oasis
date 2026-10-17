@@ -23,7 +23,8 @@ filesystem change events wake completion checks without periodic history or
 model requests. Before archive, a read-only native state snapshot checks the
 complete persisted spawn-edge closure against the scoped chat IDs. Unknown
 schema, owner or inventory stops archival; the exact rollout location verifies
-archive/restore acceptance. No app database, user settings or shared host is modified.
+archive/restore acceptance. Archive inventory leaves app databases, user settings
+and shared hosts untouched.
 
 The general App Server client connects to an existing daemon/control socket through
 `codex app-server proxy`. The proxy forwards bytes: the client performs the
@@ -86,6 +87,17 @@ Keep those diagnostics in local evidence. Unsupported server requests receive
 approval decision or native approval UI.
 
 ## Settings and creation
+
+Project membership comes from stored chat metadata, independently of the root
+matched in the project catalog. An explicit null is unassigned; unavailable
+membership information is unknown. Desktop reads actual membership from its
+native chat inventory and never substitutes the catalog's matching-root ID.
+An older chat absent from the bounded native inventory remains unverifiable.
+Initialization can repair an explicitly planned missing link with
+`thread/metadata/update`; Desktop maps that operation to its own
+`move_thread_to_project`. Each backend validates its own catalog and ID.
+Existing foreign assignments are never selected for repair. See
+[initialization recovery](workflows.md#mode-transitions).
 
 Inherit the caller's actual model, reasoning and supported permission settings.
 Keep project settings and work location. Unsupported or contradictory settings

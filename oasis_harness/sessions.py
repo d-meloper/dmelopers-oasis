@@ -1344,16 +1344,34 @@ def read_turns(server, thread_id):
         return _full_turns(server, thread_id)
 
 
+def thread_binding_state(thread, thread_id, binding):
+    """Classify stored membership without treating cwd as project assignment."""
+    if not isinstance(thread, dict) or thread.get("id") != thread_id:
+        raise HarnessError("Native read returned another thread ID")
+    if (not isinstance(binding, dict) or not isinstance(binding.get("target"), str)
+            or not isinstance(binding.get("project_id"), str) or not binding["project_id"]):
+        raise HarnessError("Expected native binding requires target and project ID")
+    if not isinstance(thread.get("cwd"), str) or canonical_root(thread["cwd"]) != canonical_root(binding["target"]):
+        return "root_mismatch"
+    if "projectId" not in thread:
+        return "unknown"
+    if thread["projectId"] is None:
+        return "unassigned"
+    if not isinstance(thread["projectId"], str) or not thread["projectId"]:
+        return "unknown"
+    return "bound" if thread["projectId"] == binding["project_id"] else "conflict"
+
+
 def check_thread_binding(thread, thread_id, binding=None):
     if not isinstance(thread, dict) or thread.get("id") != thread_id:
         raise HarnessError("Native read returned another thread ID")
     if binding is not None:
-        if (not isinstance(binding, dict) or not isinstance(binding.get("target"), str)
-                or not isinstance(binding.get("project_id"), str)):
-            raise HarnessError("Expected native binding requires target and project ID")
-        if (not isinstance(thread.get("cwd"), str)
-                or canonical_root(thread["cwd"]) != canonical_root(binding["target"])
-                or thread.get("projectId") != binding["project_id"]):
+        state = thread_binding_state(thread, thread_id, binding)
+        if state == "unassigned":
+            raise HarnessError("Native thread is unassigned to a project; plan and apply initialization to repair its missing membership")
+        if state == "unknown":
+            raise HarnessError("Native thread project membership is unavailable; inspect the existing host before initialization")
+        if state != "bound":
             raise HarnessError("Native thread belongs to another project/root")
 
 

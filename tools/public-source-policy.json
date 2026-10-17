@@ -13,12 +13,12 @@
       "sha256": "44d2237a93c6b9424ae6c6387d070326c5139464a333dfa6d984e902267ba454"
     },
     "oasis_harness/sessions.py": {
-      "reason": "Reviewed native protocol field literals, bounded transport/dispatcher code and synthetic settings/recovery context. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "bfe690655f50f2f1cf9a9789e8a864c625d2e6e4386ce594b8df3280696a9b78"
+      "sha256": "dd5c348253d37034b1b9d4dad4dabf84661adebf237c3570c18e53c74884e1aa",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "oasis_harness/workflows.py": {
-      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
-      "sha256": "a50139f1d8681ffd4404a89e754bd1b63857e111451f2b56eea2a402c785f9cf"
+      "sha256": "089b1739e021380a73e249a326d1bf57646047c71fd8a8877186c844f2a719b3",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "tests/test_check_results.py": {
       "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
@@ -33,24 +33,24 @@
       "sha256": "ddc3f7fddf2e77effb4ed2134bbbc07559341551ac88a59882bcd3fd7644e6a5"
     },
     "tests/test_sessions.py": {
-      "reason": "Reviewed complete native protocol field literals and synthetic settings/creation recovery fixtures, including the explicit loopback adapter. No live chat IDs, credentials or personal paths are bundled; hard secret/path checks remain.",
-      "sha256": "3e7da971dc997d88218b7203976980434740270e5a19e5189ffab27decca0f5f"
+      "sha256": "dd776389b5f3cf3e93c26225453549cb0de3ca78bceb3e7ff416fc442ef1b2c6",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "tests/test_workflows.py": {
-      "reason": "Reviewed complete receipt, environment-profile, task collection and synthetic control bytes. Reserved environment/native field names are literals only; no actual chat ID, credential or personal path. Hard secret/path checks remain.",
-      "sha256": "fcb73caaed58740b1334796803d765236ed432b59063e2e33d8ba8c49dae7d45"
+      "sha256": "dec7cf3cf9e2ec31d5ae5ff77503dbf9e3cac87a892d002594780812d6e0c3eb",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "tools/source_policy.py": {
       "reason": "Reviewed bounded scanner literals and public change structure checks. Exact artwork pins and hard privacy/XML checks remain; known operational note patterns do not certify editorial relevance or permit private payloads.",
       "sha256": "009a9c2273eb6e288e77110c4d9cb512bc6cfbea74debc38488bbe692c7a2bf5"
     },
     "oasis_harness/desktop_sessions.py": {
-      "sha256": "fe1cfedcf9246a25486a4866d15c128cc32e37606650fc5463890e597ba9abd9",
-      "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
+      "sha256": "d3f158babf965d777148648f174524f82dd0f18278eb6f667d0310fdfef91392",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "tests/test_desktop_sessions.py": {
-      "sha256": "cdf686bdebbc90b73a37d20fc24bb052d1234c104d4e8fbbbffd307347b6d322",
-      "reason": "Reviewed complete Desktop tool transport, actual-ID normalization, read-only state inventory and synthetic Windows fixtures. Reserved native fields and synthetic UUIDs are literals; no live chat IDs, credentials or personal paths. Hard privacy checks remain."
+      "sha256": "27aa0b15dc35e88e0c9b2be8b32f57e802db6ddff618a16bc0cf40d0379fd475",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     },
     "tests/test_desktop_workflows.py": {
       "sha256": "650a4575f137e35d9b6b2b5d37eefd5d531cce777f651c01ea71074aced7a408",
@@ -59,6 +59,10 @@
     "oasis_harness/shared_runtime.py": {
       "sha256": "2a7fbe36d8311eac34b7805f56b99ac59ce7ce0bee2a52c01ce166d2f02212a4",
       "reason": "Reviewed shared native connection ownership, Desktop backend selection and caller-identity field literals. Contains no live chat ID, credential or personal path; hard privacy checks remain."
+    },
+    "tests/test_project_bindings.py": {
+      "sha256": "843fb4db0cccdc7d2eeb1ebf90abc6128853b4e4e7efe5a965abc479fce5887f",
+      "reason": "Reviewed the existing approved bytes and complete project-binding changes, native metadata field literals, host tool bounds and synthetic recovery fixtures. No live chat IDs, credentials or personal paths; hard privacy checks remain."
     }
   },
   "schema_version": 1

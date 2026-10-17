@@ -5,6 +5,20 @@ migrations. Maintenance revisions without an adopter-facing change are omitted.
 The [upgrade index](upgrade-index.json) supports predecessor checks; actual file
 differences and local conflicts still determine the complete upgrade plan.
 
+## 2.1.0
+
+Initialization distinguishes an unassigned same-root role chat from a foreign
+project or root conflict. Read-only plans record missing project links;
+initialization applies journaled metadata-only repairs and verifies actual
+membership and preserved settings before reusing the role. Lost replies retain
+the existing chat and recovery receipt without repeating the update.
+
+Desktop membership is read from the application's stored chat inventory.
+Desktop and App Server use their own project IDs and are verified separately.
+Unknown membership or an unsupported metadata interface returns a concrete
+recovery instruction. Apply an inspected ordinary upgrade; existing roles,
+settings and work remain preserved. Core remains 2.0.0.
+
 ## 2.0.13
 
 Desktop assignment readback accepts the native complete-text output envelope,

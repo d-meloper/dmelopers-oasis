@@ -47,6 +47,14 @@ does not prove completion-event coverage. For an otherwise unsubscribed issued
 turn, verify its exact terminal ID once after idle before releasing usage;
 stale idle alone cannot release newer active work.
 
+Matching a root in a project catalog does not establish stored chat membership.
+Treat explicit null as unassigned and a missing field or inventory row as unknown.
+Desktop and App Server catalogs can use different IDs for the same root; bind
+each metadata repair to its own catalog, actual chat and before value. Inspect
+without mutation during planning, journal the apply intent before sending, then
+re-read membership and model/permission selections without resuming the chat.
+An unobserved effect after a lost reply does not authorize repeating the update.
+
 When a Desktop chat must stay steerable in its application, create and send
 through that application's own tools. Loading it in an independent App Server
 can acquire the writer and make the UI report that it is open elsewhere.

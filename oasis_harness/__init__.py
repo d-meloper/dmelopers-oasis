@@ -1,3 +1,3 @@
 """Project roles, reusable experience and execution tools for Codex on Windows."""
 
-__version__ = "2.0.13"
+__version__ = "2.1.0"

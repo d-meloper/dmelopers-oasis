@@ -1557,6 +1557,65 @@
         "tools/bump_commit_version.py",
         "tools/public-source-policy.json"
       ]
+    },
+    {
+      "areas": [
+        {
+          "name": "Project membership and initialization",
+          "paths": [
+            ".oasis/runtime/oasis_harness/project_bindings.py",
+            ".oasis/runtime/oasis_harness/sessions.py",
+            ".oasis/runtime/oasis_harness/workflows.py",
+            ".oasis/manual/installation.md",
+            ".oasis/manual/workflows.md"
+          ],
+          "change": "Read-only initialization plans distinguish bound, unassigned, conflicting and unknown membership. Apply journals metadata-only repair and verifies stored membership plus preserved selections.",
+          "apply": "Apply an inspected ordinary upgrade. Use actual role/chat bindings for initialization and retain its existing receipt for uncertain or unsupported metadata outcomes.",
+          "checks": [
+            "Unassigned existing-role initialization and duplicate-free reuse",
+            "Foreign project, root, stale plan and ambiguous catalog rejection",
+            "Lost metadata replies, unavailable readback and preserved model/permission selections"
+          ]
+        },
+        {
+          "name": "Actual Desktop project membership",
+          "paths": [
+            ".oasis/runtime/oasis_harness/desktop_sessions.py",
+            ".oasis/manual/sessions.md"
+          ],
+          "change": "Desktop membership comes from actual stored chat context; Desktop and App Server project IDs remain separate.",
+          "apply": "Use the existing Desktop tools environment for retained Desktop binding checks. Unknown membership remains unverifiable.",
+          "checks": [
+            "Independent project IDs and missing links in either store",
+            "Actual Desktop tool inventory bounds and missing-row controls",
+            "Metadata-only repair without chat resume or a new turn"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/installation.md",
+        "docs/sessions.md",
+        "docs/workflows.md",
+        "library/oasis-runtime-lifecycle/references/best-practices.md",
+        "oasis_harness/desktop_sessions.py",
+        "oasis_harness/installation.py",
+        "oasis_harness/project_bindings.py",
+        "oasis_harness/sessions.py",
+        "oasis_harness/workflows.py",
+        "tests/test_desktop_sessions.py",
+        "tests/test_distribution.py",
+        "tests/test_project_bindings.py",
+        "tests/test_sessions.py",
+        "tests/test_workflows.py",
+        "tools/public-source-policy.json"
+      ],
+      "previous": "2.0.13",
+      "source_only": [],
+      "summary": [
+        "Initialization can repair missing same-root project membership before reusing an existing role chat, while preserving settings and rejecting foreign assignments."
+      ],
+      "version": "2.1.0"
     }
   ]
 }

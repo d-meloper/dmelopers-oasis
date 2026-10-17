@@ -37,6 +37,7 @@ class Tools:
     def __init__(self, home, root):
         self.home, self.root = home, root
         self.calls, self.rows = [], {}
+        self.memberships = {}
         self.child_settings = copy.deepcopy(SAVED)
         self.after_create = None
         self.host = "local"
@@ -55,6 +56,7 @@ class Tools:
         self.rows[identity] = {"native": {"id": identity, "kind": "codex", "hostId": "local",
                              "cwd": str(self.root), "title": "fixture", "status": {"type": "idle"}},
                              "turns": [{"id": turn_id, "status": "completed", "items": items}], "path": path}
+        self.memberships[identity] = "fixture-project"
         return self.rows[identity]
 
     def call(self, name, args, **kwargs):
@@ -62,6 +64,12 @@ class Tools:
         if name == "list_projects":
             return {"schemaVersion": 2, "projects": [{"projectId": "fixture-project", "projectKind": "local",
                     "path": str(self.root), "hostId": "local", "isGitRepository": False}]}
+        if name == "list_threads":
+            if not 1 <= args.get("limit", 10) <= 50:
+                raise sessions.NativeError(name, {"code": -32602, "message": "Native Desktop limit must not exceed 50"})
+            return {"schemaVersion": 1, "pinnedThreads": [], "threads": [
+                {**row["native"], "projectId": self.memberships[identity]}
+                for identity, row in self.rows.items()], "unavailableHosts": [], "unavailableSources": []}
         if name == "read_thread":
             row = self.rows[args["threadId"]]
             native = copy.deepcopy(row["native"])
@@ -87,6 +95,9 @@ class Tools:
             row["turns"].append({"id": identity, "status": "inProgress", "items": [
                 {"id": "input-" + identity, "type": "userMessage", "content": [
                     {"type": "text", "text": delegation(SOURCE, args["prompt"])}]}]})
+            return {"threadId": args["threadId"]}
+        if name == "move_thread_to_project":
+            self.memberships[args["threadId"]] = args["projectId"]
             return {"threadId": args["threadId"]}
         if name in ("set_thread_archived", "set_thread_title"):
             return {"threadId": args["threadId"]}
@@ -124,6 +135,49 @@ class DesktopContracts(unittest.TestCase):
         project, settings, _ = self.server.prepare_assignment(SOURCE, self.root)
         return self.server.create_assignment(SOURCE, self.root, "camel_A_fixture", "Do <work> & check", settings,
                                              project, "stable-call-id", **kwargs)
+
+    def test_native_read_preserves_actual_project_membership(self):
+        self.tools.memberships[SOURCE] = "different-desktop-project"
+        native = self.server.call("thread/read", {"threadId": SOURCE})["thread"]
+        self.assertEqual(native["projectId"], "different-desktop-project")
+
+    def test_native_read_preserves_explicit_unassigned_membership(self):
+        self.tools.memberships[SOURCE] = None
+        native = self.server.call("thread/read", {"threadId": SOURCE})["thread"]
+        self.assertIsNone(native["projectId"])
+
+    def test_membership_absent_from_bounded_inventory_is_unknown(self):
+        original = self.tools.call
+        def call(name, args, **kwargs):
+            if name == "list_threads":
+                return {"pinnedThreads": [], "threads": []}
+            return original(name, args, **kwargs)
+        self.tools.call = call
+        with self.assertRaisesRegex(HarnessError, "not uniquely visible"):
+            self.server.call("thread/read", {"threadId": SOURCE})
+
+    def test_unassigned_desktop_caller_cannot_dispatch_before_initialization(self):
+        self.tools.memberships[SOURCE] = None
+        with self.assertRaisesRegex(HarnessError, "unassigned"):
+            self.create()
+        self.assertFalse(any(name == "create_thread" for name, _, _ in self.tools.calls))
+
+    def test_desktop_metadata_repair_only_moves_missing_same_root_membership(self):
+        self.tools.memberships[SOURCE] = None
+        before = self.tools.rows[SOURCE]["path"].read_bytes()
+        result = self.server.call("thread/metadata/update", {"threadId": SOURCE, "projectId": "fixture-project"})
+        self.assertEqual(result["thread"]["projectId"], "fixture-project")
+        self.assertEqual(before, self.tools.rows[SOURCE]["path"].read_bytes())
+        self.assertEqual(sum(name == "move_thread_to_project" for name, _, _ in self.tools.calls), 1)
+        self.server.call("thread/metadata/update", {"threadId": SOURCE, "projectId": "fixture-project"})
+        self.assertEqual(sum(name == "move_thread_to_project" for name, _, _ in self.tools.calls), 1)
+        self.assertFalse(any(name in ("create_thread", "send_message_to_thread") for name, _, _ in self.tools.calls))
+
+    def test_desktop_metadata_repair_never_overwrites_a_foreign_project(self):
+        self.tools.memberships[SOURCE] = "another-project"
+        with self.assertRaisesRegex(HarnessError, "cannot replace"):
+            self.server.call("thread/metadata/update", {"threadId": SOURCE, "projectId": "fixture-project"})
+        self.assertFalse(any(name == "move_thread_to_project" for name, _, _ in self.tools.calls))
 
     def test_create_is_one_desktop_effect_with_exact_settings_and_input_readback(self):
         created = []
