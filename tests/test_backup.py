@@ -1,11 +1,14 @@
 from pathlib import Path
 import os
+import json
+import subprocess
+import tempfile
 import shutil
 from unittest import mock
 import unittest
 
 from oasis_harness import backup, gitops
-from oasis_harness.common import HarnessError, file_hash, git, operation_lock, read_json, run, write_json
+from oasis_harness.common import HarnessError, digest, file_hash, git, operation_lock, read_json, run, write_json
 from tests.test_gitops import GitFixture
 
 
@@ -369,6 +372,8 @@ class IsolatedSourceBackupTests(GitFixture):
         self.assertTrue(status["source_main_match"])
         self.assertFalse(status["source_refs_match"])
         self.assertFalse(status["source_auxiliary_refs_match"])
+        self.assertEqual(status["codex_auxiliary_ref_policy"], "retained")
+        self.assertEqual(status["local_only_auxiliary_ref_count"], 0)
         # Restore resolves only the private remote; these original paths are absent.
         config = backup._config(self.root)
         config["primary"] = str(self.base / "lost-source")
@@ -397,8 +402,9 @@ class IsolatedSourceBackupTests(GitFixture):
     def test_unknown_codex_refs_and_non_tree_capture_remain_blocked(self):
         tree = git(self.root, "rev-parse", "main^{tree}")
         git(self.root, "update-ref", self.CAPTURE, tree)
-        with self.assertRaisesRegex(HarnessError, "Unclassified source ref"):
-            backup._selected(self.root)  # Original managed policy has no exception.
+        selected, _ = backup._selected(self.root)
+        self.assertNotIn(self.CAPTURE, selected)  # Managed keeps supported diff trees local-only.
+        self.assertEqual(git(self.root, "rev-parse", self.CAPTURE), tree)
         self.configure()
         unknown = "refs/codex/turn-diffs/captures/not-a-supported-capture/base"
         git(self.root, "update-ref", unknown, tree)
@@ -418,6 +424,144 @@ class IsolatedSourceBackupTests(GitFixture):
             backup.run_backup(self.root, provider=self.provider)
         self.assertEqual(git(self.root, "rev-parse", self.CAPTURE), linked_tree)
         self.assertEqual(git(self.remote, "for-each-ref"), "")
+
+
+CODEX_CAPTURE = "refs/codex/turn-diffs/captures/1234567890123/11111111-2222-3333-4444-555555555555/base"
+CODEX_CHECKPOINT = "refs/codex/turn-diffs/checkpoints/" + "a" * 32 + "/" + "b" * 32 + "/1234567890123/11111111-2222-3333-4444-555555555555"
+
+
+def _codex_fixture_git(root, *args, data=None, check=True):
+    return subprocess.run(["git", "-C", str(root), *args], input=data,
+                          capture_output=True, check=check,
+                          env=backup._plumbing_environment())
+
+
+def _codex_fixture_value(root, *args):
+    return _codex_fixture_git(root, *args).stdout.decode("utf-8").strip()
+
+
+class ManagedCodexRefs(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="oasis-c-")
+        self.addCleanup(self.temp.cleanup)
+        self.base = Path(self.temp.name)
+        self.root = self.base / "s"
+        self.root.mkdir()
+        _codex_fixture_git(self.root, "init", "--template=", "--initial-branch=main")
+        _codex_fixture_git(self.root, "config", "user.name", "Backup Test")
+        _codex_fixture_git(self.root, "config", "user.email", "backup-test@example.invalid")
+        _codex_fixture_git(self.root, "config", "core.autocrlf", "false")
+        _codex_fixture_git(self.root, "config", "core.longpaths", "true")
+        (self.root / ".oasis").mkdir()
+        (self.root / ".oasis/project.json").write_bytes(json.dumps({"git": {"profile": "single-main"}}).encode())
+        (self.root / ".gitignore").write_bytes(b"/.oasis/local/\n")
+        (self.root / "document.txt").write_bytes(b"committed document\n")
+        _codex_fixture_git(self.root, "add", ".")
+        _codex_fixture_git(self.root, "commit", "-m", "Fixture baseline")
+        self.head = _codex_fixture_value(self.root, "rev-parse", "HEAD")
+        self.marker = _codex_fixture_git(self.root, "hash-object", "-w", "--stdin", data=b"private uncommitted capture only\n").stdout.decode().strip()
+        self.tree = _codex_fixture_git(self.root, "mktree", data=f"100644 blob {self.marker}\tdocument.txt\n".encode()).stdout.decode().strip()
+
+    def ref(self, name, oid=None):
+        _codex_fixture_git(self.root, "update-ref", name, oid or self.tree)
+
+    def test_managed_keeps_known_capture_and_checkpoint_local_only(self):
+        self.ref(CODEX_CAPTURE)
+        self.ref(CODEX_CHECKPOINT)
+        before = gitops.refs(self.root)
+        selected, _ = backup._selected(self.root)
+        self.assertEqual(selected, {"refs/heads/main": self.head})
+        self.assertEqual(gitops.refs(self.root), before)
+
+    def test_isolated_unmanaged_still_retains_both_known_tree_refs(self):
+        self.ref(CODEX_CAPTURE)
+        self.ref(CODEX_CHECKPOINT)
+        selected, _ = backup._selected(self.root, source_policy="isolated-unmanaged")
+        self.assertEqual(selected[CODEX_CAPTURE], self.tree)
+        self.assertEqual(selected[CODEX_CHECKPOINT], self.tree)
+
+    def test_unknown_namespace_still_blocks(self):
+        self.ref("refs/vendor/private-state")
+        with self.assertRaisesRegex(HarnessError, "Unclassified source ref"):
+            backup._selected(self.root)
+
+    def test_unknown_codex_shape_still_blocks(self):
+        self.ref("refs/codex/turn-diffs/captures/123/not-a-uuid/base")
+        with self.assertRaisesRegex(HarnessError, "Unclassified source ref"):
+            backup._selected(self.root)
+
+    def test_commit_or_blob_target_is_rejected(self):
+        for oid in (self.head, self.marker):
+            with self.subTest(oid=oid):
+                self.ref(CODEX_CAPTURE, oid)
+                with self.assertRaisesRegex(HarnessError, "regular trees"):
+                    backup._selected(self.root)
+
+    def test_symlink_tree_is_rejected(self):
+        tree = _codex_fixture_git(self.root, "mktree", data=f"120000 blob {self.marker}\tlink\n".encode()).stdout.decode().strip()
+        self.ref(CODEX_CAPTURE, tree)
+        with self.assertRaisesRegex(HarnessError, "links/submodules"):
+            backup._selected(self.root)
+
+    def test_gitlink_tree_is_rejected(self):
+        tree = _codex_fixture_git(self.root, "mktree", data=f"160000 commit {self.head}\tsubmodule\n".encode()).stdout.decode().strip()
+        self.ref(CODEX_CAPTURE, tree)
+        with self.assertRaisesRegex(HarnessError, "links/submodules"):
+            backup._selected(self.root)
+
+    def test_managed_catalog_reader_rejects_injected_auxiliary_ref(self):
+        snapshot = backup._snapshot(self.root, {"repository_id": 456})
+        snapshot["refs"][CODEX_CAPTURE] = self.tree
+        snapshot["snapshot_sha256"] = digest({k: v for k, v in snapshot.items() if k != "snapshot_sha256"})
+        catalog = backup._catalog(self.root, snapshot)
+        with self.assertRaisesRegex(HarnessError, "invalid source ref"):
+            backup._read_catalog(self.root, catalog)
+
+    def test_backup_automatic_and_restore_exclude_uncommitted_capture_bytes(self):
+        remote = self.base / "remote.git"
+        relay = self.base / "relay" / "relay.git"
+        remote.mkdir()
+        _codex_fixture_git(remote, "init", "--bare", "--template=")
+        provider = LocalProvider(remote)
+        self.assertEqual(gitops.git(self.root, "status", "--porcelain=v1", "--untracked-files=all"), "")
+        gitops.activate(self.root, "single-main", self.head)
+        backup.configure(self.root, "fixture/private", relay, 123, 456, provider=provider)
+        self.ref(CODEX_CAPTURE)
+        self.ref(CODEX_CHECKPOINT)
+        original_refs = gitops.refs(self.root)
+        backup.enable_auto(self.root, self.base / "first-restore", provider=provider)
+        self.assertEqual(gitops.refs(self.root), original_refs)
+        (self.root / "document.txt").write_bytes(b"second committed document\n")
+        _codex_fixture_git(self.root, "add", "document.txt")
+        _codex_fixture_git(self.root, "commit", "-m", "Second fixture commit")
+        current = _codex_fixture_value(self.root, "rev-parse", "HEAD")
+        result = backup.automatic(self.root, current, provider=provider)
+        self.assertEqual(result["status"], "verified")
+        observed = backup.status(self.root, provider=provider)
+        self.assertTrue(observed["automatic_enabled"])
+        self.assertTrue(observed["relay_matches_remote"])
+        self.assertTrue(observed["source_refs_match"])
+        self.assertTrue(observed["source_main_match"])
+        self.assertEqual(observed["codex_auxiliary_ref_policy"], "local-only")
+        self.assertEqual(observed["local_only_auxiliary_ref_count"], 2)
+        self.assertIsNone(observed["source_auxiliary_refs_match"])
+        catalog = backup._read_catalog(relay, observed["remote_catalog"])
+        self.assertEqual(catalog["triggering_commit"], current)
+        self.assertNotIn(CODEX_CAPTURE, catalog["refs"])
+        self.assertNotIn(CODEX_CHECKPOINT, catalog["refs"])
+        # A later local comparison does not invalidate committed-source backup.
+        self.ref(CODEX_CAPTURE.replace("1234567890123", "1234567890124"))
+        observed = backup.status(self.root, provider=provider)
+        self.assertTrue(observed["source_refs_match"])
+        self.assertEqual(observed["local_only_auxiliary_ref_count"], 3)
+        self.assertEqual(_codex_fixture_value(remote, "rev-parse", "refs/heads/source/main"), current)
+        self.assertNotEqual(_codex_fixture_git(remote, "cat-file", "-e", self.marker, check=False).returncode, 0)
+        self.assertFalse(_codex_fixture_value(remote, "for-each-ref", "refs/tags/source-local-captures"))
+        restored = self.base / "final-restore"
+        proof = backup.restore(backup._config(self.root), restored, provider=provider)
+        self.assertEqual(proof["main"], current)
+        self.assertEqual((restored / "document.txt").read_bytes(), b"second committed document\n")
+        self.assertFalse(_codex_fixture_value(restored, "for-each-ref", "refs/codex"))
 
 
 if __name__ == "__main__":

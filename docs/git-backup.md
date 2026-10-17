@@ -66,6 +66,22 @@ Catalog commits append exact source refs, main tree identity, reflog commit cove
 
 Backup covers committed Git objects and supported source refs. It does not preserve working, staged, untracked, ignored, or external files; take a separate owner-reviewed filesystem snapshot when those bytes matter. Unclassified ref namespaces, Git LFS and submodules fail closed because this version has no storage/independent-repository adapter for them.
 
+For the managed policy, the exact Codex capture/checkpoint ref shapes documented
+below are classified as local-only Desktop comparison state. Their targets must
+still be regular trees without links/submodules. They remain untouched in the
+source and are excluded from the catalog and transfer: their trees can contain
+uncommitted tracked bytes. `source_refs_match` checks the selected backup refs and
+reflog commits, not these local-only refs. Status reports
+`codex_auxiliary_ref_policy: local-only` and their current
+`local_only_auxiliary_ref_count`; `source_auxiliary_refs_match` remains null.
+Unknown Codex shapes and other unclassified namespaces still fail closed.
+
+Upgrading installed runtime files does not replace the active immutable hook
+engine. Commit the reviewed upgrade, keep the existing managed profile and use
+`git rebind --profile <same-profile> --expected-head <full-main-sha>` from clean
+primary `main`. Then verify the next commit's automatic backup and catalog
+`triggering_commit`; manual CLI backup alone does not verify the fixed hook.
+
 ## Explicit isolated source with existing development hooks
 
 An owner may separately select `isolated-unmanaged` for a primary source checkout
@@ -107,9 +123,11 @@ private remote anchors use immutable
 contain local snapshot bytes and belong only in the approved private backup,
 never public source exports. Their presence does not establish complete backup
 of all current working/index/ignored state. Other Codex/unknown namespaces stay
-blocked, and the default managed policy does not gain this exception.
+blocked. The managed policy does not upload these trees; it uses the explicit
+local-only classification above instead of the isolated-unmanaged retention.
 
-`backup status` keeps `source_refs_match` as the full current refs/reflog check.
+For isolated-unmanaged, `backup status` keeps `source_refs_match` as the full
+selected refs/reflog check, including supported auxiliary refs.
 The separate `source_main_match` verifies the current `main` commit/tree and
 every current source head/tag against the catalog and exact remote refs. It
 does not claim auxiliary or working-state coverage. Codex may create another

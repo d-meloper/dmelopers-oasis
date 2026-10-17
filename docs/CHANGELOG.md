@@ -5,6 +5,18 @@ migrations. Maintenance revisions without an adopter-facing change are omitted.
 The [upgrade index](upgrade-index.json) supports predecessor checks; actual file
 differences and local conflicts still determine the complete upgrade plan.
 
+## 2.1.1
+
+Managed backup and status accept the identified Codex comparison tree refs as
+local-only state. Their targets are validated and their source refs remain
+untouched, while uncommitted comparison bytes stay outside backup and restore.
+Unknown ref shapes and non-regular targets remain blocked. Isolated-unmanaged
+backup continues retaining its supported comparison trees.
+
+Status reports the comparison-ref policy and current local-only count. After
+upgrading a managed installation, commit the reviewed runtime and rebind the
+existing Git profile so automatic post-commit backup uses the new frozen engine.
+
 ## 2.1.0
 
 Initialization distinguishes an unassigned same-root role chat from a foreign

@@ -1616,6 +1616,39 @@
         "Initialization can repair missing same-root project membership before reusing an existing role chat, while preserving settings and rejecting foreign assignments."
       ],
       "version": "2.1.0"
+    },
+    {
+      "areas": [
+        {
+          "name": "Managed Codex comparison refs",
+          "paths": [
+            ".oasis/runtime/oasis_harness/backup.py",
+            ".oasis/manual/git-backup.md",
+            ".agents/skills/oasis-git-operations/references/best-practices.md"
+          ],
+          "change": "Validate supported Codex tree refs but omit them from managed transfer and restore; report their local-only policy and count. Isolated-unmanaged retains its existing tree coverage.",
+          "apply": "Apply an inspected upgrade, commit the reviewed runtime and rebind the same managed profile from clean primary main. Verify the next automatic post-commit triggering commit.",
+          "checks": [
+            "Known capture/checkpoint exclusion and unchanged local refs",
+            "Unknown shapes, non-tree/link targets and injected managed catalogs remain rejected",
+            "Capture-only bytes absent from a bare remote and independent restore",
+            "Installed upgrade preserves owner settings/skills and earlier engine; rebind selects the fixed post-commit engine"
+          ]
+        }
+      ],
+      "files": [
+        "docs/CHANGELOG.md",
+        "docs/git-backup.md",
+        "oasis_harness/backup.py",
+        "seed/.agents/skills/oasis-git-operations/references/best-practices.md",
+        "tests/test_backup.py"
+      ],
+      "previous": "2.1.0",
+      "source_only": [],
+      "summary": [
+        "Managed backup and status keep identified Codex comparison trees local-only without interrupting committed-source recovery."
+      ],
+      "version": "2.1.1"
     }
   ]
 }

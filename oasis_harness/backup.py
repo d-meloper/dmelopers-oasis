@@ -316,11 +316,14 @@ def _selected(root, *, source_policy="managed"):
     for name, oid in gitops.refs(root).items():
         if name.startswith(("refs/heads/", "refs/tags/", "refs/notes/", "refs/oasis/recovery/")) or name == "refs/stash":
             selected[name] = oid
-        elif source_policy == "isolated-unmanaged" and _codex_tree_ref(name):
+        elif source_policy in ("managed", "isolated-unmanaged") and _codex_tree_ref(name):
             if oid not in auxiliary:
                 _assert_auxiliary_tree(root, oid)
                 auxiliary.add(oid)
-            selected[name] = oid
+            # Managed backup covers committed source, not Desktop comparisons
+            # which may contain uncommitted tracked bytes. Keep their refs local.
+            if source_policy == "isolated-unmanaged":
+                selected[name] = oid
         else:
             raise HarnessError(f"Unclassified source ref needs an explicit retention contract: {name}")
     if "refs/heads/main" not in selected:
@@ -506,6 +509,7 @@ def status(root, *, provider=None):
     if not path.is_file():
         return {"configured": False, "automatic_enabled": False}
     config = _config(root)
+    source_policy = _source_policy(config)
     root = _assert_source(root, config)
     provider = _provider(provider)
     _identity(config, provider)
@@ -513,7 +517,7 @@ def status(root, *, provider=None):
     remote = _remote_refs(config, provider)
     local_catalog = _git_owned(relay, "rev-parse", "--verify", CATALOG, check=False)
     matches = bool(local_catalog) and remote.get(CATALOG) == local_catalog
-    selected, reflog = _selected(root, source_policy=_source_policy(config))
+    selected, reflog = _selected(root, source_policy=source_policy)
     catalog = _read_catalog(relay, local_catalog) if matches else None
     source_matches = bool(catalog and catalog["refs"] == selected and catalog["reflog_commits"] == reflog)
     if source_matches:
@@ -527,12 +531,15 @@ def status(root, *, provider=None):
                         and all(catalog["refs"].get(name) == oid and remote.get(_map(name, oid)) == oid
                                 for name, oid in committed_refs.items()))
     auxiliary_matches = None
-    if _source_policy(config) == "isolated-unmanaged":
+    if source_policy == "isolated-unmanaged":
         auxiliary = {name: oid for name, oid in selected.items() if _codex_tree_ref(name)}
         saved = {name: oid for name, oid in catalog["refs"].items() if _codex_tree_ref(name)} if catalog else None
         auxiliary_matches = bool(saved == auxiliary and all(remote.get(_map(name, oid)) == oid for name, oid in auxiliary.items()))
     return {"configured": True, "automatic_enabled": config["automatic_enabled"],
-            "source_policy": _source_policy(config),
+            "source_policy": source_policy,
+            "codex_auxiliary_ref_policy": "local-only" if source_policy == "managed" else "retained",
+            "local_only_auxiliary_ref_count": sum(_codex_tree_ref(name) for name in gitops.refs(root))
+                if source_policy == "managed" else 0,
             "repository_id": config["repository_id"], "remote_catalog": remote.get(CATALOG),
             "relay_matches_remote": matches, "source_refs_match": bool(source_matches),
             "source_main_match": main_matches, "source_auxiliary_refs_match": auxiliary_matches,
