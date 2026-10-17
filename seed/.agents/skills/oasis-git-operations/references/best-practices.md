@@ -15,6 +15,10 @@ ordinary text policy while marking content-addressed baseline blobs as non-text.
 
 Check the exact triggering commit and backup outcome independently.
 Bind destination identity, catalog ancestry and restored snapshot scope.
+An upgraded CLI does not establish which immutable engine Git hooks execute.
+After a managed runtime upgrade, commit the reviewed files and rebind the same
+profile from clean primary main; verify the next actual post-commit catalog's
+triggering commit, preserving the earlier engine. See the manual below.
 Inspect existing relay ownership before setup. Verify retained object closure
 for external LFS/submodule dependencies and reserve the restore target throughout
 intake. Preserve inactive restores until an explicit rebind.
