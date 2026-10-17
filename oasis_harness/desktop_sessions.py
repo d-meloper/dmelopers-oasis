@@ -464,10 +464,30 @@ class DesktopServer:
         self.roots[sessions.canonical_root(native["cwd"])] = Path(native["cwd"])
         if include_turns:
             turns = list(reversed(self._history(identity)))
-        return {**native, "projectId": self._project(native["cwd"]), "path": str(path),
+        return {**native, "projectId": self._membership(native), "path": str(path),
                 "name": native.get("title"), "turns": turns if include_turns else [],
                 "latestTurn": turns[-1] if include_turns and turns else turns[0] if turns else None,
                 "turnsView": "full" if include_turns else "notLoaded"}
+
+    def _membership(self, native):
+        if "projectId" in native:
+            row = native
+        else:
+            listing = self._tool("list_threads", {"limit": 50})
+            if not all(isinstance(listing.get(key), list) for key in ("pinnedThreads", "threads")):
+                raise HarnessError("Desktop stored project membership inventory is unavailable")
+            matches = [row for row in listing["pinnedThreads"] + listing["threads"]
+                       if isinstance(row, dict) and row.get("id") == native["id"]]
+            if len(matches) != 1:
+                raise HarnessError("Desktop stored project membership is not uniquely visible; inspect this chat in its existing application")
+            row = matches[0]
+            if (row.get("kind") != "codex" or row.get("hostId") != "local"
+                    or not isinstance(row.get("cwd"), str)
+                    or sessions.canonical_root(row["cwd"]) != sessions.canonical_root(native["cwd"])):
+                raise HarnessError("Desktop membership inventory disagrees with the actual chat/root")
+        if "projectId" not in row or row["projectId"] is not None and (not isinstance(row["projectId"], str) or not row["projectId"]):
+            raise HarnessError("Desktop stored project membership is unavailable")
+        return row["projectId"]
 
     def _history(self, identity, *, stop=None):
         turns, cursor, seen, identities = [], None, set(), set()
@@ -496,6 +516,8 @@ class DesktopServer:
         source = self._thread(source_id)
         if sessions.canonical_root(source["cwd"]) != sessions.canonical_root(target):
             raise HarnessError("Desktop permission inheritance is verified only for the same local root")
+        project = self._project(target)
+        sessions.check_thread_binding(source, source_id, {"target": str(target), "project_id": project})
         settings = sessions.inherited_settings(sessions.latest_settings(source["path"]))
         expected = {":danger-full-access": "dangerFullAccess", ":workspace": "workspaceWrite", ":read-only": "readOnly"}
         if (settings["permissions"] not in expected
@@ -503,7 +525,7 @@ class DesktopServer:
             raise HarnessError("Desktop custom permission inheritance is unverified; no chat is created")
         sessions.require_text(settings.get("model"), "Actual source model")
         sessions.require_text(settings.get("reasoning"), "Actual source reasoning effort")
-        return self._project(target), settings, source
+        return project, settings, source
 
     @staticmethod
     def _prompt_turn(turns, prompt, source_id, excluded=()):
@@ -640,6 +662,16 @@ class DesktopServer:
                         for row in self._projects() if row.get("projectKind") == "local" and row.get("hostId") == "local" and row.get("path")], "nextCursor": None}
             if method == "thread/read":
                 return {"thread": self._thread(params["threadId"], include_turns=params.get("includeTurns", False), timeout=timeout)}
+            if method == "thread/metadata/update":
+                if set(params) != {"threadId", "projectId"}:
+                    raise sessions.NativeError(method, {"code": -32602, "message": "Desktop binding update accepts only threadId and projectId"})
+                native = self._thread(params["threadId"])
+                expected = self._project(native["cwd"])
+                if params["projectId"] != expected or native["projectId"] not in (None, expected):
+                    raise HarnessError("Desktop binding repair cannot replace another project assignment")
+                if native["projectId"] is None:
+                    self._tool("move_thread_to_project", {"threadId": params["threadId"], "hostId": "local", "projectId": expected}, mutation=True)
+                return {"thread": self._thread(params["threadId"])}
             if method == "thread/turns/list":
                 return self._turns_page(params)
             if method == "thread/items/list":

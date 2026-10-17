@@ -73,6 +73,16 @@ inspect the existing endpoint before deferring initialization. See
 [transport prerequisites](sessions.md#transport-and-rpc). Do not start a host
 service or change global settings as an automatic fallback.
 
+When reusing an existing role chat, supply its actual role/thread binding to
+`workflow plan`. Initialization distinguishes an unassigned same-root chat from
+a foreign-project conflict. The read-only plan records any missing membership;
+`workflow start` repairs it through metadata-only calls and verifies the stored
+assignment before adopting the role. Desktop and App Server assignments use
+their own project IDs and are checked separately when Desktop tools are
+available. Preserve a pending initialization receipt through unsupported or
+uncertain outcomes; follow its recovery instruction rather than creating a
+replacement chat. See [mode transitions](workflows.md#mode-transitions).
+
 ```powershell
 python -B -X utf8 tools/oasis.py install verify --target .
 python -B -X utf8 tools/oasis.py skills validate --project .

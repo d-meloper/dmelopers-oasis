@@ -12,7 +12,7 @@ import re
 import time
 import uuid
 
-from . import check_results, sessions
+from . import check_results, project_bindings, sessions
 from .common import HarnessError, atomic_write, contained, digest, file_hash, operation_lock, read_json, write_json
 
 MODES = {"pioneer": ("Pioneer",), "oasis": ("Oasis", "Cameleer")}
@@ -153,12 +153,19 @@ def _listing(server, root, *, archived):
         if sessions.canonical_root(row.get("cwd", "")) == sessions.canonical_root(root)}
 
 
-def _bindings(server, root, identity, bindings):
+def _bindings(server, root, identity, bindings, checks):
     result = {}
     if not isinstance(bindings, list):
         raise HarnessError("Workflow bindings must be a list")
     for row in bindings:
-        verify_binding(server, row, root, identity)
+        if not isinstance(row, dict) or not isinstance(row.get("role"), str) or not row["role"]:
+            raise HarnessError("Workflow binding requires role text")
+        if row["role"] in {role for roles in MODES.values() for role in roles}:
+            check = project_bindings.inspect(server, root, row.get("thread_id"), "app-server", project_id=identity)
+            if check not in checks:
+                checks.append(check)
+        else:
+            verify_binding(server, row, root, identity)
         key = row["thread_id"]
         if key in result and result[key] != row:
             raise HarnessError("Conflicting bindings for one thread ID")
@@ -167,6 +174,15 @@ def _bindings(server, root, identity, bindings):
         if sum(row.get("role") == role for row in result.values()) > 1:
             raise HarnessError(f"More than one {role} binding; preserve actual IDs and reconcile the intended role")
     return list(result.values())
+
+
+@contextlib.contextmanager
+def _desktop_binding_server(originator):
+    if not os.environ.get("CODEX_APP_TOOLS_PIPE_PATH"):
+        raise HarnessError("Resume this initialization from its original Desktop tools environment to verify Desktop membership")
+    from .desktop_sessions import DesktopServer
+    with DesktopServer(originator) as server:
+        yield server
 
 
 def bound_pioneer(target, source_id, server=None):
@@ -223,9 +239,15 @@ def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings
     if state.get("pending_operation"):
         return _read_receipt(state["pending_operation"])
     operation = "oasis_workflow_" + uuid.uuid4().hex
+    binding_checks = []
     with _open(factory, root, operation + "_plan") as server:
         identity, settings, _ = sessions.prepare(server, source_id, root)
-        owned = _bindings(server, root, identity, state["roles"] + (bindings or []))
+        owned = _bindings(server, root, identity, state["roles"] + (bindings or []), binding_checks)
+    if factory is sessions.command_server and binding_checks and os.environ.get("CODEX_APP_TOOLS_PIPE_PATH"):
+        with _desktop_binding_server(operation + "_desktop_plan") as server:
+            desktop_project = sessions.project_id(server, root)
+            binding_checks += [project_bindings.inspect(server, root, row["thread_id"], "desktop", project_id=desktop_project)
+                               for row in binding_checks.copy()]
     mode_roles = {role for roles in MODES.values() for role in roles}
     independent = [row for row in owned if row.get("role") not in mode_roles]
     owned = [row for row in owned if row.get("role") in mode_roles]
@@ -236,6 +258,7 @@ def plan(target, mode=None, source_id=None, *, lane=None, context=None, bindings
             "source_thread_id": source_id, "settings": settings, "mode": mode,
             "selected_mode_before": effective_mode(project), "primary_role": "Pioneer" if mode == "pioneer" else "Cameleer",
             "language": language, "context": context, "follow_on_task": _completion_prompt(task) if task is not None else None, "existing_roles": owned,
+            "project_bindings": binding_checks,
             "old_roles": [] if same else owned, "unrelated": list(unrelated.values()), "basis": _basis(state, project),
             "new_roles": [] if same else [{"role": role, "originator": operation + "_" + role.lower(),
                                            "prompt": _prompt(role, context, language)} for role in MODES[mode]],
@@ -324,9 +347,56 @@ def _lifecycle_once(path, thread_id, server, root, *, restore=False, scoped=(), 
 
 def _result(path, value):
     return {"phase": value["phase"], "mode": value["mode"], "receipt": str(path),
-            "primary_thread_id": value.get("primary_thread_id"), "next_actions": [],
+            "primary_thread_id": value.get("primary_thread_id"),
+            "next_actions": [row["instruction"] for row in value.get("binding_results", []) if row.get("instruction")],
             "unfinished_tasks": value.get("unfinished_tasks", []),
             "navigation": {"thread_id": value["primary_thread_id"]} if value.get("primary_thread_id") else None}
+
+
+def _repair_project_bindings(path, value, factory):
+    checks = value.get("project_bindings", [])
+    if not isinstance(checks, list):
+        raise HarnessError("Initialization project bindings must be a list")
+    owned = {row["thread_id"] for row in value["existing_roles"]
+             if row["role"] in {role for roles in MODES.values() for role in roles}}
+    seen = set()
+    for check in checks:
+        if (not isinstance(check, dict) or check.get("backend") not in ("app-server", "desktop")
+                or check.get("thread_id") not in owned or check.get("target") != value["target"]
+                or not isinstance(check.get("project_id"), str) or not check["project_id"]
+                or check.get("state") not in ("bound", "unassigned")
+                or check.get("previous_project_id") != (None if check["state"] == "unassigned" else check["project_id"])
+                or check["backend"] == "app-server" and check["project_id"] != value["project_id"]):
+            raise HarnessError("Initialization binding does not match the reviewed role/root/backend")
+        key = (check["backend"], check["thread_id"])
+        if key in seen:
+            raise HarnessError("Duplicate initialization project binding")
+        seen.add(key)
+    # Preflight every store before the first metadata effect. Its project IDs
+    # remain local to that store, including when both catalogs share a root.
+    for backend in ("app-server", "desktop"):
+        selected = [check for check in checks if check["backend"] == backend]
+        if not selected:
+            continue
+        connection = (_open(factory, value["target"], value["operation_id"] + "_binding_read")
+                      if backend == "app-server" else _desktop_binding_server(value["operation_id"] + "_desktop_read"))
+        with connection as server:
+            for check in selected:
+                project_bindings._read(server, check)
+    results = []
+    for check in checks:
+        connection = (_open(factory, value["target"], value["operation_id"] + "_binding_apply")
+                      if check["backend"] == "app-server" else _desktop_binding_server(value["operation_id"] + "_desktop_apply"))
+        with connection as server:
+            result = project_bindings.apply(path.parent / (digest([check["backend"], check["thread_id"]]) + "-binding.json"), check, server)
+        results.append(result)
+        value["binding_results"] = results
+        write_json(path, value)
+        if result["state"] != "accepted":
+            value["phase"] = "binding_" + result["state"]
+            write_json(path, value)
+            return False
+    return True
 
 
 def _advance(path, value, factory):
@@ -350,6 +420,11 @@ def _advance(path, value, factory):
         write_json(path, value)
         return _result(path, value)
     value.pop("unfinished_tasks", None)
+    if not _repair_project_bindings(path, value, factory):
+        return _result(path, value)
+    with _open(factory, root, value["operation_id"] + "_verify_bindings") as server:
+        for row in value["existing_roles"]:
+            verify_binding(server, row, root, value["project_id"])
     if not value["target_receipts"]:
         for row in value["new_roles"]:
             target_path = contained(root, f".oasis/local/sessions/{row['originator']}/receipt.json")

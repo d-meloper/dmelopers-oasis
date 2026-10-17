@@ -156,6 +156,12 @@ class NativeFixture:
             if not params.get("includeTurns"):
                 row.pop("turns")
             return {"thread": row}
+        elif method == "thread/metadata/update":
+            row = self.threads[params["threadId"]]
+            row["projectId"] = params["projectId"]
+            if lose:
+                raise HarnessError("Native metadata response was lost")
+            return {"thread": copy.deepcopy(row)}
         elif method == "thread/resume":
             row = self.threads[params["threadId"]]
             row["status"] = {"type": "idle"}

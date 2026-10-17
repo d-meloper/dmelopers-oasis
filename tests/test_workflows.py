@@ -28,6 +28,17 @@ class WorkflowContracts(unittest.TestCase):
     def assign(self, **kwargs):
         return workflows.assign(self.root, "caller", "Implement the scoped parser", factory=self.native, **kwargs)
 
+    def test_unassigned_reused_role_is_planned_without_metadata_writes(self):
+        self.native.threads["caller"]["projectId"] = None
+        result = workflows.plan(self.root, "pioneer", "caller", bindings=[
+            {"role": "Pioneer", "thread_id": "caller", "parent_thread_id": None}], factory=self.native)
+        self.assertTrue(result["same_mode"])
+        self.assertEqual(result["new_roles"], [])
+        self.assertEqual(result["project_bindings"][0]["state"], "unassigned")
+        self.assertIsNone(self.native.threads["caller"]["projectId"])
+        self.assertNotIn("thread/metadata/update", self.native.methods())
+        self.assertFalse((self.root / ".oasis/local/workflows/state.json").exists())
+
     def complete(self, row, **kwargs):
         return workflows.complete(self.root, row["id"], "Done. Parser and focused checks pass.",
                                   result="fixture-result", checks="parser checks pass", factory=self.native, **kwargs)
